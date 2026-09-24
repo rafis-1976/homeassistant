@@ -40,6 +40,15 @@ input,select,textarea{
   font:inherit;padding:10px 12px;border:1px solid var(--border);border-radius:10px;
   background:var(--card);color:var(--text);width:100%;
 }
+input[type=file]{
+  padding:8px 10px;font-size:.82rem;cursor:pointer;
+}
+input[type=file]::file-selector-button{
+  font:inherit;font-size:.8rem;font-weight:600;
+  padding:6px 12px;margin-right:10px;
+  border:1px solid var(--border);border-radius:8px;
+  background:var(--bg);color:var(--text);cursor:pointer;
+}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
 label{display:flex;flex-direction:column;gap:6px;font-size:.78rem;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase}
 
@@ -83,6 +92,7 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .btn.danger{background:transparent;border-color:var(--border);color:var(--danger)}
 .btn.danger:hover{background:var(--danger-bg);border-color:var(--danger)}
 .btn.sm{padding:6px 10px;font-size:.8rem}
+.btn.tiny{padding:4px 9px;font-size:.74rem;border-radius:8px}
 .icon-btn{
   border:none;background:transparent;color:var(--muted);border-radius:8px;width:30px;height:30px;
   display:grid;place-items:center;font-size:.95rem;
@@ -116,7 +126,7 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .km-box .big{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
 .km-box .lbl{font-size:.74rem;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em}
 
-.docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
 .doc{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--card);position:relative;overflow:hidden}
 .doc .name{font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .doc .date{font-size:1.15rem;font-weight:700;margin-top:6px}
@@ -130,6 +140,8 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .doc.ok .bar{background:var(--ok)}
 .doc.warn .bar{background:var(--warn)}
 .doc.danger .bar{background:var(--danger)}
+.doc .actions{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+.doc .no-file{font-size:.72rem;color:var(--muted);font-style:italic;margin-top:10px}
 
 .alert{
   display:flex;gap:10px;align-items:center;padding:11px 14px;border-radius:11px;font-size:.87rem;
@@ -176,14 +188,17 @@ tbody tr:hover{background:var(--bg)}
 }
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .modal{
-  background:var(--card);border-radius:16px;width:100%;max-width:660px;box-shadow:0 24px 60px -12px rgba(0,0,0,.5);
+  background:var(--card);border-radius:16px;width:100%;max-width:680px;box-shadow:0 24px 60px -12px rgba(0,0,0,.5);
   animation:pop .18s ease;margin:auto;
 }
 @keyframes pop{from{transform:translateY(10px) scale(.98);opacity:0}to{transform:none;opacity:1}}
 .modal-head{display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid var(--border)}
 .modal-head h3{font-size:1.05rem;flex:1}
 .modal-body{padding:20px;display:flex;flex-direction:column;gap:16px}
-.modal-body h4{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px}
+.modal-body h4{
+  font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+  margin-top:6px;padding-bottom:6px;border-bottom:1px dashed var(--border);
+}
 .modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:16px 20px;border-top:1px solid var(--border)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
@@ -236,7 +251,6 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .mats-total{text-align:right;margin-top:8px;font-size:.82rem;color:var(--muted)}
 .mats-total strong{color:var(--text)}
 
-/* Mientras se comprueba la sesión, ocultamos el contenido */
 #app-view[hidden]{display:none}
 </style>
 </head>
@@ -266,7 +280,7 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 
 <script>
 /* =========================================================
-   Configuración desde config.js
+   Configuración
    ========================================================= */
 const CFG = window.MIGARAJE_CONFIG || {};
 
@@ -276,7 +290,7 @@ if(!CFG.SUPABASE_URL || !CFG.SUPABASE_ANON_KEY ||
   document.body.innerHTML = `
     <div style="max-width:640px;margin:60px auto;padding:24px;font-family:system-ui;line-height:1.6">
       <h1>⚠️ Falta configurar Supabase</h1>
-      <p>Abre el archivo <code>config.js</code> (está en la misma carpeta) y rellena los dos valores.</p>
+      <p>Abre el archivo <code>config.js</code> y rellena los dos valores.</p>
     </div>`;
   throw new Error('Falta config.js');
 }
@@ -285,6 +299,8 @@ const { createClient } = window.supabase;
 const sb = createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
+
+const BUCKET = 'documentos';
 
 /* =========================================================
    Utilidades
@@ -388,7 +404,7 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 });
 
 /* =========================================================
-   Comprobación de sesión
+   Sesión
    ========================================================= */
 (async () => {
   const { data: { session } } = await sb.auth.getSession();
@@ -400,7 +416,6 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
   await entrar();
 })();
 
-/* Si el usuario cierra sesión desde otra pestaña, redirigimos */
 sb.auth.onAuthStateChange((event) => {
   if(event === 'SIGNED_OUT') window.location.replace('login.html');
 });
@@ -421,7 +436,7 @@ async function entrar(){
 }
 
 /* =========================================================
-   Carga de datos
+   Carga
    ========================================================= */
 async function loadData(){
   const [vRes, mRes] = await Promise.all([
@@ -446,6 +461,36 @@ async function loadData(){
   if(!selected || !vehicles.find(v => v.id === selected)){
     selected = vehicles[0]?.id || null;
   }
+}
+
+/* =========================================================
+   Storage: subir / ver / borrar
+   ========================================================= */
+async function subirDocumento(file, vehicleId, tipo){
+  if(!file || file.size === 0) return null;
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+  const path = `${currentUser.id}/${vehicleId}/${tipo}.${ext}`;
+
+  const { error } = await sb.storage.from(BUCKET).upload(path, file, {
+    upsert: true,
+    cacheControl: '3600',
+    contentType: file.type || 'application/octet-stream'
+  });
+  if(error) throw error;
+  return path;
+}
+
+async function verDocumento(path){
+  if(!path) return;
+  const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(path, 3600);
+  if(error) return toast('No se pudo abrir el documento: ' + error.message, 'error');
+  window.open(data.signedUrl, '_blank', 'noopener');
+}
+
+async function borrarDocumento(path){
+  if(!path) return;
+  const { error } = await sb.storage.from(BUCKET).remove([path]);
+  if(error) console.warn('No se pudo borrar el archivo:', error.message);
 }
 
 /* =========================================================
@@ -520,7 +565,8 @@ function renderContent(){
             ${v.anio ? `<span class="dot"></span><span>${esc(v.anio)}${edad !== null ? ` (${edad} año${edad===1?'':'s'})` : ''}</span>` : ''}
             ${v.combustible ? `<span class="dot"></span><span>${esc(v.combustible)}</span>` : ''}
           </div>
-          ${v.notas ? `<div class="vehicle-meta" style="margin-top:10px"><span>📝 ${esc(v.notas)}</span></div>` : ''}
+          ${v.bastidor ? `<div class="vehicle-meta" style="margin-top:6px"><span>🔩 Bastidor: <code style="font-family:ui-monospace,monospace;background:var(--bg);padding:1px 6px;border-radius:5px;border:1px solid var(--border)">${esc(v.bastidor)}</code></span></div>` : ''}
+          ${v.notas ? `<div class="vehicle-meta" style="margin-top:6px"><span>📝 ${esc(v.notas)}</span></div>` : ''}
         </div>
         <div class="km-box">
           <div class="lbl">Kilómetros</div>
@@ -543,6 +589,14 @@ function renderContent(){
         ${docCard('ITV', v.itv, 30)}
         ${docCard('Seguro', v.seguro, 21)}
         ${docCard('Impuesto (IVTM)', v.impuesto, 30)}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><h2>Documentación oficial del vehículo</h2></div>
+      <div class="docs">
+        ${docFileCard('Permiso de circulación', v.permiso_circulacion_fecha, v.permiso_circulacion_path)}
+        ${docFileCard('Ficha técnica', v.ficha_tecnica_fecha, v.ficha_tecnica_path)}
       </div>
     </div>
 
@@ -592,6 +646,8 @@ function renderContent(){
       const row = document.getElementById(b.dataset.toggle);
       if(row) row.hidden = !row.hidden;
     }));
+  el.querySelectorAll('[data-ver-doc]').forEach(b =>
+    b.addEventListener('click', () => verDocumento(b.dataset.verDoc)));
 }
 
 function docCard(nombre, iso, warnDays){
@@ -605,6 +661,19 @@ function docCard(nombre, iso, warnDays){
     <div class="name">${nombre}</div>
     <div class="date">${fmtDate(iso)}</div>
     <div class="sub">${sub}</div>
+  </div>`;
+}
+
+function docFileCard(nombre, fecha, path){
+  const tieneArchivo = !!path;
+  return `<div class="doc ${tieneArchivo ? 'ok' : ''}"><div class="bar"></div>
+    <div class="name">${nombre}</div>
+    <div class="date">${fmtDate(fecha)}</div>
+    ${tieneArchivo
+      ? `<div class="actions">
+           <button type="button" class="btn ghost tiny" data-ver-doc="${esc(path)}">📄 Ver documento</button>
+         </div>`
+      : `<div class="no-file">Sin documento adjunto</div>`}
   </div>`;
 }
 
@@ -765,13 +834,14 @@ function closeModal(){ modalRoot.innerHTML = ''; }
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
 
 /* =========================================================
-   CRUD vehículos
+   CRUD vehículos (con permiso, ficha y bastidor)
    ========================================================= */
 function openVehicleForm(id){
   const v = id ? vehicles.find(x => x.id === id) : {};
   const esNuevo = !id;
 
   const body = `
+    <h4>Datos del vehículo</h4>
     <div class="grid2">
       <label>Nombre / Apodo<input name="nombre" value="${esc(v.nombre)}" placeholder="Ej. Coche de casa" required></label>
       <label>Matrícula<input name="matricula" value="${esc(v.matricula)}" placeholder="1234 ABC" required></label>
@@ -784,9 +854,43 @@ function openVehicleForm(id){
         </select>
       </label>
     </div>
-    <label>Kilómetros actuales<input name="km" type="number" min="0" step="1" value="${esc(v.km)}" placeholder="125000"></label>
+    <div class="grid2">
+      <label>Número de bastidor (VIN)
+        <input name="bastidor" value="${esc(v.bastidor)}" placeholder="WVWZZZ1KZAW123456" maxlength="17" style="text-transform:uppercase">
+      </label>
+      <label>Kilómetros actuales
+        <input name="km" type="number" min="0" step="1" value="${esc(v.km)}" placeholder="125000">
+      </label>
+    </div>
+    <div class="hint">El VIN es el número de 17 caracteres que aparece en la ficha técnica y en el permiso de circulación (también grabado en el chasis).</div>
 
-    <h4>Documentos y obligaciones</h4>
+    <h4>Permiso de circulación</h4>
+    <div class="grid2">
+      <label>Fecha de expedición
+        <input type="date" name="permiso_circulacion_fecha" value="${esc(v.permiso_circulacion_fecha)}">
+      </label>
+      <label>Documento (PDF o imagen)
+        <input type="file" name="permiso_file" accept="application/pdf,image/*">
+      </label>
+    </div>
+    ${v.permiso_circulacion_path
+      ? `<div class="hint">📎 Ya hay un documento subido. Si eliges otro archivo, se reemplazará.</div>`
+      : `<div class="hint">Opcional: sube una foto o PDF del permiso de circulación.</div>`}
+
+    <h4>Ficha técnica</h4>
+    <div class="grid2">
+      <label>Fecha de expedición
+        <input type="date" name="ficha_tecnica_fecha" value="${esc(v.ficha_tecnica_fecha)}">
+      </label>
+      <label>Documento (PDF o imagen)
+        <input type="file" name="ficha_file" accept="application/pdf,image/*">
+      </label>
+    </div>
+    ${v.ficha_tecnica_path
+      ? `<div class="hint">📎 Ya hay un documento subido. Si eliges otro archivo, se reemplazará.</div>`
+      : `<div class="hint">Opcional: sube una foto o PDF de la ficha técnica (tarjeta ITV).</div>`}
+
+    <h4>ITV, seguro e impuesto</h4>
     <div class="grid3">
       <label>Próxima ITV<input type="date" name="itv" value="${esc(v.itv)}"></label>
       <label>Vencimiento seguro<input type="date" name="seguro" value="${esc(v.seguro)}"></label>
@@ -805,13 +909,19 @@ function openVehicleForm(id){
       modelo:      (fd.get('modelo') || '').trim(),
       anio:        (fd.get('anio') || '').trim(),
       combustible: fd.get('combustible') || '',
+      bastidor:    (fd.get('bastidor') || '').trim().toUpperCase(),
       km:          Number(fd.get('km')) || 0,
+      permiso_circulacion_fecha: fd.get('permiso_circulacion_fecha') || null,
+      ficha_tecnica_fecha:       fd.get('ficha_tecnica_fecha') || null,
       itv:         fd.get('itv') || null,
       seguro:      fd.get('seguro') || null,
       impuesto:    fd.get('impuesto') || null,
       notas:       (fd.get('notas') || '').trim()
     };
 
+    let vehicleId = id;
+
+    // 1) Guardar / crear el vehículo primero
     if(id){
       const { error } = await sb.from('vehicles').update(data).eq('id', id);
       if(error) throw error;
@@ -820,8 +930,31 @@ function openVehicleForm(id){
         .insert({ ...data, user_id: currentUser.id })
         .select('id').single();
       if(error) throw error;
-      selected = inserted.id;
+      vehicleId = inserted.id;
+      selected  = vehicleId;
     }
+
+    // 2) Subir los archivos si el usuario ha seleccionado alguno
+    const permisoFile = fd.get('permiso_file');
+    if(permisoFile && permisoFile.size > 0){
+      const path = await subirDocumento(permisoFile, vehicleId, 'permiso_circulacion');
+      if(path){
+        const { error } = await sb.from('vehicles')
+          .update({ permiso_circulacion_path: path }).eq('id', vehicleId);
+        if(error) throw error;
+      }
+    }
+
+    const fichaFile = fd.get('ficha_file');
+    if(fichaFile && fichaFile.size > 0){
+      const path = await subirDocumento(fichaFile, vehicleId, 'ficha_tecnica');
+      if(path){
+        const { error } = await sb.from('vehicles')
+          .update({ ficha_tecnica_path: path }).eq('id', vehicleId);
+        if(error) throw error;
+      }
+    }
+
     await loadData();
     closeModal(); render();
     toast(id ? 'Vehículo actualizado' : 'Vehículo añadido', 'ok');
@@ -832,6 +965,11 @@ async function deleteVehicle(id){
   const v = vehicles.find(x => x.id === id);
   if(!v) return;
   if(!confirm(`¿Eliminar «${v.nombre || v.matricula}» y todo su historial?\n\nEsta acción no se puede deshacer.`)) return;
+
+  // Intentar borrar también los archivos del Storage
+  await borrarDocumento(v.permiso_circulacion_path);
+  await borrarDocumento(v.ficha_tecnica_path);
+
   const { error } = await sb.from('vehicles').delete().eq('id', id);
   if(error) return toast('Error: ' + error.message, 'error');
   if(selected === id) selected = null;
