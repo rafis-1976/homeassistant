@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mi Garaje — Iniciar sesión</title>
+<script>window.process = window.process || { env: {} };</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<style>
+:root{
+  --bg:#f4f6fa; --card:#ffffff; --text:#131a2b; --muted:#68738a;
+  --border:#e2e7f0; --accent:#2563eb; --accent-dark:#1d4ed8;
+  --ok:#16a34a; --ok-bg:#e8f7ee;
+  --danger:#dc2626; --danger-bg:#fee2e2;
+  --shadow:0 1px 2px rgba(16,24,40,.05), 0 12px 28px -16px rgba(16,24,40,.25);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0e1420; --card:#161e2e; --text:#e8edf7; --muted:#93a0b8;
+    --border:#26314a; --accent:#3b82f6; --accent-dark:#2563eb;
+    --ok:#4ade80; --ok-bg:#14301f;
+    --danger:#f87171; --danger-bg:#3b1414;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 28px -16px rgba(0,0,0,.7);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  background:var(--bg); color:var(--text); line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh; display:grid; place-items:center; padding:24px;
+}
+.login-card{
+  width:100%; max-width:420px; background:var(--card); border:1px solid var(--border);
+  border-radius:18px; box-shadow:var(--shadow); padding:32px;
+  animation:pop .25s ease;
+}
+@keyframes pop{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+.logo{
+  display:flex; align-items:center; gap:10px; font-weight:800; font-size:1.35rem;
+  letter-spacing:-.02em; justify-content:center; margin-bottom:6px;
+}
+.logo .mark{
+  width:38px; height:38px; border-radius:10px; display:grid; place-items:center; font-size:1.2rem;
+  background:linear-gradient(135deg,var(--accent),#7c3aed); color:#fff;
+}
+.sub{text-align:center; color:var(--muted); font-size:.88rem; margin:0 0 24px}
+.login-tabs{display:flex; gap:6px; background:var(--bg); padding:4px; border-radius:11px; margin-bottom:22px}
+.login-tabs button{
+  flex:1; border:none; background:transparent; padding:9px 10px; border-radius:8px;
+  font-weight:700; font-size:.85rem; color:var(--muted); cursor:pointer;
+  font-family:inherit; transition:.15s;
+}
+.login-tabs button.active{background:var(--card); color:var(--text); box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.login-form{display:flex; flex-direction:column; gap:14px}
+label{
+  display:flex; flex-direction:column; gap:6px;
+  font-size:.78rem; font-weight:700; color:var(--muted);
+  letter-spacing:.02em; text-transform:uppercase;
+}
+input{
+  font:inherit; padding:11px 13px; border:1px solid var(--border); border-radius:10px;
+  background:var(--card); color:var(--text); width:100%;
+}
+input:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:transparent}
+.login-msg{padding:10px 12px; border-radius:10px; font-size:.82rem; font-weight:600; display:none}
+.login-msg.error{background:var(--danger-bg); color:var(--danger); display:block}
+.login-msg.ok{background:var(--ok-bg); color:var(--ok); display:block}
+.btn{
+  border:1px solid transparent; border-radius:10px; padding:11px 16px;
+  font-weight:700; font-size:.9rem; cursor:pointer;
+  display:inline-flex; align-items:center; gap:7px; justify-content:center;
+  transition:.15s; background:var(--card); color:var(--text);
+  border-color:var(--border); font-family:inherit;
+}
+.btn.primary{background:var(--accent); color:#fff; border-color:var(--accent)}
+.btn.primary:hover{background:var(--accent-dark)}
+.btn:disabled{opacity:.55; cursor:not-allowed}
+footer{
+  text-align:center; color:var(--muted); font-size:.76rem;
+  margin-top:22px; padding-top:18px; border-top:1px solid var(--border);
+}
+footer code{
+  background:var(--bg); padding:1px 6px; border-radius:5px;
+  border:1px solid var(--border); font-size:.72rem;
+}
+</style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="logo"><span class="mark">🚗</span> Mi Garaje</div>
+  <p class="sub">Control de mantenimiento de tus coches</p>
+
+  <div class="login-tabs">
+    <button type="button" data-mode="login" class="active">Iniciar sesión</button>
+    <button type="button" data-mode="signup">Crear cuenta</button>
+  </div>
+
+  <form class="login-form" id="login-form">
+    <label>Email
+      <input type="email" name="email" required autocomplete="email" placeholder="tu@email.com">
+    </label>
+    <label>Contraseña
+      <input type="password" name="password" required minlength="6" autocomplete="current-password" placeholder="Mínimo 6 caracteres">
+    </label>
+    <div class="login-msg" id="login-msg"></div>
+    <button type="submit" class="btn primary" id="login-submit">Entrar</button>
+  </form>
+
+  <footer>
+    Las credenciales de Supabase se configuran en <code>config.js</code>.
+  </footer>
+</div>
+
+<script>
+/* =========================================================
+   Configuración
+   ========================================================= */
+const CFG = window.MIGARAJE_CONFIG || {};
+
+if(!CFG.SUPABASE_URL || !CFG.SUPABASE_ANON_KEY ||
+   CFG.SUPABASE_URL.includes('TU-PROYECTO') ||
+   CFG.SUPABASE_ANON_KEY.includes('TU-ANON')){
+  document.body.innerHTML = `
+    <div style="max-width:640px;padding:24px;font-family:system-ui;line-height:1.6">
+      <h1>⚠️ Falta configurar Supabase</h1>
+      <p>Abre el archivo <code>config.js</code> (está en la misma carpeta) y rellena los dos valores:</p>
+      <pre style="background:#111;color:#0f0;padding:12px;border-radius:8px;overflow:auto">window.MIGARAJE_CONFIG = {
+  SUPABASE_URL:      'https://xxxxx.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOi...'
+};</pre>
+      <p>Los encuentras en: <b>Supabase → Project Settings → API</b>.</p>
+    </div>`;
+  throw new Error('Falta config.js');
+}
+
+const { createClient } = window.supabase;
+const sb = createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
+
+/* =========================================================
+   Elementos
+   ========================================================= */
+const loginForm   = document.getElementById('login-form');
+const loginMsg    = document.getElementById('login-msg');
+const loginSubmit = document.getElementById('login-submit');
+
+let authMode = 'login';
+
+document.querySelectorAll('.login-tabs button').forEach(b => {
+  b.addEventListener('click', () => {
+    authMode = b.dataset.mode;
+    document.querySelectorAll('.login-tabs button').forEach(x => x.classList.toggle('active', x === b));
+    loginSubmit.textContent = authMode === 'login' ? 'Entrar' : 'Crear cuenta';
+    loginForm.password.autocomplete = authMode === 'login' ? 'current-password' : 'new-password';
+    hideMsg();
+  });
+});
+
+function showMsg(text, type='error'){
+  loginMsg.textContent = text;
+  loginMsg.className = 'login-msg ' + type;
+}
+function hideMsg(){ loginMsg.className = 'login-msg'; }
+
+function traducirError(msg){
+  const m = String(msg).toLowerCase();
+  if(m.includes('invalid login credentials')) return 'Email o contraseña incorrectos.';
+  if(m.includes('user already registered')) return 'Ese email ya está registrado. Inicia sesión.';
+  if(m.includes('password should be at least')) return 'La contraseña debe tener al menos 6 caracteres.';
+  if(m.includes('email not confirmed')) return 'Debes confirmar tu email antes de entrar.';
+  if(m.includes('rate limit')) return 'Demasiados intentos. Espera un momento.';
+  return msg;
+}
+
+function irAlApp(){
+  window.location.replace('index.html');
+}
+
+/* =========================================================
+   Si ya hay sesión, redirigimos directamente
+   ========================================================= */
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if(session) irAlApp();
+})();
+
+/* =========================================================
+   Envío del formulario
+   ========================================================= */
+loginForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  hideMsg();
+  const email    = loginForm.email.value.trim();
+  const password = loginForm.password.value;
+  if(!email || !password) return showMsg('Introduce email y contraseña.');
+
+  loginSubmit.disabled = true;
+  const original = loginSubmit.textContent;
+  loginSubmit.textContent = 'Procesando…';
+
+  try{
+    let session = null;
+
+    if(authMode === 'login'){
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if(error) throw error;
+      session = data.session;
+    } else {
+      const { data, error } = await sb.auth.signUp({ email, password });
+      if(error) throw error;
+      session = data.session;
+    }
+
+    if(session){
+      showMsg('✅ Acceso correcto. Entrando…', 'ok');
+      setTimeout(irAlApp, 350);
+    } else {
+      // Solo se llega aquí si la confirmación por email está activada en Supabase.
+      showMsg('Cuenta creada. Revisa tu email para confirmarla y luego inicia sesión.', 'ok');
+      authMode = 'login';
+      document.querySelectorAll('.login-tabs button')
+        .forEach(x => x.classList.toggle('active', x.dataset.mode === 'login'));
+      loginSubmit.textContent = 'Entrar';
+    }
+  }catch(err){
+    showMsg(traducirError(err.message || 'Error de autenticación'));
+    loginSubmit.disabled = false;
+    loginSubmit.textContent = original;
+  }
+});
+</script>
+</body>
+</html>
