@@ -398,7 +398,7 @@ function toast(msg, type='info'){
   el.className = 'toast ' + type;
   el.textContent = msg;
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 2800);
+  setTimeout(() => el.remove(), 3200);
 }
 
 /* =========================================================
@@ -548,9 +548,14 @@ async function init(){
   }
 
   sb.auth.onAuthStateChange(async (event, session) => {
-    if(event === 'SIGNED_IN' && session && session.user.id !== currentUser?.id){
-      currentUser = session.user;
-      await enterApp();
+    if(event === 'SIGNED_IN' && session){
+      if(session.user.id !== currentUser?.id){
+        currentUser = session.user;
+        await enterApp();
+      } else if(loginView.hidden === false){
+        // Por si el login sigue visible pese a tener sesión: forzamos.
+        await enterApp();
+      }
     } else if(event === 'SIGNED_OUT'){
       currentUser = null;
       vehicles = [];
@@ -571,14 +576,30 @@ let enteringApp = false;
 async function enterApp(){
   if(enteringApp) return;
   enteringApp = true;
+
   try{
-    await loadData();
+    // 1) Cambiamos la vista PRIMERO.
+    //    Aunque loadData() falle, el login desaparece.
     loginView.hidden = true;
     appView.hidden   = false;
-    document.getElementById('user-email').textContent = currentUser.email || '';
+    const emailEl = document.getElementById('user-email');
+    if(emailEl) emailEl.textContent = currentUser?.email || '';
+
+    // 2) Ahora cargamos los datos.
+    try{
+      await loadData();
+    }catch(err){
+      console.error('Error cargando datos desde Supabase:', err);
+      vehicles = [];
+      selected = null;
+      const detalle = err?.message || 'Error desconocido';
+      setTimeout(() => {
+        toast('No se han podido cargar los datos: ' + detalle, 'error');
+      }, 200);
+    }
+
+    // 3) Pintamos (con datos o vacío, da igual).
     render();
-  }catch(err){
-    alert('Error al cargar datos: ' + err.message);
   }finally{
     enteringApp = false;
   }
