@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mi Garaje — Control de mantenimiento</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --bg:#f4f6fa; --card:#ffffff; --text:#131a2b; --muted:#68738a;
@@ -40,7 +41,7 @@ input,select,textarea{
 input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
 label{display:flex;flex-direction:column;gap:6px;font-size:.78rem;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase}
 
-/* ---------- Layout ---------- */
+/* Header */
 header{
   position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--border);
 }
@@ -52,7 +53,13 @@ header{
   width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:1.1rem;
   background:linear-gradient(135deg,var(--accent),#7c3aed);color:#fff;
 }
-.header-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.header-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.user-chip{
+  display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:999px;
+  background:var(--bg);border:1px solid var(--border);font-size:.8rem;font-weight:600;color:var(--muted);
+  max-width:220px;
+}
+.user-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
@@ -61,13 +68,13 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .section-head h2{font-size:1.05rem}
 .section-head .spacer{margin-left:auto}
 
-/* ---------- Botones ---------- */
 .btn{
   border:1px solid transparent;border-radius:10px;padding:9px 14px;font-weight:600;font-size:.88rem;
   display:inline-flex;align-items:center;gap:7px;transition:.15s;white-space:nowrap;
   background:var(--card);color:var(--text);border-color:var(--border);
 }
 .btn:hover{transform:translateY(-1px)}
+.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 .btn.primary:hover{background:var(--accent-dark)}
 .btn.ghost{background:transparent;border-color:var(--border);color:var(--muted)}
@@ -81,7 +88,7 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 }
 .icon-btn:hover{background:var(--bg);color:var(--text)}
 
-/* ---------- Pestañas de vehículos ---------- */
+/* Pestañas */
 .tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:18px}
 .tab{
   border:1px solid var(--border);background:var(--card);border-radius:12px;padding:10px 16px;
@@ -93,7 +100,7 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .tab-name{font-weight:700;font-size:.92rem}
 .tab-sub{font-size:.74rem;color:var(--muted);font-weight:600}
 
-/* ---------- Cabecera del vehículo ---------- */
+/* Vehículo */
 .vehicle-head{padding:20px;display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
 .plate{
   background:#fff;color:#111;border:2px solid #111;border-radius:8px;padding:6px 12px 6px 8px;
@@ -110,7 +117,7 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .km-box .big{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
 .km-box .lbl{font-size:.74rem;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em}
 
-/* ---------- Grid documentos ---------- */
+/* Docs */
 .docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
 .doc{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--card);position:relative;overflow:hidden}
 .doc .name{font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
@@ -126,7 +133,7 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .doc.warn .bar{background:var(--warn)}
 .doc.danger .bar{background:var(--danger)}
 
-/* ---------- Alertas ---------- */
+/* Alertas */
 .alert{
   display:flex;gap:10px;align-items:center;padding:11px 14px;border-radius:11px;font-size:.87rem;
   font-weight:600;margin-bottom:8px;border:1px solid transparent;
@@ -135,13 +142,13 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .alert.danger{background:var(--danger-bg);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 30%,transparent)}
 .alert.info{background:var(--ok-bg);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 30%,transparent)}
 
-/* ---------- Stats ---------- */
+/* Stats */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .stat{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--card)}
 .stat .k{font-size:.74rem;text-transform:uppercase;font-weight:800;letter-spacing:.05em;color:var(--muted)}
 .stat .v{font-size:1.35rem;font-weight:800;letter-spacing:-.02em;margin-top:4px}
 
-/* ---------- Tabla mantenimientos ---------- */
+/* Tabla */
 .table-wrap{overflow-x:auto;border-radius:var(--radius)}
 table{width:100%;border-collapse:collapse;font-size:.88rem;min-width:720px}
 thead th{
@@ -162,13 +169,13 @@ tbody tr:hover{background:var(--bg)}
 .muted{color:var(--muted)}
 .row-actions{display:flex;gap:4px;justify-content:flex-end}
 
-/* ---------- Vacío ---------- */
+/* Vacío */
 .empty{text-align:center;padding:70px 24px}
 .empty .emoji{font-size:3.2rem}
 .empty h2{margin:14px 0 8px}
 .empty p{color:var(--muted);max-width:440px;margin:0 auto 22px}
 
-/* ---------- Modal ---------- */
+/* Modal */
 .overlay{
   position:fixed;inset:0;background:rgba(10,15,25,.55);backdrop-filter:blur(3px);
   display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;z-index:100;
@@ -191,62 +198,118 @@ tbody tr:hover{background:var(--bg)}
 .hint{font-size:.76rem;color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0}
 
 footer{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px 40px}
+
+/* Login */
+#login-view{
+  min-height:100vh;display:grid;place-items:center;padding:24px;
+}
+.login-card{
+  width:100%;max-width:420px;background:var(--card);border:1px solid var(--border);
+  border-radius:18px;box-shadow:var(--shadow);padding:32px;
+}
+.login-card .logo{justify-content:center;font-size:1.35rem;margin-bottom:6px}
+.login-card .sub{text-align:center;color:var(--muted);font-size:.88rem;margin-bottom:24px}
+.login-tabs{display:flex;gap:6px;background:var(--bg);padding:4px;border-radius:11px;margin-bottom:22px}
+.login-tabs button{
+  flex:1;border:none;background:transparent;padding:8px 10px;border-radius:8px;
+  font-weight:700;font-size:.85rem;color:var(--muted);
+}
+.login-tabs button.active{background:var(--card);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.login-form{display:flex;flex-direction:column;gap:14px}
+.login-msg{padding:10px 12px;border-radius:10px;font-size:.82rem;font-weight:600;display:none}
+.login-msg.error{background:var(--danger-bg);color:var(--danger);display:block}
+.login-msg.ok{background:var(--ok-bg);color:var(--ok);display:block}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:#111827;color:#fff;padding:11px 18px;border-radius:10px;
+  font-size:.86rem;font-weight:600;z-index:200;box-shadow:0 12px 30px rgba(0,0,0,.35);
+  animation:pop .2s ease;
+}
+.toast.ok{background:#16a34a}
+.toast.error{background:#dc2626}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="header-in">
+<!-- ===================== LOGIN ===================== -->
+<div id="login-view" hidden>
+  <div class="login-card">
     <div class="logo"><span class="mark">🚗</span> Mi Garaje</div>
-    <div class="header-actions">
-      <button class="btn ghost sm" id="btn-export">⬇ Exportar</button>
-      <button class="btn ghost sm" id="btn-import">⬆ Importar</button>
-      <input type="file" id="file-import" accept="application/json" hidden>
-      <button class="btn primary" id="btn-add-vehicle">＋ Añadir vehículo</button>
+    <p class="sub">Control de mantenimiento de tus coches</p>
+
+    <div class="login-tabs">
+      <button type="button" data-mode="login" class="active">Iniciar sesión</button>
+      <button type="button" data-mode="signup">Crear cuenta</button>
     </div>
+
+    <form class="login-form" id="login-form">
+      <label>Email
+        <input type="email" name="email" required autocomplete="email" placeholder="tu@email.com">
+      </label>
+      <label>Contraseña
+        <input type="password" name="password" required minlength="6" autocomplete="current-password" placeholder="Mínimo 6 caracteres">
+      </label>
+      <div class="login-msg" id="login-msg"></div>
+      <button type="submit" class="btn primary" id="login-submit" style="justify-content:center">Entrar</button>
+    </form>
   </div>
-</header>
+</div>
 
-<main>
-  <div class="tabs" id="tabs"></div>
-  <div id="content"></div>
-</main>
+<!-- ===================== APP ===================== -->
+<div id="app-view" hidden>
+  <header>
+    <div class="header-in">
+      <div class="logo"><span class="mark">🚗</span> Mi Garaje</div>
+      <div class="header-actions">
+        <div class="user-chip"><span id="user-email">—</span></div>
+        <button class="btn ghost sm" id="btn-logout" title="Cerrar sesión">Salir</button>
+        <button class="btn primary" id="btn-add-vehicle">＋ Añadir vehículo</button>
+      </div>
+    </div>
+  </header>
 
-<footer>Los datos se guardan solo en este navegador. Haz copias de seguridad con «Exportar».</footer>
+  <main>
+    <div class="tabs" id="tabs"></div>
+    <div id="content"></div>
+  </main>
+
+  <footer>Los datos se guardan en tu cuenta de Supabase.</footer>
+</div>
 
 <div id="modal"></div>
 
 <script>
 /* =========================================================
-   Estado y persistencia
+   ⚙️ CONFIGURACIÓN SUPABASE — ¡CAMBIA ESTOS DOS VALORES!
+   Los encuentras en: Supabase → Project Settings → API
    ========================================================= */
-const KEY = 'migaraje.v1';
-let db = loadDB();
+const SUPABASE_URL      = 'https://TU-PROYECTO.supabase.co';
+const SUPABASE_ANON_KEY = 'TU-ANON-PUBLIC-KEY';
 
-function loadDB(){
-  try{
-    const raw = localStorage.getItem(KEY);
-    if(raw){
-      const d = JSON.parse(raw);
-      if(d && Array.isArray(d.vehicles)) return d;
-    }
-  }catch(e){ console.warn(e); }
-  return { vehicles: [], selected: null };
-}
-function saveDB(){
-  try{ localStorage.setItem(KEY, JSON.stringify(db)); }
-  catch(e){ alert('No se han podido guardar los datos: ' + e.message); }
-}
-function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+/* =========================================================
+   Cliente Supabase
+   ========================================================= */
+const { createClient } = window.supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
+
+/* =========================================================
+   Estado en memoria
+   ========================================================= */
+let currentUser = null;
+let vehicles = [];       // [{...vehicle, mantenimientos:[...]}]
+let selected = null;
 
 /* =========================================================
    Utilidades
    ========================================================= */
 const eur = new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:2});
 const num = new Intl.NumberFormat('es-ES');
-
-function money(n){ return eur.format(Number(n)||0); }
-function kmFmt(n){ return num.format(Number(n)||0) + ' km'; }
+const money = n => eur.format(Number(n)||0);
+const kmFmt = n => num.format(Number(n)||0) + ' km';
 
 function esc(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -269,6 +332,15 @@ function daysUntil(iso){
   return Math.round((t - today) / 86400000);
 }
 function pluralDias(n){ return n === 1 ? '1 día' : n + ' días'; }
+function uid(){ return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+function toast(msg, type='info'){
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
 
 /* =========================================================
    Catálogos
@@ -282,7 +354,197 @@ const TIPOS_MANT = [
 ];
 
 /* =========================================================
-   Render principal
+   Mapeo de mantenimiento: DB (snake_case) ↔ JS (camelCase)
+   ========================================================= */
+function mantFromDB(row){
+  return {
+    id: row.id,
+    tipo: row.tipo || '',
+    fecha: row.fecha || '',
+    km: row.km ?? '',
+    coste: row.coste ?? 0,
+    taller: row.taller || '',
+    proximaFecha: row.proxima_fecha || '',
+    proximoKm: row.proximo_km ?? '',
+    notas: row.notas || ''
+  };
+}
+function mantToDB(m, vehicleId){
+  const out = {
+    vehicle_id: vehicleId,
+    tipo: m.tipo || null,
+    fecha: m.fecha || null,
+    km: m.km === '' || m.km == null ? null : Number(m.km),
+    coste: Number(m.coste) || 0,
+    taller: m.taller || null,
+    proxima_fecha: m.proximaFecha || null,
+    proximo_km: m.proximoKm === '' || m.proximoKm == null ? null : Number(m.proximoKm),
+    notas: m.notas || null
+  };
+  return out;
+}
+
+/* =========================================================
+   Autenticación
+   ========================================================= */
+const loginView = document.getElementById('login-view');
+const appView   = document.getElementById('app-view');
+const loginForm = document.getElementById('login-form');
+const loginMsg  = document.getElementById('login-msg');
+const loginSubmit = document.getElementById('login-submit');
+
+let authMode = 'login';
+document.querySelectorAll('.login-tabs button').forEach(b => {
+  b.addEventListener('click', () => {
+    authMode = b.dataset.mode;
+    document.querySelectorAll('.login-tabs button').forEach(x => x.classList.toggle('active', x === b));
+    loginSubmit.textContent = authMode === 'login' ? 'Entrar' : 'Crear cuenta';
+    loginForm.password.autocomplete = authMode === 'login' ? 'current-password' : 'new-password';
+    hideLoginMsg();
+  });
+});
+
+function showLoginMsg(text, type='error'){
+  loginMsg.textContent = text;
+  loginMsg.className = 'login-msg ' + type;
+}
+function hideLoginMsg(){ loginMsg.className = 'login-msg'; }
+
+loginForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  hideLoginMsg();
+  const email = loginForm.email.value.trim();
+  const password = loginForm.password.value;
+  if(!email || !password) return showLoginMsg('Introduce email y contraseña.');
+
+  loginSubmit.disabled = true;
+  const original = loginSubmit.textContent;
+  loginSubmit.textContent = 'Procesando…';
+
+  try{
+    if(authMode === 'login'){
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if(error) throw error;
+    } else {
+      const { data, error } = await sb.auth.signUp({ email, password });
+      if(error) throw error;
+      if(!data.session){
+        showLoginMsg('Cuenta creada. Revisa tu email para confirmarla y luego inicia sesión.', 'ok');
+        authMode = 'login';
+        document.querySelectorAll('.login-tabs button').forEach(x => x.classList.toggle('active', x.dataset.mode === 'login'));
+        loginSubmit.textContent = 'Entrar';
+        return;
+      }
+    }
+  }catch(err){
+    showLoginMsg(traducirError(err.message || 'Error de autenticación'));
+  }finally{
+    loginSubmit.disabled = false;
+    if(loginSubmit.textContent === 'Procesando…') loginSubmit.textContent = original;
+  }
+});
+
+function traducirError(msg){
+  const m = String(msg).toLowerCase();
+  if(m.includes('invalid login credentials')) return 'Email o contraseña incorrectos.';
+  if(m.includes('user already registered')) return 'Ese email ya está registrado. Inicia sesión.';
+  if(m.includes('password should be at least')) return 'La contraseña debe tener al menos 6 caracteres.';
+  if(m.includes('email not confirmed')) return 'Debes confirmar tu email antes de entrar.';
+  if(m.includes('rate limit')) return 'Demasiados intentos. Espera un momento.';
+  return msg;
+}
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  if(!confirm('¿Cerrar sesión?')) return;
+  await sb.auth.signOut();
+});
+
+/* =========================================================
+   Ciclo de autenticación
+   ========================================================= */
+async function init(){
+  if(!SUPABASE_URL.startsWith('http') || SUPABASE_ANON_KEY.includes('TU-')){
+    document.body.innerHTML = `
+      <div style="max-width:640px;margin:60px auto;padding:24px;font-family:system-ui;line-height:1.6">
+        <h1>⚠️ Falta configurar Supabase</h1>
+        <p>Edita el archivo HTML y rellena estas dos constantes al inicio del script:</p>
+        <pre style="background:#111;color:#0f0;padding:12px;border-radius:8px;overflow:auto">const SUPABASE_URL      = 'https://TU-PROYECTO.supabase.co';
+const SUPABASE_ANON_KEY = 'TU-ANON-PUBLIC-KEY';</pre>
+        <p>Las encuentras en: <b>Supabase → Project Settings → API</b>.</p>
+      </div>`;
+    return;
+  }
+
+  const { data: { session } } = await sb.auth.getSession();
+  if(session){
+    currentUser = session.user;
+    await enterApp();
+  } else {
+    showLogin();
+  }
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if(event === 'SIGNED_IN' && session && session.user.id !== currentUser?.id){
+      currentUser = session.user;
+      await enterApp();
+    } else if(event === 'SIGNED_OUT'){
+      currentUser = null;
+      vehicles = [];
+      selected = null;
+      showLogin();
+    }
+  });
+}
+
+function showLogin(){
+  loginView.hidden = false;
+  appView.hidden = true;
+  loginForm.reset();
+  hideLoginMsg();
+}
+
+async function enterApp(){
+  try{
+    await loadData();
+  }catch(err){
+    alert('Error al cargar datos: ' + err.message);
+  }
+  loginView.hidden = true;
+  appView.hidden = false;
+  document.getElementById('user-email').textContent = currentUser.email || '';
+  render();
+}
+
+/* =========================================================
+   Carga de datos desde Supabase
+   ========================================================= */
+async function loadData(){
+  const [vRes, mRes] = await Promise.all([
+    sb.from('vehicles').select('*').order('created_at', { ascending: true }),
+    sb.from('mantenimientos').select('*').order('created_at', { ascending: true })
+  ]);
+  if(vRes.error) throw vRes.error;
+  if(mRes.error) throw mRes.error;
+
+  const mantsByVehicle = new Map();
+  mRes.data.forEach(m => {
+    if(!mantsByVehicle.has(m.vehicle_id)) mantsByVehicle.set(m.vehicle_id, []);
+    mantsByVehicle.get(m.vehicle_id).push(mantFromDB(m));
+  });
+
+  vehicles = vRes.data.map(v => ({
+    ...v,
+    km: Number(v.km) || 0,
+    mantenimientos: mantsByVehicle.get(v.id) || []
+  }));
+
+  if(!selected || !vehicles.find(v => v.id === selected)){
+    selected = vehicles[0]?.id || null;
+  }
+}
+
+/* =========================================================
+   Render
    ========================================================= */
 function render(){
   renderTabs();
@@ -291,22 +553,22 @@ function render(){
 
 function renderTabs(){
   const el = document.getElementById('tabs');
-  if(!db.vehicles.length){ el.innerHTML = ''; return; }
-  el.innerHTML = db.vehicles.map(v => `
-    <button class="tab ${v.id === db.selected ? 'active' : ''}" data-id="${v.id}">
+  if(!vehicles.length){ el.innerHTML = ''; return; }
+  el.innerHTML = vehicles.map(v => `
+    <button class="tab ${v.id === selected ? 'active' : ''}" data-id="${v.id}">
       <span class="tab-name">${esc(v.nombre || (v.marca + ' ' + v.modelo))}</span>
       <span class="tab-sub">${esc(v.matricula || '—')}</span>
     </button>
   `).join('');
   el.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
-    db.selected = b.dataset.id; saveDB(); render();
+    selected = b.dataset.id; render();
   }));
 }
 
 function renderContent(){
   const el = document.getElementById('content');
 
-  if(!db.vehicles.length){
+  if(!vehicles.length){
     el.innerHTML = `
       <div class="card empty">
         <div class="emoji">🚙</div>
@@ -318,8 +580,8 @@ function renderContent(){
     return;
   }
 
-  let v = db.vehicles.find(x => x.id === db.selected) || db.vehicles[0];
-  db.selected = v.id;
+  let v = vehicles.find(x => x.id === selected) || vehicles[0];
+  selected = v.id;
 
   const alerts = getAlerts(v);
   const mants = [...v.mantenimientos].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
@@ -363,7 +625,7 @@ function renderContent(){
     </div>
 
     ${alerts.length ? `<div class="section">${alerts.map(a =>
-        `<div class="alert ${a.level}">${a.level === 'danger' ? '⛔' : '⚠️'} <span>${esc(a.text)}</span></div>`).join('')}</div>` : ''}
+        `<div class="alert ${a.level}">${a.level === 'danger' ? '⛔' : a.level === 'warn' ? '⚠️' : '✅'} <span>${esc(a.text)}</span></div>`).join('')}</div>` : ''}
 
     <div class="section">
       <div class="section-head"><h2>Documentos y obligaciones</h2></div>
@@ -397,9 +659,7 @@ function renderContent(){
             <th>Tipo</th><th>Fecha</th><th>Km</th><th>Coste</th><th>Taller</th>
             <th>Próximo</th><th></th>
           </tr></thead>
-          <tbody>
-            ${mants.map(m => mantRow(m, v)).join('')}
-          </tbody>
+          <tbody>${mants.map(m => mantRow(m, v)).join('')}</tbody>
         </table>` : `
         <div class="empty" style="padding:44px 20px">
           <div class="emoji">🔧</div>
@@ -419,7 +679,6 @@ function renderContent(){
     b.onclick = () => deleteMant(v.id, b.dataset.delMant));
 }
 
-/* ---------- tarjeta de documento ---------- */
 function docCard(nombre, iso, warnDays){
   const d = daysUntil(iso);
   let cls = 'ok', sub = '';
@@ -434,7 +693,6 @@ function docCard(nombre, iso, warnDays){
   </div>`;
 }
 
-/* ---------- fila de mantenimiento ---------- */
 function mantRow(m, v){
   let prox = '<span class="muted">—</span>';
   if(m.proximaFecha || m.proximoKm){
@@ -471,9 +729,6 @@ function mantRow(m, v){
   </tr>`;
 }
 
-/* =========================================================
-   Alertas
-   ========================================================= */
 function getAlerts(v){
   const out = [];
   const check = (label, iso, warnDays) => {
@@ -502,18 +757,21 @@ function getAlerts(v){
   });
 
   if(!out.length) out.push({ level:'info', text:'Todo en orden. No hay avisos próximos.' });
-  return out.sort((a,b) => (a.level === 'danger' ? -1 : 1) - (b.level === 'danger' ? -1 : 1));
+  return out.sort((a,b) => {
+    const r = x => x === 'danger' ? 0 : x === 'warn' ? 1 : 2;
+    return r(a.level) - r(b.level);
+  });
 }
 
 /* =========================================================
-   Modal genérico
+   Modal
    ========================================================= */
 const modalRoot = document.getElementById('modal');
 
 function openModal(title, bodyHtml, onSubmit, submitLabel = 'Guardar'){
   modalRoot.innerHTML = `
     <div class="overlay">
-      <div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+      <div class="modal" role="dialog" aria-modal="true">
         <div class="modal-head">
           <h3>${esc(title)}</h3>
           <button type="button" class="icon-btn" data-close>✕</button>
@@ -522,7 +780,7 @@ function openModal(title, bodyHtml, onSubmit, submitLabel = 'Guardar'){
           <div class="modal-body">${bodyHtml}</div>
           <div class="modal-foot">
             <button type="button" class="btn ghost" data-close>Cancelar</button>
-            <button type="submit" class="btn primary">${esc(submitLabel)}</button>
+            <button type="submit" class="btn primary" id="modal-submit">${esc(submitLabel)}</button>
           </div>
         </form>
       </div>
@@ -530,9 +788,18 @@ function openModal(title, bodyHtml, onSubmit, submitLabel = 'Guardar'){
   const overlay = modalRoot.querySelector('.overlay');
   overlay.addEventListener('click', e => { if(e.target === overlay) closeModal(); });
   modalRoot.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeModal));
-  modalRoot.querySelector('#modal-form').addEventListener('submit', e => {
+  modalRoot.querySelector('#modal-form').addEventListener('submit', async e => {
     e.preventDefault();
-    onSubmit(new FormData(e.target));
+    const btn = document.getElementById('modal-submit');
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try{
+      await onSubmit(new FormData(e.target));
+    }catch(err){
+      console.error(err);
+      alert('Error: ' + (err.message || err));
+      btn.disabled = false; btn.textContent = orig;
+    }
   });
   const first = modalRoot.querySelector('input,select,textarea');
   if(first) setTimeout(() => first.focus(), 40);
@@ -541,10 +808,10 @@ function closeModal(){ modalRoot.innerHTML = ''; }
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
 
 /* =========================================================
-   Formulario de vehículo
+   CRUD vehículos
    ========================================================= */
 function openVehicleForm(id){
-  const v = id ? db.vehicles.find(x => x.id === id) : {};
+  const v = id ? vehicles.find(x => x.id === id) : {};
   const esNuevo = !id;
 
   const body = `
@@ -568,62 +835,74 @@ function openVehicleForm(id){
       <label>Vencimiento seguro<input type="date" name="seguro" value="${esc(v.seguro)}"></label>
       <label>Impuesto (IVTM)<input type="date" name="impuesto" value="${esc(v.impuesto)}"></label>
     </div>
-    <div class="hint">Turismos: primera ITV a los 4 años, cada 2 años hasta los 10 y anual a partir de ahí. El IVTM se paga normalmente entre marzo y mayo.</div>
+    <div class="hint">Turismos: primera ITV a los 4 años, cada 2 años hasta los 10 y anual después. El IVTM se paga entre marzo y mayo.</div>
 
-    <label>Notas<textarea name="notas" rows="2" placeholder="Observaciones, taller habitual, etc.">${esc(v.notas)}</textarea></label>
+    <label>Notas<textarea name="notas" rows="2" placeholder="Taller habitual, observaciones…">${esc(v.notas)}</textarea></label>
   `;
 
-  openModal(esNuevo ? 'Nuevo vehículo' : 'Editar vehículo', body, fd => {
+  openModal(esNuevo ? 'Nuevo vehículo' : 'Editar vehículo', body, async fd => {
     const data = {
-      nombre:    (fd.get('nombre') || '').trim(),
-      matricula: (fd.get('matricula') || '').trim().toUpperCase(),
-      marca:     (fd.get('marca') || '').trim(),
-      modelo:    (fd.get('modelo') || '').trim(),
-      anio:      (fd.get('anio') || '').trim(),
+      nombre:      (fd.get('nombre') || '').trim(),
+      matricula:   (fd.get('matricula') || '').trim().toUpperCase(),
+      marca:       (fd.get('marca') || '').trim(),
+      modelo:      (fd.get('modelo') || '').trim(),
+      anio:        (fd.get('anio') || '').trim(),
       combustible: fd.get('combustible') || '',
-      km:        Number(fd.get('km')) || 0,
-      itv:       fd.get('itv') || '',
-      seguro:    fd.get('seguro') || '',
-      impuesto:  fd.get('impuesto') || '',
-      notas:     (fd.get('notas') || '').trim()
+      km:          Number(fd.get('km')) || 0,
+      itv:         fd.get('itv') || null,
+      seguro:      fd.get('seguro') || null,
+      impuesto:    fd.get('impuesto') || null,
+      notas:       (fd.get('notas') || '').trim()
     };
 
     if(id){
-      Object.assign(v, data);
+      const { error } = await sb.from('vehicles').update(data).eq('id', id);
+      if(error) throw error;
     } else {
-      const nuevo = { id: uid(), ...data, mantenimientos: [] };
-      db.vehicles.push(nuevo);
-      db.selected = nuevo.id;
+      const { data: inserted, error } = await sb.from('vehicles')
+        .insert({ ...data, user_id: currentUser.id })
+        .select('id').single();
+      if(error) throw error;
+      selected = inserted.id;
     }
-    saveDB(); closeModal(); render();
+    await loadData();
+    closeModal(); render();
+    toast(id ? 'Vehículo actualizado' : 'Vehículo añadido', 'ok');
   }, esNuevo ? 'Añadir vehículo' : 'Guardar cambios');
 }
 
-function deleteVehicle(id){
-  const v = db.vehicles.find(x => x.id === id);
+async function deleteVehicle(id){
+  const v = vehicles.find(x => x.id === id);
   if(!v) return;
   if(!confirm(`¿Eliminar «${v.nombre || v.matricula}» y todo su historial?\n\nEsta acción no se puede deshacer.`)) return;
-  db.vehicles = db.vehicles.filter(x => x.id !== id);
-  db.selected = db.vehicles[0] ? db.vehicles[0].id : null;
-  saveDB(); render();
+  const { error } = await sb.from('vehicles').delete().eq('id', id);
+  if(error) return toast('Error: ' + error.message, 'error');
+  if(selected === id) selected = null;
+  await loadData();
+  render();
+  toast('Vehículo eliminado', 'ok');
 }
 
 function openKmForm(id){
-  const v = db.vehicles.find(x => x.id === id);
+  const v = vehicles.find(x => x.id === id);
   if(!v) return;
   openModal('Actualizar kilómetros',
     `<label>Kilómetros actuales<input name="km" type="number" min="0" step="1" value="${esc(v.km)}" required></label>`,
-    fd => {
-      v.km = Number(fd.get('km')) || 0;
-      saveDB(); closeModal(); render();
+    async fd => {
+      const km = Number(fd.get('km')) || 0;
+      const { error } = await sb.from('vehicles').update({ km }).eq('id', id);
+      if(error) throw error;
+      await loadData();
+      closeModal(); render();
+      toast('Kilómetros actualizados', 'ok');
     }, 'Actualizar');
 }
 
 /* =========================================================
-   Formulario de mantenimiento
+   CRUD mantenimientos
    ========================================================= */
 function openMantForm(vehicleId, mantId){
-  const v = db.vehicles.find(x => x.id === vehicleId);
+  const v = vehicles.find(x => x.id === vehicleId);
   if(!v) return;
   const m = mantId ? v.mantenimientos.find(x => x.id === mantId) : {};
   const esNuevo = !mantId;
@@ -647,10 +926,10 @@ function openMantForm(vehicleId, mantId){
       <label>Km próximos<input type="number" min="0" step="1" name="proximoKm" value="${esc(m.proximoKm)}" placeholder="Ej. 135000"></label>
     </div>
 
-    <label>Notas<textarea name="notas" rows="2" placeholder="Marca del aceite, referencia de piezas, etc.">${esc(m.notas)}</textarea></label>
+    <label>Notas<textarea name="notas" rows="2" placeholder="Marca del aceite, referencia de piezas…">${esc(m.notas)}</textarea></label>
   `;
 
-  openModal(esNuevo ? 'Nueva intervención' : 'Editar intervención', body, fd => {
+  openModal(esNuevo ? 'Nueva intervención' : 'Editar intervención', body, async fd => {
     const data = {
       tipo:         fd.get('tipo') || 'Otros',
       fecha:        fd.get('fecha') || '',
@@ -662,82 +941,49 @@ function openMantForm(vehicleId, mantId){
       notas:        (fd.get('notas') || '').trim()
     };
 
+    const payload = mantToDB(data, vehicleId);
+
     if(mantId){
-      Object.assign(m, data);
+      const { error } = await sb.from('mantenimientos').update(payload).eq('id', mantId);
+      if(error) throw error;
     } else {
-      v.mantenimientos.push({ id: uid(), ...data });
+      const { error } = await sb.from('mantenimientos').insert(payload);
+      if(error) throw error;
     }
 
-    // Si los km registrados superan los del vehículo, actualizamos
-    if(data.km && Number(data.km) > (Number(v.km) || 0)) v.km = Number(data.km);
+    // Si los km introducidos superan los del vehículo, actualizamos el vehículo
+    if(data.km && Number(data.km) > (Number(v.km) || 0)){
+      await sb.from('vehicles').update({ km: Number(data.km) }).eq('id', vehicleId);
+    }
 
-    saveDB(); closeModal(); render();
+    await loadData();
+    closeModal(); render();
+    toast(esNuevo ? 'Intervención añadida' : 'Intervención actualizada', 'ok');
   }, esNuevo ? 'Añadir' : 'Guardar cambios');
 }
 
-function deleteMant(vehicleId, mantId){
-  const v = db.vehicles.find(x => x.id === vehicleId);
+async function deleteMant(vehicleId, mantId){
+  const v = vehicles.find(x => x.id === vehicleId);
   if(!v) return;
   const m = v.mantenimientos.find(x => x.id === mantId);
   if(!m) return;
   if(!confirm(`¿Eliminar la intervención «${m.tipo}» del ${fmtDate(m.fecha)}?`)) return;
-  v.mantenimientos = v.mantenimientos.filter(x => x.id !== mantId);
-  saveDB(); render();
+  const { error } = await sb.from('mantenimientos').delete().eq('id', mantId);
+  if(error) return toast('Error: ' + error.message, 'error');
+  await loadData();
+  render();
+  toast('Intervención eliminada', 'ok');
 }
 
 /* =========================================================
-   Exportar / Importar
+   Botones globales
    ========================================================= */
 document.getElementById('btn-add-vehicle').addEventListener('click', () => openVehicleForm());
-
-document.getElementById('btn-export').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify(db, null, 2)], { type:'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `mi-garaje-${todayISO()}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-});
-
-const fileInput = document.getElementById('file-import');
-document.getElementById('btn-import').addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', () => {
-  const file = fileInput.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try{
-      const data = JSON.parse(reader.result);
-      if(!data || !Array.isArray(data.vehicles)) throw new Error('Formato no válido');
-      const modo = confirm(
-        'Aceptar = SUSTITUIR todos los datos actuales\n' +
-        'Cancelar = FUSIONAR con los vehículos existentes'
-      );
-      if(modo){
-        db = data;
-      } else {
-        const existentes = new Set(db.vehicles.map(v => v.id));
-        data.vehicles.forEach(v => {
-          if(existentes.has(v.id)) v.id = uid();
-          if(!Array.isArray(v.mantenimientos)) v.mantenimientos = [];
-          db.vehicles.push(v);
-        });
-      }
-      if(!db.selected && db.vehicles[0]) db.selected = db.vehicles[0].id;
-      saveDB(); render();
-      alert('Datos importados correctamente.');
-    }catch(e){
-      alert('No se ha podido importar el archivo: ' + e.message);
-    }
-    fileInput.value = '';
-  };
-  reader.readAsText(file);
-});
 
 /* =========================================================
    Arranque
    ========================================================= */
-render();
+init();
 </script>
 </body>
 </html>
