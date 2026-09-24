@@ -487,19 +487,30 @@ loginForm.addEventListener('submit', async e => {
   loginSubmit.textContent = 'Procesando…';
 
   try{
+    let session = null;
+
     if(authMode === 'login'){
-      const { error } = await sb.auth.signInWithPassword({ email, password });
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
       if(error) throw error;
+      session = data.session;
     } else {
       const { data, error } = await sb.auth.signUp({ email, password });
       if(error) throw error;
-      if(!data.session){
-        showLoginMsg('Cuenta creada. Revisa tu email para confirmarla y luego inicia sesión.', 'ok');
-        authMode = 'login';
-        document.querySelectorAll('.login-tabs button').forEach(x => x.classList.toggle('active', x.dataset.mode === 'login'));
-        loginSubmit.textContent = 'Entrar';
-        return;
-      }
+      session = data.session;
+    }
+
+    if(session){
+      // Actualizamos currentUser ANTES de entrar para que el listener
+      // de onAuthStateChange no dispare enterApp() por duplicado.
+      currentUser = session.user;
+      await enterApp();
+    } else {
+      // Solo se llega aquí si la confirmación por email sigue activada.
+      showLoginMsg('Cuenta creada. Revisa tu email para confirmarla y luego inicia sesión.', 'ok');
+      authMode = 'login';
+      document.querySelectorAll('.login-tabs button')
+        .forEach(x => x.classList.toggle('active', x.dataset.mode === 'login'));
+      loginSubmit.textContent = 'Entrar';
     }
   }catch(err){
     showLoginMsg(traducirError(err.message || 'Error de autenticación'));
@@ -556,16 +567,21 @@ function showLogin(){
   hideLoginMsg();
 }
 
+let enteringApp = false;
 async function enterApp(){
+  if(enteringApp) return;
+  enteringApp = true;
   try{
     await loadData();
+    loginView.hidden = true;
+    appView.hidden   = false;
+    document.getElementById('user-email').textContent = currentUser.email || '';
+    render();
   }catch(err){
     alert('Error al cargar datos: ' + err.message);
+  }finally{
+    enteringApp = false;
   }
-  loginView.hidden = true;
-  appView.hidden = false;
-  document.getElementById('user-email').textContent = currentUser.email || '';
-  render();
 }
 
 /* =========================================================
