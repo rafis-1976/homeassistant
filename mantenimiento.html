@@ -6,6 +6,8 @@
 <title>Mi Garaje — Control de mantenimiento</title>
 <script>window.process = window.process || { env: {} };</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!-- ⬇️ Credenciales (edita ese archivo, no este) -->
+<script src="config.js"></script>
 <style>
 :root{
   --bg:#f4f6fa; --card:#ffffff; --text:#131a2b; --muted:#68738a;
@@ -231,7 +233,7 @@ footer{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px 40px
 .toast.ok{background:#16a34a}
 .toast.error{background:#dc2626}
 
-/* ---------- Materiales ---------- */
+/* Materiales */
 .material-row{
   display:grid;
   grid-template-columns: 2fr 0.7fr 0.9fr 1.5fr auto;
@@ -319,11 +321,31 @@ footer{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px 40px
 
 <script>
 /* =========================================================
-   ⚙️ CONFIGURACIÓN SUPABASE — ¡CAMBIA ESTOS DOS VALORES!
-   Los encuentras en: Supabase → Project Settings → API
+   Configuración leída desde config.js
+   ---------------------------------------------------------
+   Para cambiar de proyecto Supabase, edita SOLO el archivo
+   config.js que está en la misma carpeta que este HTML.
    ========================================================= */
-const SUPABASE_URL      = 'https://TU-PROYECTO.supabase.co';
-const SUPABASE_ANON_KEY = 'TU-ANON-PUBLIC-KEY';
+const CFG = window.MIGARAJE_CONFIG || {};
+
+if(!CFG.SUPABASE_URL || !CFG.SUPABASE_ANON_KEY ||
+   CFG.SUPABASE_URL.includes('TU-PROYECTO') ||
+   CFG.SUPABASE_ANON_KEY.includes('TU-ANON')){
+  document.body.innerHTML = `
+    <div style="max-width:640px;margin:60px auto;padding:24px;font-family:system-ui;line-height:1.6">
+      <h1>⚠️ Falta configurar Supabase</h1>
+      <p>Abre el archivo <code>config.js</code> (está en la misma carpeta que este HTML) y rellena estos valores:</p>
+      <pre style="background:#111;color:#0f0;padding:12px;border-radius:8px;overflow:auto">window.MIGARAJE_CONFIG = {
+  SUPABASE_URL:      'https://xxxxx.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOi...'
+};</pre>
+      <p>Los encuentras en: <b>Supabase → Project Settings → API</b>.</p>
+    </div>`;
+  throw new Error('Falta config.js');
+}
+
+const SUPABASE_URL      = CFG.SUPABASE_URL;
+const SUPABASE_ANON_KEY = CFG.SUPABASE_ANON_KEY;
 
 /* =========================================================
    Cliente Supabase
@@ -337,7 +359,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
    Estado en memoria
    ========================================================= */
 let currentUser = null;
-let vehicles = [];       // [{...vehicle, mantenimientos:[...]}]
+let vehicles = [];
 let selected = null;
 
 /* =========================================================
@@ -506,18 +528,6 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
    Ciclo de autenticación
    ========================================================= */
 async function init(){
-  if(!SUPABASE_URL.startsWith('http') || SUPABASE_ANON_KEY.includes('TU-')){
-    document.body.innerHTML = `
-      <div style="max-width:640px;margin:60px auto;padding:24px;font-family:system-ui;line-height:1.6">
-        <h1>⚠️ Falta configurar Supabase</h1>
-        <p>Edita el archivo HTML y rellena estas dos constantes al inicio del script:</p>
-        <pre style="background:#111;color:#0f0;padding:12px;border-radius:8px;overflow:auto">const SUPABASE_URL      = 'https://TU-PROYECTO.supabase.co';
-const SUPABASE_ANON_KEY = 'TU-ANON-PUBLIC-KEY';</pre>
-        <p>Las encuentras en: <b>Supabase → Project Settings → API</b>.</p>
-      </div>`;
-    return;
-  }
-
   const { data: { session } } = await sb.auth.getSession();
   if(session){
     currentUser = session.user;
@@ -630,7 +640,6 @@ function renderContent(){
   const mants = [...v.mantenimientos].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
   const year = new Date().getFullYear();
 
-  // Total incluyendo materiales
   const totalDeIntervencion = m =>
     (Number(m.coste)||0) +
     (Array.isArray(m.materiales) ? m.materiales.reduce((s,x) => s + (Number(x.cantidad)||0)*(Number(x.precio)||0), 0) : 0);
@@ -1005,7 +1014,6 @@ function openMantForm(vehicleId, mantId){
   const m = mantId ? v.mantenimientos.find(x => x.id === mantId) : {};
   const esNuevo = !mantId;
 
-  // Estado local de materiales del formulario
   let mats = Array.isArray(m.materiales) ? m.materiales.map(x => ({
     nombre: x.nombre || '',
     cantidad: x.cantidad ?? '',
@@ -1079,7 +1087,7 @@ function openMantForm(vehicleId, mantId){
     toast(esNuevo ? 'Intervención añadida' : 'Intervención actualizada', 'ok');
   }, esNuevo ? 'Añadir' : 'Guardar cambios');
 
-  /* ---------- Lógica del editor de materiales ---------- */
+  /* ---------- Editor de materiales ---------- */
   const listEl    = document.getElementById('materiales-list');
   const matTotalEl= document.getElementById('materiales-total');
   const totalEl   = document.getElementById('total-intervencion');
