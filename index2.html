@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Casa · Panel de Control</title>
+<style>
+  :root{
+    --bg: #0f1115;
+    --sidebar: #15181e;
+    --card: #1c2028;
+    --card-hover: #232833;
+    --text: #e8eaed;
+    --text-dim: #9aa0a6;
+    --accent: #4fc3f7;
+    --accent-2: #7c4dff;
+    --on: #ffc107;
+    --green: #4caf50;
+    --red: #ef5350;
+    --border: #2a2f3a;
+    --radius: 16px;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;}
+
+  body{
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ---------- SIDEBAR ---------- */
+  .sidebar{
+    width: 240px;
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 0;
+    position: fixed;
+    height: 100vh;
+    transition: transform .3s ease;
+    z-index: 100;
+  }
+
+  .brand{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 20px 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .brand-icon{
+    width: 40px;height:40px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid;
+    place-items: center;
+    font-size: 20px;
+    box-shadow: 0 4px 16px rgba(79,195,247,.3);
+  }
+
+  .brand h1{font-size: 16px;font-weight: 600;letter-spacing:.3px;}
+  .brand span{font-size: 11px;color: var(--text-dim);}
+
+  .nav{flex:1;padding: 0 12px;overflow-y:auto;}
+  .nav-item{
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 14px;
+    margin-bottom: 4px;
+    transition: all .2s;
+    user-select: none;
+  }
+  .nav-item:hover{background: var(--card);color: var(--text);}
+  .nav-item.active{
+    background: linear-gradient(90deg, rgba(79,195,247,.18), transparent);
+    color: var(--accent);
+    border-left: 3px solid var(--accent);
+  }
+  .nav-item .ico{font-size: 18px;width: 22px;text-align: center;}
+
+  .sidebar-footer{
+    padding: 16px 20px 0;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 10px;
+  }
+  .user{display:flex;align-items:center;gap:10px;}
+  .avatar{
+    width:34px;height:34px;border-radius:50%;
+    background: linear-gradient(135deg,#7c4dff,#4fc3f7);
+    display:grid;place-items:center;font-weight:600;font-size:13px;color:#fff;
+  }
+
+  /* ---------- MAIN ---------- */
+  .main{
+    margin-left: 240px;
+    flex: 1;
+    padding: 28px 32px 60px;
+    min-height: 100vh;
+  }
+
+  header.top{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .greeting h2{font-size: 26px;font-weight: 600;margin-bottom:4px;}
+  .greeting p{color: var(--text-dim);font-size: 14px;}
+
+  .top-right{display:flex;align-items:center;gap:14px;}
+
+  .clock{
+    text-align: right;
+    background: var(--card);
+    padding: 8px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .clock .time{font-size: 20px;font-weight: 600;font-variant-numeric: tabular-nums;}
+  .clock .date{font-size: 11px;color: var(--text-dim);}
+
+  .icon-btn{
+    width: 42px;height:42px;
+    border-radius: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 18px;
+    display: grid;
+    place-items: center;
+    transition: all .2s;
+  }
+  .icon-btn:hover{background: var(--card-hover);color: var(--accent);}
+
+  /* ---------- SECTION TITLES ---------- */
+  .section-title{
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    color: var(--text-dim);
+    margin: 32px 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title::after{
+    content:'';
+    flex:1;
+    height:1px;
+    background: var(--border);
+  }
+
+  /* ---------- GRID ---------- */
+  .grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  /* ---------- CARDS ---------- */
+  .card{
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    position: relative;
+    transition: all .25s ease;
+    overflow: hidden;
+  }
+  .card:hover{background: var(--card-hover);transform: translateY(-2px);}
+
+  .card.on{ border-color: rgba(255,193,7,.4); }
+  .card.on::before{
+    content:'';
+    position:absolute;inset:0;
+    background: radial-gradient(circle at top right, rgba(255,193,7,.12), transparent 70%);
+    pointer-events:none;
+  }
+
+  .card-head{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+
+  .card-icon{
+    width: 44px;height:44px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+    background: rgba(255,255,255,.05);
+    transition: all .3s;
+  }
+  .card.on .card-icon{
+    background: rgba(255,193,7,.18);
+    box-shadow: 0 0 20px rgba(255,193,7,.25);
+  }
+
+  .card-name{font-size: 14px;font-weight: 600;margin-bottom: 3px;}
+  .card-sub{font-size: 12px;color: var(--text-dim);}
+  .card-value{font-size: 28px;font-weight: 300;font-variant-numeric: tabular-nums;line-height:1.1;}
+  .card-value small{font-size:14px;color:var(--text-dim);font-weight:400;}
+
+  /* ---------- TOGGLE ---------- */
+  .toggle{
+    width: 48px;height: 26px;
+    border-radius: 13px;
+    background: #333a47;
+    position: relative;
+    cursor: pointer;
+    transition: background .25s;
+    flex-shrink: 0;
+  }
+  .toggle::after{
+    content:'';
+    position:absolute;
+    width: 20px;height:20px;
+    border-radius:50%;
+    background:#fff;
+    top:3px;left:3px;
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+    box-shadow: 0 2px 6px rgba(0,0,0,.4);
+  }
+  .toggle.on{background: var(--on);}
+  .toggle.on::after{transform: translateX(22px);}
+
+  /* ---------- SLIDER ---------- */
+  .slider-wrap{margin-top: 16px;}
+  .slider{
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--on) var(--p, 60%), #333a47 var(--p, 60%));
+    outline: none;
+    cursor: pointer;
+  }
+  .slider::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width: 18px;height:18px;
+    border-radius:50%;
+    background:#fff;
+    cursor:pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,.5);
+    transition: transform .15s;
+  }
+  .slider::-webkit-slider-thumb:hover{transform: scale(1.15);}
+  .slider::-moz-range-thumb{
+    width:18px;height:18px;border-radius:50%;background:#fff;border:none;cursor:pointer;
+  }
+  .slider-labels{
+    display:flex;justify-content:space-between;
+    font-size:11px;color:var(--text-dim);margin-top:6px;
+  }
+
+  /* ---------- THERMOSTAT ---------- */
+  .thermo{display:flex;align-items:center;gap:20px;}
+  .dial{
+    width: 96px;height:96px;
+    position: relative;
+    flex-shrink:0;
+  }
+  .dial svg{transform: rotate(-90deg);}
+  .dial circle{fill:none;stroke-linecap:round;}
+  .dial .bg{stroke:#333a47;stroke-width:8;}
+  .dial .fg{stroke:var(--accent);stroke-width:8;transition:stroke-dashoffset .5s ease, stroke .3s;}
+  .dial .center{
+    position:absolute;inset:0;
+    display:grid;place-items:center;
+    font-size:22px;font-weight:600;
+  }
+  .dial .center small{font-size:11px;color:var(--text-dim);display:block;font-weight:400;text-align:center;}
+  .thermo-controls{display:flex;flex-direction:column;gap:8px;}
+  .thermo-btn{
+    width:38px;height:38px;border-radius:10px;
+    background: var(--card-hover);
+    border:1px solid var(--border);
+    color: var(--text);
+    font-size:18px;
+    cursor:pointer;
+    display:grid;place-items:center;
+    transition: all .2s;
+  }
+  .thermo-btn:hover{background: var(--accent);color:#000;border-color:var(--accent);}
+  .thermo-row{display:flex;align-items:center;gap:8px;}
+
+  /* ---------- SENSOR ---------- */
+  .sensor-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .sensor-row:last-child{border-bottom:none;padding-bottom:0;}
+  .sensor-row:first-child{padding-top:0;}
+  .sensor-label{font-size:13px;color:var(--text-dim);display:flex;align-items:center;gap:8px;}
+  .sensor-val{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;}
+
+  .badge{
+    display:inline-block;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing:.4px;
+  }
+  .badge.green{background:rgba(76,175,80,.18);color:var(--green);}
+  .badge.red{background:rgba(239,83,80,.18);color:var(--red);}
+  .badge.blue{background:rgba(79,195,247,.18);color:var(--accent);}
+
+  /* ---------- SCENES ---------- */
+  .scenes{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;}
+  .scene{
+    background: var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px 14px;
+    text-align:center;
+    cursor:pointer;
+    transition: all .25s;
+    user-select:none;
+  }
+  .scene:hover{transform:translateY(-3px);border-color:var(--accent);}
+  .scene.active{
+    background: linear-gradient(160deg, rgba(79,195,247,.2), rgba(124,77,255,.15));
+    border-color: var(--accent);
+  }
+  .scene .em{font-size:26px;display:block;margin-bottom:8px;}
+  .scene .nm{font-size:13px;font-weight:600;}
+  .scene .ds{font-size:11px;color:var(--text-dim);margin-top:2px;}
+
+  /* ---------- CAMERA PLACEHOLDER ---------- */
+  .camera{
+    aspect-ratio: 16/9;
+    border-radius: 12px;
+    background:
+      radial-gradient(circle at 30% 40%, rgba(79,195,247,.15), transparent 60%),
+      linear-gradient(135deg,#1a1f28,#12151b);
+    display:grid;place-items:center;
+    position:relative;
+    overflow:hidden;
+    border:1px solid var(--border);
+  }
+  .camera .live{
+    position:absolute;top:10px;left:10px;
+    background:var(--red);
+    font-size:10px;font-weight:700;
+    padding:3px 8px;border-radius:4px;
+    display:flex;align-items:center;gap:5px;
+    letter-spacing:.5px;
+  }
+  .camera .live::before{
+    content:'';width:6px;height:6px;border-radius:50%;background:#fff;
+    animation: blink 1.4s infinite;
+  }
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+  .camera .scan{
+    position:absolute;inset:0;
+    background: linear-gradient(transparent 0%, rgba(79,195,247,.07) 50%, transparent 100%);
+    animation: scan 4s linear infinite;
+  }
+  @keyframes scan{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}
+
+  /* ---------- RESPONSIVE ---------- */
+  .burger{
+    display:none;
+    position:fixed;
+    top:16px;left:16px;
+    z-index:200;
+    width:42px;height:42px;
+    border-radius:12px;
+    background:var(--card);
+    border:1px solid var(--border);
+    color:var(--text);
+    font-size:20px;
+    cursor:pointer;
+  }
+
+  @media(max-width: 900px){
+    .sidebar{transform: translateX(-100%);}
+    .sidebar.open{transform: translateX(0);}
+    .main{margin-left:0;padding: 70px 18px 50px;}
+    .burger{display:grid;place-items:center;}
+  }
+
+  @media(max-width: 500px){
+    .grid{grid-template-columns: 1fr;}
+    .greeting h2{font-size:20px;}
+    .clock{display:none;}
+  }
+
+  /* fade in */
+  .card, .scene{animation: fadeUp .4s ease backwards;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+</style>
+</head>
+<body>
+
+<button class="burger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-icon">🏠</div>
+    <div>
+      <h1>Mi Casa</h1>
+      <span>Panel de control</span>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <div class="nav-item active"><span class="ico">⊞</span> Resumen</div>
+    <div class="nav-item"><span class="ico">💡</span> Iluminación</div>
+    <div class="nav-item"><span class="ico">🌡️</span> Climatización</div>
+    <div class="nav-item"><span class="ico">🔒</span> Seguridad</div>
+    <div class="nav-item"><span class="ico">🎬</span> Escenas</div>
+    <div class="nav-item"><span class="ico">📊</span> Energía</div>
+    <div class="nav-item"><span class="ico">⚙️</span> Ajustes</div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user">
+      <div class="avatar">AD</div>
+      <div>
+        <div style="color:var(--text);font-size:13px;font-weight:600;">Admin</div>
+        <div style="font-size:11px;">Sistema en línea</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ============ MAIN ============ -->
+<main class="main">
+
+  <header class="top">
+    <div class="greeting">
+      <h2 id="saludo">Buenos días 👋</h2>
+      <p id="resumen">5 dispositivos activos · 22.4 °C en salón · Todo en orden</p>
+    </div>
+    <div class="top-right">
+      <div class="clock">
+        <div class="time" id="reloj">--:--</div>
+        <div class="date" id="fecha">—</div>
+      </div>
+      <button class="icon-btn" title="Notificaciones">🔔</button>
+      <button class="icon-btn" title="Buscar">🔍</button>
+    </div>
+  </header>
+
+  <!-- ===== ESCENAS ===== -->
+  <div class="section-title">Escenas rápidas</div>
+  <div class="scenes">
+    <div class="scene active" onclick="activarEscena(this)">
+      <span class="em">🌅</span><div class="nm">Buenos días</div><div class="ds">Luces suaves</div>
+    </div>
+    <div class="scene" onclick="activarEscena(this)">
+      <span class="em">🎬</span><div class="nm">Cine</div><div class="ds">Luz tenue</div>
+    </div>
+    <div class="scene" onclick="activarEscena(this)">
+      <span class="em">🌙</span><div class="nm">Noche</div><div class="ds">Todo apagado</div>
+    </div>
+    <div class="scene" onclick="activarEscena(this)">
+      <span class="em">🚪</span><div class="nm">Salir</div><div class="ds">Modo ausente</div>
+    </div>
+    <div class="scene" onclick="activarEscena(this)">
+      <span class="em">🎉</span><div class="nm">Fiesta</div><div class="ds">Luces color</div>
+    </div>
+  </div>
+
+  <!-- ===== ILUMINACIÓN ===== -->
+  <div class="section-title">Iluminación</div>
+  <div class="grid">
+
+    <div class="card on" data-light>
+      <div class="card-head">
+        <div class="card-icon">💡</div>
+        <div class="toggle on" onclick="toggleLuz(this)"></div>
+      </div>
+      <div class="card-name">Luz Salón</div>
+      <div class="card-sub">Encendida · 78%</div>
+      <div class="slider-wrap">
+        <input type="range" class="slider" min="0" max="100" value="78" oninput="cambiarBrillo(this)">
+        <div class="slider-labels"><span>Brillo</span><span class="brillo-val">78%</span></div>
+      </div>
+    </div>
+
+    <div class="card on" data-light>
+      <div class="card-head">
+        <div class="card-icon">💡</div>
+        <div class="toggle on" onclick="toggleLuz(this)"></div>
+      </div>
+      <div class="card-name">Luz Cocina</div>
+      <div class="card-sub">Encendida · 100%</div>
+      <div class="slider-wrap">
+        <input type="range" class="slider" min="0" max="100" value="100" style="--p:100%" oninput="cambiarBrillo(this)">
+        <div class="slider-labels"><span>Brillo</span><span class="brillo-val">100%</span></div>
+      </div>
+    </div>
+
+    <div class="card" data-light>
+      <div class="card-head">
+        <div class="card-icon">💡</div>
+        <div class="toggle" onclick="toggleLuz(this)"></div>
+      </div>
+      <div class="card-name">Luz Dormitorio</div>
+      <div class="card-sub">Apagada</div>
+      <div class="slider-wrap">
+        <input type="range" class="slider" min="0" max="100" value="30" style="--p:30%" oninput="cambiarBrillo(this)">
+        <div class="slider-labels"><span>Brillo</span><span class="brillo-val">30%</span></div>
+      </div>
+    </div>
+
+    <div class="card" data-light>
+      <div class="card-head">
+        <div class="card-icon">🛋️</div>
+        <div class="toggle" onclick="toggleLuz(this)"></div>
+      </div>
+      <div class="card-name">Tira LED Salón</div>
+      <div class="card-sub">Apagada</div>
+      <div class="slider-wrap">
+        <input type="range" class="slider" min="0" max="100" value="50" style="--p:50%" oninput="cambiarBrillo(this)">
+        <div class="slider-labels"><span>Brillo</span><span class="brillo-val">50%</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== CLIMA ===== -->
+  <div class="section-title">Climatización</div>
+  <div class="grid">
+
+    <div class="card" style="grid-column: span 2; min-width:260px;">
+      <div class="card-head">
+        <div>
+          <div class="card-name">Termostato Salón</div>
+          <div class="card-sub" id="modo-termo">Modo calor · Auto</div>
+        </div>
+        <span class="badge blue">Conectado</span>
+      </div>
+      <div class="thermo">
+        <div class="dial">
+          <svg width="96" height="96">
+            <circle class="bg" cx="48" cy="48" r="40"></circle>
+            <circle class="fg" cx="48" cy="48" r="40"
+              stroke-dasharray="251.3"
+              stroke-dashoffset="100"></circle>
+          </svg>
+          <div class="center">
+            <div>
+              <span id="temp-set">22</span><small>°C objetivo</small>
+            </div>
+          </div>
+        </div>
+        <div class="thermo-controls">
+          <div class="thermo-row">
+            <button class="thermo-btn" onclick="cambiarTemp(-1)">−</button>
+            <button class="thermo-btn" onclick="cambiarTemp(1)">+</button>
+          </div>
+          <div style="font-size:13px;color:var(--text-dim);">
+            Actual: <strong style="color:var(--text)">21.5 °C</strong><br>
+            Humedad: <strong style="color:var(--text)">48%</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon">❄️</div>
+        <span class="badge green">Eco</span>
+      </div>
+      <div class="card-name">Aire Acondicionado</div>
+      <div class="card-sub">Modo frío · Ventilador bajo</div>
+      <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;">
+        <div class="card-value">24<small>°C</small></div>
+        <div class="toggle" onclick="this.classList.toggle('on')"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== SENSORES ===== -->
+  <div class="section-title">Sensores y estado</div>
+  <div class="grid">
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon">🌡️</div>
+        <span class="badge green">OK</span>
+      </div>
+      <div class="card-name" style="margin-bottom:14px;">Temperatura interior</div>
+      <div class="sensor-row">
+        <span class="sensor-label">🛋️ Salón</span><span class="sensor-val">22.4 °C</span>
+      </div>
+      <div class="sensor-row">
+        <span class="sensor-label">🛏️ Dormitorio</span><span class="sensor-val">20.1 °C</span>
+      </div>
+      <div class="sensor-row">
+        <span class="sensor-label">🍳 Cocina</span><span class="sensor-val">23.8 °C</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon">💧</div>
+        <span class="badge blue">Normal</span>
+      </div>
+      <div class="card-name" style="margin-bottom:14px;">Humedad</div>
+      <div class="sensor-row">
+        <span class="sensor-label">🛋️ Salón</span><span class="sensor-val">48 %</span>
+      </div>
+      <div class="sensor-row">
+        <span class="sensor-label">🚿 Baño</span><span class="sensor-val">62 %</span>
+      </div>
+      <div class="sensor-row">
+        <span class="sensor-label">🌿 Exterior</span><span class="sensor-val">71 %</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon">⚡</div>
+        <span class="badge green">2.1 kW</span>
+      </div>
+      <div class="card-name" style="margin-bottom:14px;">Consumo energético</div>
+      <div class="sensor-row">
+        <span class="sensor-label">Hoy</span><span class="sensor-val">8.4 kWh</span>
+      </div>
+      <div class="sensor-row">
+        <span class="sensor-label">Semana</span><span class="sensor-val">52.7 kWh</span>
+      </div>
+      <div class="sensor-row">
+        <span class="sensor-label">Solar generado</span><span class="sensor-val" style="color:var(--green)">3.2 kWh</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon">🔒</div>
+        <span class="badge green">Seguro</span>
+      </div>
+      <div class="card-name" style="margin-bottom:14px;">Seguridad</div>
+      <div class="sensor-row">
+        <span class="sensor-label">🚪 Puerta principal</span><span class="badge green">Cerrada</span>
+      </div>
+      <div class="sensor-row">
+        <span class="sensor-label">🪟 Ventana salón</span><span class="badge red">Abierta</span>
+      </div>
+      <div class="sensor-row">
+        <span class="sensor-label">🚨 Alarma</span><span class="badge green">Armada</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== CÁMARA ===== -->
+  <div class="section-title">Cámara en directo</div>
+  <div class="grid">
+    <div class="card" style="grid-column: span 2; min-width:280px;">
+      <div class="card-head">
+        <div>
+          <div class="card-name">Entrada principal</div>
+          <div class="card-sub">Última detección: hace 12 min</div>
+        </div>
+        <button class="icon-btn" style="width:34px;height:34px;font-size:14px;">⛶</button>
+      </div>
+      <div class="camera">
+        <div class="live">EN VIVO</div>
+        <div class="scan"></div>
+        <div style="text-align:center;color:var(--text-dim);font-size:13px;">
+          📹<br>Streaming 1080p
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon">🔔</div>
+        <span class="badge blue">3 eventos</span>
+      </div>
+      <div class="card-name" style="margin-bottom:12px;">Actividad reciente</div>
+      <div class="sensor-row">
+        <span class="sensor-label">🚶 Movimiento</span><span class="sensor-val" style="font-size:12px;color:var(--text-dim)">hace 12 min</span>
+      </div>
+      <div class="sensor-row">
+        <span class="sensor-label">🚪 Puerta abierta</span><span class="sensor-val" style="font-size:12px;color:var(--text-dim)">hace 1 h</span>
+      </div>
+      <div class="sensor-row">
+        <span class="sensor-label">💡 Luz encendida</span><span class="sensor-val" style="font-size:12px;color:var(--text-dim)">hace 2 h</span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  /* ---------- RELOJ ---------- */
+  function actualizarReloj(){
+    const ahora = new Date();
+    const h = String(ahora.getHours()).padStart(2,'0');
+    const m = String(ahora.getMinutes()).padStart(2,'0');
+    document.getElementById('reloj').textContent = `${h}:${m}`;
+
+    const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    document.getElementById('fecha').textContent =
+      `${dias[ahora.getDay()]}, ${ahora.getDate()} de ${meses[ahora.getMonth()]}`;
+
+    const saludo = document.getElementById('saludo');
+    const hora = ahora.getHours();
+    let txt = 'Buenos días 👋';
+    if(hora >= 13 && hora < 20) txt = 'Buenas tardes 👋';
+    else if(hora >= 20 || hora < 6) txt = 'Buenas noches 👋';
+    saludo.textContent = txt;
+  }
+  actualizarReloj();
+  setInterval(actualizarReloj, 1000);
+
+  /* ---------- LUCES ---------- */
+  function toggleLuz(el){
+    el.classList.toggle('on');
+    const card = el.closest('.card');
+    card.classList.toggle('on');
+    const sub = card.querySelector('.card-sub');
+    const brillo = card.querySelector('.slider').value;
+    sub.textContent = el.classList.contains('on')
+      ? `Encendida · ${brillo}%`
+      : 'Apagada';
+  }
+
+  function cambiarBrillo(slider){
+    const val = slider.value;
+    slider.style.setProperty('--p', val + '%');
+    const card = slider.closest('.card');
+    card.querySelector('.brillo-val').textContent = val + '%';
+    const toggle = card.querySelector('.toggle');
+    const sub = card.querySelector('.card-sub');
+
+    if(val > 0 && !toggle.classList.contains('on')){
+      toggle.classList.add('on');
+      card.classList.add('on');
+    }
+    if(val == 0 && toggle.classList.contains('on')){
+      toggle.classList.remove('on');
+      card.classList.remove('on');
+    }
+    sub.textContent = toggle.classList.contains('on')
+      ? `Encendida · ${val}%`
+      : 'Apagada';
+  }
+
+  /* ---------- TERMOSTATO ---------- */
+  let tempObjetivo = 22;
+  function cambiarTemp(delta){
+    tempObjetivo = Math.max(10, Math.min(30, tempObjetivo + delta));
+    document.getElementById('temp-set').textContent = tempObjetivo;
+    const circunferencia = 251.3;
+    const offset = circunferencia * (1 - (tempObjetivo - 10) / 20);
+    document.querySelector('.dial .fg').style.strokeDashoffset = offset;
+  }
+
+  /* ---------- ESCENAS ---------- */
+  function activarEscena(el){
+    document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+
+    const nombre = el.querySelector('.nm').textContent;
+    const acciones = {
+      'Buenos días': () => { setLuces(true, 70); setTemp(21); },
+      'Cine':        () => { setLuces(true, 20); },
+      'Noche':       () => { setLuces(false, 0); setTemp(19); },
+      'Salir':       () => { setLuces(false, 0); setTemp(18); },
+      'Fiesta':      () => { setLuces(true, 90); }
+    };
+    if(acciones[nombre]) acciones[nombre]();
+  }
+
+  function setLuces(encender, brillo){
+    document.querySelectorAll('[data-light]').forEach(card => {
+      const toggle = card.querySelector('.toggle');
+      const slider = card.querySelector('.slider');
+      const sub = card.querySelector('.card-sub');
+      toggle.classList.toggle('on', encender);
+      card.classList.toggle('on', encender);
+      slider.value = brillo;
+      slider.style.setProperty('--p', brillo + '%');
+      card.querySelector('.brillo-val').textContent = brillo + '%';
+      sub.textContent = encender ? `Encendida · ${brillo}%` : 'Apagada';
+    });
+  }
+
+  function setTemp(t){
+    tempObjetivo = t;
+    document.getElementById('temp-set').textContent = t;
+    const circunferencia = 251.3;
+    document.querySelector('.dial .fg').style.strokeDashoffset =
+      circunferencia * (1 - (t - 10) / 20);
+  }
+
+  /* ---------- NAV ---------- */
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      if(window.innerWidth <= 900){
+        document.querySelector('.sidebar').classList.remove('open');
+      }
+    });
+  });
+
+  /* ---------- SIMULACIÓN DE DATOS EN VIVO ---------- */
+  setInterval(() => {
+    const cons = (2 + Math.random() * 0.6).toFixed(1);
+    const badge = document.querySelectorAll('.badge.green')[0];
+    // pequeña fluctuación visual de temperatura
+    const vals = document.querySelectorAll('.sensor-val');
+    if(vals[0]) vals[0].textContent = (22 + Math.random()*0.6).toFixed(1) + ' °C';
+    if(vals[1]) vals[1].textContent = (20 + Math.random()*0.6).toFixed(1) + ' °C';
+    if(vals[2]) vals[2].textContent = (23.5 + Math.random()*0.6).toFixed(1) + ' °C';
+  }, 5000);
+</script>
+</body>
+</html>
