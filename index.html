@@ -49,6 +49,7 @@ input[type=file]::file-selector-button{
   border:1px solid var(--border);border-radius:8px;
   background:var(--bg);color:var(--text);cursor:pointer;
 }
+input[type=checkbox]{width:auto}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
 label{display:flex;flex-direction:column;gap:6px;font-size:.78rem;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase}
 
@@ -126,7 +127,7 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .km-box .big{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
 .km-box .lbl{font-size:.74rem;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em}
 
-.docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
 .doc{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--card);position:relative;overflow:hidden}
 .doc .name{font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .doc .date{font-size:1.15rem;font-weight:700;margin-top:6px}
@@ -148,6 +149,24 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
   font-weight:600;letter-spacing:0;text-transform:none;
 }
 .doc .doc-extra .lbl{color:var(--muted);font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.03em;margin-right:4px}
+.doc .doc-actions{
+  margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);
+  display:flex;gap:6px;flex-wrap:wrap;
+}
+
+/* Historial */
+.hist-item{
+  display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;
+  padding:12px 0;border-bottom:1px dashed var(--border);
+}
+.hist-item:last-child{border-bottom:none}
+.hist-item .hist-info{display:flex;flex-direction:column;gap:2px;font-size:.85rem}
+.hist-item .hist-line{color:var(--muted);font-size:.78rem}
+.hist-item .hist-line strong{color:var(--text)}
+.hist-item .hist-actions{display:flex;gap:4px}
+.hist-empty{text-align:center;padding:30px 20px;color:var(--muted);font-size:.85rem}
+.hist-total{text-align:right;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:.85rem;color:var(--muted)}
+.hist-total strong{color:var(--text);font-size:1rem}
 
 .alert{
   display:flex;gap:10px;align-items:center;padding:11px 14px;border-radius:11px;font-size:.87rem;
@@ -319,7 +338,7 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
     <div id="content"></div>
   </main>
 
-  <footer class="site">Los datos se guardan en tu cuenta de Supabase. Los avisos se envían por email cada mañana a las 8:00.</footer>
+  <footer class="site">Los datos se guardan en tu cuenta de Supabase. Los avisos se envían por email.</footer>
 </div>
 
 <div id="modal"></div>
@@ -408,6 +427,7 @@ const TIPOS_SEGURO = [
   'Todo riesgo sin franquicia',
   'Otro'
 ];
+const TIPOS_HIST_LABEL = { itv: 'ITV', seguro: 'Seguro', ivtm: 'Impuesto (IVTM)' };
 
 /* =========================================================
    Mapeo mantenimiento
@@ -499,12 +519,14 @@ async function entrar(){
    Carga
    ========================================================= */
 async function loadData(){
-  const [vRes, mRes] = await Promise.all([
+  const [vRes, mRes, hRes] = await Promise.all([
     sb.from('vehicles').select('*').order('created_at', { ascending: true }),
-    sb.from('mantenimientos').select('*').order('created_at', { ascending: true })
+    sb.from('mantenimientos').select('*').order('created_at', { ascending: true }),
+    sb.from('historial_obligaciones').select('*').order('fecha', { ascending: false })
   ]);
   if(vRes.error) throw vRes.error;
   if(mRes.error) throw mRes.error;
+  if(hRes.error) throw hRes.error;
 
   const mantsByVehicle = new Map();
   mRes.data.forEach(m => {
@@ -512,10 +534,17 @@ async function loadData(){
     mantsByVehicle.get(m.vehicle_id).push(mantFromDB(m));
   });
 
+  const histByVehicle = new Map();
+  hRes.data.forEach(h => {
+    if(!histByVehicle.has(h.vehicle_id)) histByVehicle.set(h.vehicle_id, []);
+    histByVehicle.get(h.vehicle_id).push(h);
+  });
+
   vehicles = vRes.data.map(v => ({
     ...v,
     km: Number(v.km) || 0,
-    mantenimientos: mantsByVehicle.get(v.id) || []
+    mantenimientos: mantsByVehicle.get(v.id) || [],
+    historial: histByVehicle.get(v.id) || []
   }));
 
   if(!selected || !vehicles.find(v => v.id === selected)){
@@ -634,7 +663,6 @@ function renderContent(){
   const partes = [v.marca, v.modelo].filter(Boolean).join(' ');
   const edad = v.anio ? (year - Number(v.anio)) : null;
 
-  // Bloque de revisión por km
   let revisionHtml = '';
   if(v.intervalo_revision_km && v.ultima_revision_km){
     const proxima = Number(v.ultima_revision_km) + Number(v.intervalo_revision_km);
@@ -646,6 +674,10 @@ function renderContent(){
       <span class="badge ${cls}">🔧 ${esc(txt)}</span>
     </div>`;
   }
+
+  const histItv = (v.historial || []).filter(h => h.tipo === 'itv');
+  const histSeg = (v.historial || []).filter(h => h.tipo === 'seguro');
+  const histIvtm = (v.historial || []).filter(h => h.tipo === 'ivtm');
 
   el.innerHTML = `
     <div class="card section">
@@ -685,16 +717,25 @@ function renderContent(){
         ${docCard('ITV', v.itv, 30, [
           v.itv_precio != null && v.itv_precio !== '' ? `<div><span class="lbl">Precio</span> ${money(v.itv_precio)}</div>` : '',
           v.itv_lugar ? `<div><span class="lbl">Lugar</span> ${esc(v.itv_lugar)}</div>` : ''
-        ].filter(Boolean).join(''))}
+        ].filter(Boolean).join(''),
+          `<button type="button" class="btn ghost tiny" data-add-hist="itv">＋ Registrar</button>
+           ${histItv.length ? `<button type="button" class="btn ghost tiny" data-ver-hist="itv">📋 Historial (${histItv.length})</button>` : ''}`
+        )}
         ${docCard('Seguro', v.seguro, 21, [
           v.seguro_tipo ? `<div><span class="lbl">Tipo</span> ${esc(v.seguro_tipo)}</div>` : '',
           v.seguro_compania ? `<div><span class="lbl">Compañía</span> ${esc(v.seguro_compania)}</div>` : '',
           v.seguro_precio != null && v.seguro_precio !== '' ? `<div><span class="lbl">Precio</span> ${money(v.seguro_precio)}</div>` : ''
-        ].filter(Boolean).join(''))}
+        ].filter(Boolean).join(''),
+          `<button type="button" class="btn ghost tiny" data-add-hist="seguro">＋ Registrar</button>
+           ${histSeg.length ? `<button type="button" class="btn ghost tiny" data-ver-hist="seguro">📋 Historial (${histSeg.length})</button>` : ''}`
+        )}
         ${docCard('Impuesto (IVTM)', v.impuesto, 30,
           v.impuesto_precio != null && v.impuesto_precio !== ''
             ? `<div><span class="lbl">Precio</span> ${money(v.impuesto_precio)}</div>`
-            : '')}
+            : '',
+          `<button type="button" class="btn ghost tiny" data-add-hist="ivtm">＋ Registrar</button>
+           ${histIvtm.length ? `<button type="button" class="btn ghost tiny" data-ver-hist="ivtm">📋 Historial (${histIvtm.length})</button>` : ''}`
+        )}
       </div>
     </div>
 
@@ -754,9 +795,13 @@ function renderContent(){
     }));
   el.querySelectorAll('[data-ver-doc]').forEach(b =>
     b.addEventListener('click', () => verDocumento(b.dataset.verDoc)));
+  el.querySelectorAll('[data-add-hist]').forEach(b =>
+    b.addEventListener('click', () => openHistorialForm(v.id, b.dataset.addHist)));
+  el.querySelectorAll('[data-ver-hist]').forEach(b =>
+    b.addEventListener('click', () => openHistorialList(v.id, b.dataset.verHist)));
 }
 
-function docCard(nombre, iso, warnDays, extraHtml){
+function docCard(nombre, iso, warnDays, extraHtml, acciones){
   const d = daysUntil(iso);
   let cls = 'ok', sub = '';
   if(d === null){ cls = ''; sub = 'Sin fecha'; }
@@ -768,6 +813,7 @@ function docCard(nombre, iso, warnDays, extraHtml){
     <div class="date">${fmtDate(iso)}</div>
     <div class="sub">${sub}</div>
     ${extraHtml ? `<div class="doc-extra">${extraHtml}</div>` : ''}
+    ${acciones ? `<div class="doc-actions">${acciones}</div>` : ''}
   </div>`;
 }
 
@@ -1394,10 +1440,248 @@ async function deleteMant(vehicleId, mantId){
 }
 
 /* =========================================================
+   HISTORIAL DE OBLIGACIONES (ITV / Seguro / IVTM)
+   ========================================================= */
+function _proximaPorDefecto(fechaISO, tipo, v){
+  if(!fechaISO) return '';
+  const f = new Date(fechaISO + 'T00:00:00');
+  if(isNaN(f)) return '';
+  if(tipo === 'ivtm'){
+    f.setFullYear(f.getFullYear() + 1);
+  } else if(tipo === 'seguro'){
+    f.setFullYear(f.getFullYear() + 1);
+  } else if(tipo === 'itv'){
+    const edad = v?.anio ? (new Date().getFullYear() - Number(v.anio)) : 0;
+    f.setFullYear(f.getFullYear() + (edad >= 10 ? 1 : 2));
+  }
+  return f.toISOString().slice(0,10);
+}
+
+function openHistorialForm(vehicleId, tipo, registroId){
+  const v = vehicles.find(x => x.id === vehicleId);
+  if(!v) return;
+  const registro = registroId
+    ? (v.historial || []).find(h => h.id === registroId)
+    : null;
+  const esNuevo = !registro;
+  const tipoLabel = TIPOS_HIST_LABEL[tipo] || tipo;
+
+  const today = todayISO();
+  const fechaVal = registro?.fecha || today;
+  const proximaVal = registro?.proxima_fecha || _proximaPorDefecto(fechaVal, tipo, v);
+
+  let camposEspecificos = '';
+  if(tipo === 'itv'){
+    camposEspecificos = `
+      <label>Lugar donde la hiciste
+        <input name="lugar" value="${esc(registro?.lugar)}" placeholder="Ej. ITV Móstoles, ITV Norte…">
+      </label>`;
+  } else if(tipo === 'seguro'){
+    camposEspecificos = `
+      <label>Compañía aseguradora
+        <input name="compania" value="${esc(registro?.compania)}" placeholder="Ej. Mapfre, Mutua Madrileña…">
+      </label>
+      <label>Tipo de seguro
+        <select name="tipo_seguro">
+          <option value="">— Selecciona —</option>
+          ${TIPOS_SEGURO.map(t => `<option ${registro?.tipo_seguro === t ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </label>`;
+  } else if(tipo === 'ivtm'){
+    camposEspecificos = `
+      <label>Ayuntamiento / Lugar
+        <input name="lugar" value="${esc(registro?.lugar)}" placeholder="Ej. Ayuntamiento de Madrid">
+      </label>`;
+  }
+
+  const body = `
+    <h4>${tipoLabel} — datos del registro</h4>
+    <div class="grid2">
+      <label>Fecha ${tipo === 'seguro' ? 'de contratación' : 'de pago / realización'}
+        <input type="date" name="fecha" id="hist-fecha" value="${esc(fechaVal)}" required>
+      </label>
+      <label>Importe (€)
+        <input type="number" min="0" step="0.01" name="precio" value="${esc(registro?.precio)}" placeholder="0,00">
+      </label>
+    </div>
+    <div class="grid2">
+      <label>Próximo vencimiento
+        <input type="date" name="proxima_fecha" id="hist-proxima" value="${esc(proximaVal)}">
+      </label>
+      <div class="hint" style="align-self:end;padding-bottom:10px">
+        <label style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-weight:600;font-size:.85rem">
+          <input type="checkbox" name="actualizar_vehiculo" checked>
+          Actualizar el vencimiento del vehículo con esta fecha
+        </label>
+      </div>
+    </div>
+    ${camposEspecificos}
+    <label>Notas
+      <textarea name="notas" rows="2" placeholder="Observaciones, número de póliza, referencia…">${esc(registro?.notas)}</textarea>
+    </label>
+  `;
+
+  openModal(
+    esNuevo ? `Registrar ${tipoLabel.toLowerCase()}` : `Editar registro de ${tipoLabel.toLowerCase()}`,
+    body,
+    async fd => {
+      const data = {
+        vehicle_id: vehicleId,
+        tipo,
+        fecha: fd.get('fecha') || null,
+        proxima_fecha: fd.get('proxima_fecha') || null,
+        precio: fd.get('precio') ? Number(fd.get('precio')) : null,
+        lugar: (fd.get('lugar') || '').trim() || null,
+        compania: (fd.get('compania') || '').trim() || null,
+        tipo_seguro: (fd.get('tipo_seguro') || '').trim() || null,
+        notas: (fd.get('notas') || '').trim() || null
+      };
+
+      if(registroId){
+        const { error } = await sb.from('historial_obligaciones').update(data).eq('id', registroId);
+        if(error) throw error;
+      } else {
+        const { error } = await sb.from('historial_obligaciones').insert(data);
+        if(error) throw error;
+      }
+
+      if(fd.get('actualizar_vehiculo') && data.proxima_fecha){
+        const campoVenc = tipo === 'itv' ? 'itv' : tipo === 'seguro' ? 'seguro' : 'impuesto';
+        const camposExtra = {};
+        if(tipo === 'itv'){
+          if(data.precio != null) camposExtra.itv_precio = data.precio;
+          if(data.lugar) camposExtra.itv_lugar = data.lugar;
+        } else if(tipo === 'seguro'){
+          if(data.precio != null) camposExtra.seguro_precio = data.precio;
+          if(data.compania) camposExtra.seguro_compania = data.compania;
+          if(data.tipo_seguro) camposExtra.seguro_tipo = data.tipo_seguro;
+        } else if(tipo === 'ivtm'){
+          if(data.precio != null) camposExtra.impuesto_precio = data.precio;
+        }
+        const { error } = await sb.from('vehicles').update({
+          [campoVenc]: data.proxima_fecha,
+          ...camposExtra
+        }).eq('id', vehicleId);
+        if(error) throw error;
+      }
+
+      await loadData();
+      closeModal(); render();
+      toast(registroId ? 'Registro actualizado' : `Registro de ${tipoLabel.toLowerCase()} guardado`, 'ok');
+    },
+    esNuevo ? 'Guardar registro' : 'Guardar cambios'
+  );
+
+  // Autocompletar la fecha próxima al cambiar la fecha base
+  setTimeout(() => {
+    const fFecha = document.getElementById('hist-fecha');
+    const fProx = document.getElementById('hist-proxima');
+    if(fFecha && fProx){
+      fFecha.addEventListener('change', () => {
+        if(!fFecha.value) return;
+        fProx.value = _proximaPorDefecto(fFecha.value, tipo, v);
+      });
+    }
+  }, 30);
+}
+
+function openHistorialList(vehicleId, tipo){
+  const v = vehicles.find(x => x.id === vehicleId);
+  if(!v) return;
+  const tipoLabel = TIPOS_HIST_LABEL[tipo] || tipo;
+
+  const items = (v.historial || [])
+    .filter(h => h.tipo === tipo)
+    .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
+  const total = items.reduce((s, h) => s + (Number(h.precio) || 0), 0);
+  const años = items.length ? new Set(items.map(h => (h.fecha || '').slice(0,4))).size : 0;
+
+  let html = '';
+  if(!items.length){
+    html = `<div class="hist-empty">Aún no hay registros de ${tipoLabel.toLowerCase()}.</div>`;
+  } else {
+    html = items.map(h => {
+      const extras = [];
+      if(h.lugar) extras.push(`📍 ${esc(h.lugar)}`);
+      if(h.compania) extras.push(`🏢 ${esc(h.compania)}`);
+      if(h.tipo_seguro) extras.push(`🛡 ${esc(h.tipo_seguro)}`);
+      if(h.proxima_fecha) extras.push(`→ vence ${fmtDate(h.proxima_fecha)}`);
+      if(h.notas) extras.push(`📝 ${esc(h.notas)}`);
+      return `
+        <div class="hist-item">
+          <div class="hist-info">
+            <div><strong>${fmtDate(h.fecha)}</strong>${h.precio != null ? ` · <strong>${money(h.precio)}</strong>` : ''}</div>
+            ${extras.length ? `<div class="hist-line">${extras.join(' · ')}</div>` : ''}
+          </div>
+          <div class="hist-actions">
+            <button type="button" class="icon-btn" title="Editar" data-hist-edit="${h.id}">✎</button>
+            <button type="button" class="icon-btn" title="Eliminar" data-hist-del="${h.id}">🗑</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  const body = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px">
+      <div class="hint">${items.length} registro${items.length===1?'':'s'} · ${años} año${años===1?'':'s'}</div>
+      <button type="button" class="btn primary sm" id="hist-add">＋ Nuevo registro</button>
+    </div>
+    <div>${html}</div>
+    ${items.length ? `
+      <div class="hist-total">Total pagado en ${tipoLabel.toLowerCase()}: <strong>${money(total)}</strong></div>
+    ` : ''}
+  `;
+
+  openModal(`Historial — ${tipoLabel} · ${v.matricula || v.nombre}`, body, async () => {
+    closeModal();
+  }, 'Cerrar');
+
+  // Ajustar botones del pie
+  setTimeout(() => {
+    const submitBtn = document.getElementById('modal-submit');
+    if(submitBtn){
+      submitBtn.style.display = 'none';
+    }
+    modalRoot.querySelectorAll('[data-close]').forEach(b => {
+      if(b.classList.contains('btn')){
+        b.textContent = 'Cerrar';
+        b.classList.remove('ghost');
+        b.classList.add('primary');
+      }
+    });
+
+    const addBtn = document.getElementById('hist-add');
+    if(addBtn){
+      addBtn.addEventListener('click', () => {
+        closeModal();
+        openHistorialForm(vehicleId, tipo);
+      });
+    }
+
+    modalRoot.querySelectorAll('[data-hist-edit]').forEach(b =>
+      b.addEventListener('click', () => {
+        closeModal();
+        openHistorialForm(vehicleId, tipo, b.dataset.histEdit);
+      })
+    );
+
+    modalRoot.querySelectorAll('[data-hist-del]').forEach(b =>
+      b.addEventListener('click', async () => {
+        if(!confirm('¿Eliminar este registro del historial?\n\nNo se puede deshacer.')) return;
+        const { error } = await sb.from('historial_obligaciones').delete().eq('id', b.dataset.histDel);
+        if(error) return toast('Error: ' + error.message, 'error');
+        await loadData();
+        closeModal(); render();
+        toast('Registro eliminado', 'ok');
+      })
+    );
+  }, 30);
+}
+
+/* =========================================================
    Probar envío de emails
    ========================================================= */
-
-/* --- Botón "Test email": envía un correo simple, siempre --- */
 document.getElementById('btn-test-email').addEventListener('click', async () => {
   const btn = document.getElementById('btn-test-email');
   const original = btn.textContent;
@@ -1442,7 +1726,6 @@ document.getElementById('btn-test-email').addEventListener('click', async () => 
   }
 });
 
-/* --- Botón "Probar avisos": envía los avisos reales pendientes --- */
 document.getElementById('btn-test-avisos').addEventListener('click', async () => {
   const btn = document.getElementById('btn-test-avisos');
   const original = btn.textContent;
