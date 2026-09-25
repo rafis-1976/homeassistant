@@ -1,9 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
-const SUPABASE_URL   = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE   = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const RESEND_API_KEY = Deno.env.get("sb_publishable_C8wBfWO_rnKjffPtc4DOQA_tkVY7xVo")!;
+const SUPABASE_URL   = Deno.env.get("https://mwzhyozqmsqmfpgtzeek.supabase.co/functions/v1/resend-email")!;
+const SERVICE_ROLE   = Deno.env.get("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13emh5b3pxbXNxbWZwZ3R6ZWVrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDIyMTc4MSwiZXhwIjoyMTA1Nzk3NzgxfQ.3fHK0fq9tRbg__uhtSFs-RrmvZv7bQ5fhdMTfXDtdzU")!;
 
 const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
 
