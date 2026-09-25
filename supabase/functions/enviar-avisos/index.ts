@@ -23,14 +23,28 @@ function diasHasta(fecha: string | null): number | null {
   return Math.round((f.getTime() - hoy.getTime()) / 86400000);
 }
 
+async function enviarEmail(to: string, subject: string, html: string) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+    },
+    body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error("Resend: " + err);
+  }
+  return res.json();
+}
+
 serve(async (req) => {
-  // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS });
   }
 
   try {
-    // Detectar si la llamada viene de un usuario autenticado
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace("Bearer ", "");
     let soloUsuario: string | null = null;
@@ -44,17 +58,70 @@ serve(async (req) => {
         });
       }
       soloUsuario = user.id;
-      esPrueba = true; // invocada desde la app → no marcar como enviado
+      esPrueba = true;
     }
 
-    // 1. Obtener vehículos (todos o solo los del usuario)
+    // Leer body (por si viene { ping: true })
+    let body: any = {};
+    try { body = await req.json(); } catch (_) {}
+
+    const emailDelUsuario = soloUsuario
+      ? (await sb.auth.admin.getUserById(soloUsuario)).data?.user?.email
+      : null;
+
+    /* =====================================================
+       MODO PING: envía un email de prueba simple
+       ===================================================== */
+    if (body.ping === true && emailDelUsuario) {
+      try {
+        await enviarEmail(
+          emailDelUsuario,
+          "🔔 Mi Garaje — Prueba de conexión",
+          `<div style="font-family:system-ui,Arial,sans-serif;max-width:560px;margin:auto;padding:24px">
+             <h2 style="color:#2563eb">🔔 Prueba de conexión correcta</h2>
+             <p>Este es un email de prueba enviado desde <b>Mi Garaje</b>.</p>
+             <p>Si lo estás leyendo, significa que:</p>
+             <ul style="line-height:1.7">
+               <li>La Edge Function está desplegada.</li>
+               <li>La API key de Resend es válida.</li>
+               <li>El remitente <code>${FROM_EMAIL}</code> está autorizado.</li>
+               <li>La dirección <code>${emailDelUsuario}</code> puede recibir correos.</li>
+             </ul>
+             <p style="color:#68738a;font-size:13px;margin-top:24px">
+               Enviado el ${new Date().toLocaleString('es-ES')}.
+             </p>
+           </div>`
+        );
+
+        return new Response(JSON.stringify({
+          ok: true,
+          modo: "ping",
+          email: emailDelUsuario,
+          mensaje: "Email de prueba enviado correctamente.",
+        }), {
+          status: 200,
+          headers: { ...CORS, "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({
+          ok: false,
+          error: e.message,
+        }), {
+          status: 500,
+          headers: { ...CORS, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    /* =====================================================
+       MODO AVISOS (normal)
+       ===================================================== */
     let query = sb.from("vehicles").select("*, mantenimientos(*)");
     if (soloUsuario) query = query.eq("user_id", soloUsuario);
 
     const { data: vehicles, error: vErr } = await query;
     if (vErr) throw vErr;
 
-    // 2. Notificaciones ya enviadas hoy (solo aplica al cron, no a las pruebas)
     const hoy = new Date().toISOString().slice(0, 10);
     const yaEnviado = new Set<string>();
     if (!esPrueba) {
@@ -70,28 +137,24 @@ serve(async (req) => {
     for (const v of vehicles || []) {
       const avisos: { tipo: string; mensaje: string }[] = [];
 
-      // ITV (30 días)
       const dItv = diasHasta(v.itv);
       if (dItv !== null && dItv <= 30 && !yaEnviado.has(`${v.id}|itv`)) {
         avisos.push({ tipo: "itv",
           mensaje: `La ITV de ${v.matricula} ${dItv < 0 ? `venció hace ${Math.abs(dItv)} días` : `vence en ${dItv} días`} (${v.itv}).` });
       }
 
-      // Seguro (21 días)
       const dSeguro = diasHasta(v.seguro);
       if (dSeguro !== null && dSeguro <= 21 && !yaEnviado.has(`${v.id}|seguro`)) {
         avisos.push({ tipo: "seguro",
           mensaje: `El seguro de ${v.matricula} ${dSeguro < 0 ? `venció hace ${Math.abs(dSeguro)} días` : `vence en ${dSeguro} días`} (${v.seguro}).` });
       }
 
-      // Impuesto (30 días)
       const dImp = diasHasta(v.impuesto);
       if (dImp !== null && dImp <= 30 && !yaEnviado.has(`${v.id}|impuesto`)) {
         avisos.push({ tipo: "impuesto",
           mensaje: `El impuesto (IVTM) de ${v.matricula} ${dImp < 0 ? `venció hace ${Math.abs(dImp)} días` : `vence en ${dImp} días`} (${v.impuesto}).` });
       }
 
-      // Revisión por km del vehículo
       if (v.intervalo_revision_km && v.ultima_revision_km) {
         const proxima = Number(v.ultima_revision_km) + Number(v.intervalo_revision_km);
         const restantes = proxima - (Number(v.km) || 0);
@@ -103,7 +166,6 @@ serve(async (req) => {
         }
       }
 
-      // Mantenimientos programados
       for (const m of v.mantenimientos || []) {
         if (m.proxima_fecha) {
           const d = diasHasta(m.proxima_fecha);
@@ -126,7 +188,6 @@ serve(async (req) => {
         continue;
       }
 
-      // Email del propietario
       const { data: userData, error: uErr } = await sb.auth.admin.getUserById(v.user_id);
       if (uErr || !userData?.user?.email) {
         resultados.push({ vehiculo: v.matricula, error: "Sin email" });
@@ -142,28 +203,13 @@ serve(async (req) => {
           <p style="color:#68738a;font-size:13px">Enviado desde Mi Garaje.</p>
         </div>`;
 
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${RESEND_API_KEY}`,
-        },
-        body: JSON.stringify({
-          from: FROM_EMAIL,
-          to: userData.user.email,
-          subject: `Avisos de mantenimiento — ${v.matricula}`,
-          html,
-        }),
-      });
-
-      if (!res.ok) {
-        const errTxt = await res.text();
-        console.error("Error Resend:", errTxt);
-        resultados.push({ vehiculo: v.matricula, error: errTxt });
+      try {
+        await enviarEmail(userData.user.email, `Avisos de mantenimiento — ${v.matricula}`, html);
+      } catch (e) {
+        resultados.push({ vehiculo: v.matricula, error: e.message });
         continue;
       }
 
-      // Registrar solo si NO es prueba
       if (!esPrueba) {
         const registros = avisos.map(a => ({
           vehicle_id: v.id, tipo: a.tipo, fecha_aviso: hoy,
