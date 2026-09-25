@@ -317,7 +317,7 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
     <div id="content"></div>
   </main>
 
-  <footer class="site">Los datos se guardan en tu cuenta de Supabase.</footer>
+  <footer class="site">Los datos se guardan en tu cuenta de Supabase. Los avisos se envían por email cada mañana.</footer>
 </div>
 
 <div id="modal"></div>
@@ -632,6 +632,19 @@ function renderContent(){
   const partes = [v.marca, v.modelo].filter(Boolean).join(' ');
   const edad = v.anio ? (year - Number(v.anio)) : null;
 
+  // Bloque de revisión por km
+  let revisionHtml = '';
+  if(v.intervalo_revision_km && v.ultima_revision_km){
+    const proxima = Number(v.ultima_revision_km) + Number(v.intervalo_revision_km);
+    const restantes = proxima - (Number(v.km)||0);
+    let cls = 'ok', txt = `Faltan ${kmFmt(restantes)} para la próxima revisión (a los ${kmFmt(proxima)})`;
+    if(restantes <= 0){ cls = 'danger'; txt = `Revisión superada por ${kmFmt(Math.abs(restantes))} (tocaba a los ${kmFmt(proxima)})`; }
+    else if(restantes <= 1000){ cls = 'warn'; txt = `Revisión próxima: faltan ${kmFmt(restantes)} (a los ${kmFmt(proxima)})`; }
+    revisionHtml = `<div class="vehicle-meta" style="margin-top:6px">
+      <span class="badge ${cls}">🔧 ${esc(txt)}</span>
+    </div>`;
+  }
+
   el.innerHTML = `
     <div class="card section">
       <div class="vehicle-head">
@@ -646,6 +659,7 @@ function renderContent(){
             ${v.combustible ? `<span class="dot"></span><span>${esc(v.combustible)}</span>` : ''}
           </div>
           ${v.bastidor ? `<div class="vehicle-meta" style="margin-top:6px"><span>🔩 Bastidor: <code style="font-family:ui-monospace,monospace;background:var(--bg);padding:1px 6px;border-radius:5px;border:1px solid var(--border)">${esc(v.bastidor)}</code></span></div>` : ''}
+          ${revisionHtml}
           ${v.notas ? `<div class="vehicle-meta" style="margin-top:6px"><span>📝 ${esc(v.notas)}</span></div>` : ''}
         </div>
         <div class="km-box">
@@ -853,6 +867,17 @@ function mantRow(m, v){
   return mainRow + detailRow;
 }
 
+/* =========================================================
+   ALERTAS
+   ---------------------------------------------------------
+   Mismas reglas que aplica la Edge Function para el email:
+   · ITV: 30 días antes
+   · Seguro: 21 días antes
+   · Impuesto IVTM: 30 días antes
+   · Revisión por km: 1000 km antes
+   · Mantenimientos con próxima fecha: 30 días antes
+   · Mantenimientos con próximo km: 1000 km antes
+   ========================================================= */
 function getAlerts(v){
   const out = [];
   const check = (label, iso, warnDays) => {
@@ -864,6 +889,21 @@ function getAlerts(v){
   check('ITV', v.itv, 30);
   check('Seguro', v.seguro, 21);
   check('Impuesto de circulación (IVTM)', v.impuesto, 30);
+
+  // Revisión programada por km del vehículo
+  if(v.intervalo_revision_km && v.ultima_revision_km){
+    const proxima = Number(v.ultima_revision_km) + Number(v.intervalo_revision_km);
+    const kmActual = Number(v.km) || 0;
+    const restantes = proxima - kmActual;
+    if(restantes <= 1000){
+      out.push({
+        level: restantes <= 0 ? 'danger' : 'warn',
+        text: restantes <= 0
+          ? `Revisión por km superada por ${kmFmt(Math.abs(restantes))} (tocaba a los ${kmFmt(proxima)})`
+          : `Revisión por km próxima: faltan ${kmFmt(restantes)} (a los ${kmFmt(proxima)})`
+      });
+    }
+  }
 
   (v.mantenimientos || []).forEach(m => {
     if(m.proximaFecha){
@@ -960,6 +1000,19 @@ function openVehicleForm(id){
     </div>
     <div class="hint">El VIN es el número de 17 caracteres que aparece en la ficha técnica y en el permiso de circulación.</div>
 
+    <h4>Revisión por kilometraje (aviso automático)</h4>
+    <div class="grid2">
+      <label>Intervalo de revisión (km)
+        <input name="intervalo_revision_km" type="number" min="0" step="500"
+               value="${esc(v.intervalo_revision_km)}" placeholder="Ej. 15000">
+      </label>
+      <label>Km de la última revisión
+        <input name="ultima_revision_km" type="number" min="0" step="1"
+               value="${esc(v.ultima_revision_km)}" placeholder="Ej. 120000">
+      </label>
+    </div>
+    <div class="hint">Si rellenas estos campos, recibirás un aviso visual y por email cuando estés a menos de 1.000 km de la próxima revisión.</div>
+
     <h4>Permiso de circulación</h4>
     <label>Documento (PDF o imagen)
       <input type="file" name="permiso_file" accept="application/pdf,image/*">
@@ -1027,6 +1080,9 @@ function openVehicleForm(id){
       combustible: fd.get('combustible') || '',
       bastidor:    (fd.get('bastidor') || '').trim().toUpperCase(),
       km:          Number(fd.get('km')) || 0,
+
+      intervalo_revision_km: fd.get('intervalo_revision_km') ? Number(fd.get('intervalo_revision_km')) : null,
+      ultima_revision_km:    fd.get('ultima_revision_km')    ? Number(fd.get('ultima_revision_km'))    : null,
 
       itv:            fd.get('itv') || null,
       itv_precio:     fd.get('itv_precio') ? Number(fd.get('itv_precio')) : null,
@@ -1114,7 +1170,7 @@ function openKmForm(id){
 }
 
 /* =========================================================
-   CRUD mantenimientos (con imágenes en los materiales)
+   CRUD mantenimientos
    ========================================================= */
 function openMantForm(vehicleId, mantId){
   const v = vehicles.find(x => x.id === vehicleId);
