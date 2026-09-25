@@ -1,21 +1,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// 1. Importamos los encabezados CORS directamente desde el SDK.
+//    Esto es lo más seguro para que estén siempre actualizados.
+import { corsHeaders } from "npm:@supabase/supabase-js@^2/cors";
 
 const RESEND_API_KEY = Deno.env.get("sb_publishable_C8wBfWO_rnKjffPtc4DOQA_tkVY7xVo")!;
 const SUPABASE_URL   = Deno.env.get("https://mwzhyozqmsqmfpgtzeek.supabase.co/functions/v1/resend-email")!;
 const SERVICE_ROLE   = Deno.env.get("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13emh5b3pxbXNxbWZwZ3R6ZWVrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDIyMTc4MSwiZXhwIjoyMTA1Nzk3NzgxfQ.3fHK0fq9tRbg__uhtSFs-RrmvZv7bQ5fhdMTfXDtdzU")!;
 
-
 const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
 
 const FROM_EMAIL = "Mi Garaje <avisos@tudominio.com>";
-
-// --- Cabeceras CORS que se añadirán a TODAS las respuestas ---
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*", // Permite cualquier origen (Vercel, local, etc.)
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 function diasHasta(fecha: string | null): number | null {
   if (!fecha) return null;
@@ -42,10 +37,9 @@ async function enviarEmail(to: string, subject: string, html: string) {
 }
 
 serve(async (req) => {
-  // 1. Manejo de la petición preflight (OPTIONS)
-  //    El navegador la envía antes de la petición real. Respondemos 204 y salimos.
+  // 2. Manejamos la petición preflight (OPTIONS) al principio.
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -57,9 +51,9 @@ serve(async (req) => {
     if (token && token !== SERVICE_ROLE) {
       const { data: { user }, error } = await sb.auth.getUser(token);
       if (error || !user) {
-        // Aseguramos que incluso los errores lleven las cabeceras CORS
+        // 3. Aseguramos que incluso los errores lleven los encabezados CORS.
         return new Response(JSON.stringify({ error: "No autenticado" }), {
-          status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       soloUsuario = user.id;
@@ -92,12 +86,12 @@ serve(async (req) => {
           mensaje: "Email de prueba enviado correctamente.",
         }), {
           status: 200,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } catch (e) {
         return new Response(JSON.stringify({ ok: false, error: e.message }), {
           status: 500,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
@@ -122,23 +116,22 @@ serve(async (req) => {
     const resultados: any[] = [];
 
     for (const v of vehicles || []) {
-      // ... (El resto de tu lógica de negocio para generar 'avisos' se mantiene intacta)
+      // ... (Tu lógica de generación de 'avisos' se mantiene intacta)
       // ...
-      // (Por brevedad, asumo que esta parte ya la tienes implementada y funcionando)
     }
 
     return new Response(JSON.stringify({
       ok: true, modo: esPrueba ? "prueba" : "cron", resultados,
     }), {
       status: 200,
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (err) {
     console.error(err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
