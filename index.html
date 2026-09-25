@@ -126,7 +126,7 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .km-box .big{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
 .km-box .lbl{font-size:.74rem;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em}
 
-.docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .doc{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--card);position:relative;overflow:hidden}
 .doc .name{font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .doc .date{font-size:1.15rem;font-weight:700;margin-top:6px}
@@ -142,6 +142,12 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .doc.danger .bar{background:var(--danger)}
 .doc .actions{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
 .doc .no-file{font-size:.72rem;color:var(--muted);font-style:italic;margin-top:10px}
+.doc .doc-extra{
+  margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);
+  display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--text);
+  font-weight:600;letter-spacing:0;text-transform:none;
+}
+.doc .doc-extra .lbl{color:var(--muted);font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.03em;margin-right:4px}
 
 .alert{
   display:flex;gap:10px;align-items:center;padding:11px 14px;border-radius:11px;font-size:.87rem;
@@ -188,7 +194,7 @@ tbody tr:hover{background:var(--bg)}
 }
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .modal{
-  background:var(--card);border-radius:16px;width:100%;max-width:720px;box-shadow:0 24px 60px -12px rgba(0,0,0,.5);
+  background:var(--card);border-radius:16px;width:100%;max-width:760px;box-shadow:0 24px 60px -12px rgba(0,0,0,.5);
   animation:pop .18s ease;margin:auto;
 }
 @keyframes pop{from{transform:translateY(10px) scale(.98);opacity:0}to{transform:none;opacity:1}}
@@ -216,7 +222,7 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .toast.ok{background:#16a34a}
 .toast.error{background:#dc2626}
 
-/* ---------- Materiales ---------- */
+/* Materiales */
 .material-row{
   display:grid;
   grid-template-columns: 90px 2fr 0.7fr 0.9fr 1.4fr auto;
@@ -391,6 +397,14 @@ const TIPOS_MANT = [
   'Frenos (pastillas/discos)','Neumáticos','Batería','Correa de distribución','Bujías',
   'Líquido de frenos','Refrigerante','Aire acondicionado','Revisión oficial',
   'ITV','Escobillas limpiaparabrisas','Suspensión','Embrague','Diagnosis / electrónica','Otros'
+];
+const TIPOS_SEGURO = [
+  'Terceros',
+  'Terceros ampliado',
+  'Terceros con lunas',
+  'Todo riesgo con franquicia',
+  'Todo riesgo sin franquicia',
+  'Otro'
 ];
 
 /* =========================================================
@@ -652,9 +666,19 @@ function renderContent(){
     <div class="section">
       <div class="section-head"><h2>Documentos y obligaciones</h2></div>
       <div class="docs">
-        ${docCard('ITV', v.itv, 30)}
-        ${docCard('Seguro', v.seguro, 21)}
-        ${docCard('Impuesto (IVTM)', v.impuesto, 30)}
+        ${docCard('ITV', v.itv, 30, [
+          v.itv_precio != null && v.itv_precio !== '' ? `<div><span class="lbl">Precio</span> ${money(v.itv_precio)}</div>` : '',
+          v.itv_lugar ? `<div><span class="lbl">Lugar</span> ${esc(v.itv_lugar)}</div>` : ''
+        ].filter(Boolean).join(''))}
+        ${docCard('Seguro', v.seguro, 21, [
+          v.seguro_tipo ? `<div><span class="lbl">Tipo</span> ${esc(v.seguro_tipo)}</div>` : '',
+          v.seguro_compania ? `<div><span class="lbl">Compañía</span> ${esc(v.seguro_compania)}</div>` : '',
+          v.seguro_precio != null && v.seguro_precio !== '' ? `<div><span class="lbl">Precio</span> ${money(v.seguro_precio)}</div>` : ''
+        ].filter(Boolean).join(''))}
+        ${docCard('Impuesto (IVTM)', v.impuesto, 30,
+          v.impuesto_precio != null && v.impuesto_precio !== ''
+            ? `<div><span class="lbl">Precio</span> ${money(v.impuesto_precio)}</div>`
+            : '')}
       </div>
     </div>
 
@@ -716,7 +740,7 @@ function renderContent(){
     b.addEventListener('click', () => verDocumento(b.dataset.verDoc)));
 }
 
-function docCard(nombre, iso, warnDays){
+function docCard(nombre, iso, warnDays, extraHtml){
   const d = daysUntil(iso);
   let cls = 'ok', sub = '';
   if(d === null){ cls = ''; sub = 'Sin fecha'; }
@@ -727,6 +751,7 @@ function docCard(nombre, iso, warnDays){
     <div class="name">${nombre}</div>
     <div class="date">${fmtDate(iso)}</div>
     <div class="sub">${sub}</div>
+    ${extraHtml ? `<div class="doc-extra">${extraHtml}</div>` : ''}
   </div>`;
 }
 
@@ -951,13 +976,43 @@ function openVehicleForm(id){
       ? `<div class="hint">📎 Ya hay un documento subido. Si eliges otro archivo, se reemplazará.</div>`
       : `<div class="hint">Opcional: sube una foto o PDF de la ficha técnica.</div>`}
 
-    <h4>ITV, seguro e impuesto</h4>
+    <h4>ITV</h4>
     <div class="grid3">
       <label>Próxima ITV<input type="date" name="itv" value="${esc(v.itv)}"></label>
-      <label>Vencimiento seguro<input type="date" name="seguro" value="${esc(v.seguro)}"></label>
-      <label>Impuesto (IVTM)<input type="date" name="impuesto" value="${esc(v.impuesto)}"></label>
+      <label>Precio (€)
+        <input type="number" min="0" step="0.01" name="itv_precio" value="${esc(v.itv_precio)}" placeholder="0,00">
+      </label>
+      <label>Dónde la hice
+        <input name="itv_lugar" value="${esc(v.itv_lugar)}" placeholder="Ej. ITV Móstoles">
+      </label>
     </div>
-    <div class="hint">Turismos: primera ITV a los 4 años, cada 2 años hasta los 10 y anual después. El IVTM se paga entre marzo y mayo.</div>
+    <div class="hint">Turismos: primera ITV a los 4 años, cada 2 años hasta los 10 y anual después.</div>
+
+    <h4>Seguro</h4>
+    <div class="grid3">
+      <label>Vencimiento<input type="date" name="seguro" value="${esc(v.seguro)}"></label>
+      <label>Tipo de seguro
+        <select name="seguro_tipo">
+          <option value="">— Selecciona —</option>
+          ${TIPOS_SEGURO.map(t => `<option ${v.seguro_tipo === t ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </label>
+      <label>Precio (€)
+        <input type="number" min="0" step="0.01" name="seguro_precio" value="${esc(v.seguro_precio)}" placeholder="0,00">
+      </label>
+    </div>
+    <label>Compañía aseguradora
+      <input name="seguro_compania" value="${esc(v.seguro_compania)}" placeholder="Ej. Mapfre, Mutua Madrileña, Línea Directa…">
+    </label>
+
+    <h4>Impuesto de circulación (IVTM)</h4>
+    <div class="grid2">
+      <label>Vencimiento<input type="date" name="impuesto" value="${esc(v.impuesto)}"></label>
+      <label>Precio (€)
+        <input type="number" min="0" step="0.01" name="impuesto_precio" value="${esc(v.impuesto_precio)}" placeholder="0,00">
+      </label>
+    </div>
+    <div class="hint">El IVTM se paga normalmente entre marzo y mayo en el ayuntamiento donde esté domiciliado el vehículo.</div>
 
     <label>Notas<textarea name="notas" rows="2" placeholder="Taller habitual, observaciones…">${esc(v.notas)}</textarea></label>
   `;
@@ -972,10 +1027,20 @@ function openVehicleForm(id){
       combustible: fd.get('combustible') || '',
       bastidor:    (fd.get('bastidor') || '').trim().toUpperCase(),
       km:          Number(fd.get('km')) || 0,
-      itv:         fd.get('itv') || null,
-      seguro:      fd.get('seguro') || null,
-      impuesto:    fd.get('impuesto') || null,
-      notas:       (fd.get('notas') || '').trim()
+
+      itv:            fd.get('itv') || null,
+      itv_precio:     fd.get('itv_precio') ? Number(fd.get('itv_precio')) : null,
+      itv_lugar:      (fd.get('itv_lugar') || '').trim(),
+
+      seguro:         fd.get('seguro') || null,
+      seguro_tipo:    fd.get('seguro_tipo') || '',
+      seguro_precio:  fd.get('seguro_precio') ? Number(fd.get('seguro_precio')) : null,
+      seguro_compania:(fd.get('seguro_compania') || '').trim(),
+
+      impuesto:        fd.get('impuesto') || null,
+      impuesto_precio: fd.get('impuesto_precio') ? Number(fd.get('impuesto_precio')) : null,
+
+      notas: (fd.get('notas') || '').trim()
     };
 
     let vehicleId = id;
@@ -1057,7 +1122,6 @@ function openMantForm(vehicleId, mantId){
   const m = mantId ? v.mantenimientos.find(x => x.id === mantId) : {};
   const esNuevo = !mantId;
 
-  // Estado local de los materiales (incluye file temporal y preview)
   let mats = Array.isArray(m.materiales) ? m.materiales.map(x => ({
     id: x.id || uid(),
     nombre:   x.nombre   || '',
@@ -1104,7 +1168,6 @@ function openMantForm(vehicleId, mantId){
   `;
 
   openModal(esNuevo ? 'Nueva intervención' : 'Editar intervención', body, async fd => {
-    // Antes de guardar, subir al Storage las imágenes nuevas
     for(const mat of mats){
       if(mat._file && mat._file.size > 0){
         try{
@@ -1157,7 +1220,6 @@ function openMantForm(vehicleId, mantId){
     toast(esNuevo ? 'Intervención añadida' : 'Intervención actualizada', 'ok');
   }, esNuevo ? 'Añadir' : 'Guardar cambios');
 
-  /* ---------- Editor de materiales ---------- */
   const listEl    = document.getElementById('materiales-list');
   const matTotalEl= document.getElementById('materiales-total');
   const totalEl   = document.getElementById('total-intervencion');
@@ -1204,7 +1266,6 @@ function openMantForm(vehicleId, mantId){
         </div>
       `).join('');
 
-      // Inputs de texto
       listEl.querySelectorAll('input[data-field]').forEach(inp => {
         inp.addEventListener('input', e => {
           const i = Number(e.target.closest('.material-row').dataset.idx);
@@ -1213,12 +1274,10 @@ function openMantForm(vehicleId, mantId){
         });
       });
 
-      // Ver imagen guardada
       listEl.querySelectorAll('[data-ver-doc]').forEach(el => {
         el.addEventListener('click', () => verDocumento(el.dataset.verDoc));
       });
 
-      // Disparar el file input al pulsar el botón "Subir/Cambiar"
       listEl.querySelectorAll('[data-img-trigger]').forEach(b => {
         b.addEventListener('click', () => {
           const i = Number(b.dataset.imgTrigger);
@@ -1227,7 +1286,6 @@ function openMantForm(vehicleId, mantId){
         });
       });
 
-      // Manejo del archivo seleccionado
       listEl.querySelectorAll('.mat-img-input').forEach(inp => {
         inp.addEventListener('change', e => {
           const i = Number(e.target.dataset.idx);
@@ -1239,11 +1297,9 @@ function openMantForm(vehicleId, mantId){
         });
       });
 
-      // Eliminar material
       listEl.querySelectorAll('[data-remove]').forEach(b => {
         b.addEventListener('click', () => {
           const i = Number(b.dataset.remove);
-          // Si tenía imagen guardada, la borramos del Storage
           const mat = mats[i];
           if(mat.imagen && !mat._file){
             borrarDocumento(mat.imagen);
@@ -1278,7 +1334,6 @@ async function deleteMant(vehicleId, mantId){
   if(!m) return;
   if(!confirm(`¿Eliminar la intervención «${m.tipo}» del ${fmtDate(m.fecha)}?`)) return;
 
-  // Borrar las imágenes de los materiales del Storage
   const imgs = (m.materiales || []).map(x => x.imagen).filter(Boolean);
   if(imgs.length) await sb.storage.from(BUCKET).remove(imgs);
 
