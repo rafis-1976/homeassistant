@@ -308,8 +308,13 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .diag-json{
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
   font-size:.76rem;background:var(--bg);border:1px solid var(--border);
-  border-radius:10px;padding:12px;max-height:400px;overflow:auto;white-space:pre-wrap;
+  border-radius:10px;padding:12px;max-height:500px;overflow:auto;white-space:pre-wrap;
   word-break:break-all;color:var(--text);
+}
+.diag-section{margin-bottom:14px}
+.diag-section h5{
+  font-size:.8rem;margin:0 0 6px;color:var(--accent);text-transform:uppercase;
+  letter-spacing:.04em;
 }
 
 #app-view[hidden]{display:none}
@@ -466,7 +471,7 @@ function mantToDB(m, vehicleId){
 let currentUser = null;
 let vehicles = [];
 let selected = null;
-let allHistorialRaw = [];     // Todos los registros crudos de historial_obligaciones
+let allHistorialRaw = [];
 
 const appView   = document.getElementById('app-view');
 const modalRoot = document.getElementById('modal');
@@ -501,7 +506,7 @@ async function entrar(){
   try{
     await loadData();
   }catch(err){
-    console.error('Error cargando datos desde Supabase:', err);
+    console.error('Error cargando datos:', err);
     vehicles = [];
     selected = null;
     setTimeout(() => toast('No se han podido cargar los datos: ' + (err?.message || 'Error'), 'error'), 200);
@@ -520,16 +525,24 @@ async function loadData(){
   ]);
   if(vRes.error) throw vRes.error;
   if(mRes.error) throw mRes.error;
-  if(hRes.error) throw hRes.error;
+
+  // No lanzamos error del historial: lo mostramos en consola y seguimos
+  if(hRes.error){
+    console.error('❌ ERROR al leer historial_obligaciones:', hRes.error);
+    console.error('  Código:', hRes.error.code);
+    console.error('  Mensaje:', hRes.error.message);
+    console.error('  Detalle:', hRes.error.details);
+    console.error('  Hint:', hRes.error.hint);
+    allHistorialRaw = [];
+  } else {
+    allHistorialRaw = hRes.data || [];
+  }
 
   const mantsByVehicle = new Map();
   mRes.data.forEach(m => {
     if(!mantsByVehicle.has(m.vehicle_id)) mantsByVehicle.set(m.vehicle_id, []);
     mantsByVehicle.get(m.vehicle_id).push(mantFromDB(m));
   });
-
-  // Guardamos crudo
-  allHistorialRaw = hRes.data || [];
 
   vehicles = vRes.data.map(v => ({
     ...v,
@@ -541,13 +554,11 @@ async function loadData(){
     selected = vehicles[0]?.id || null;
   }
 
-  console.log('=== CARGA DE DATOS ===');
-  console.log('Vehículos:', vehicles.map(v => ({ id: v.id, matricula: v.matricula })));
-  console.log('Historial crudo total:', allHistorialRaw.length);
-  allHistorialRaw.forEach(h => console.log('  →', { vehicle_id: h.vehicle_id, tipo: h.tipo, fecha: h.fecha, precio: h.precio }));
+  console.log('=== CARGA ===');
+  console.log('Vehículos cargados:', vehicles.length);
+  console.log('Historial cargado:', allHistorialRaw.length);
 }
 
-/* Función central: obtiene registros de un vehículo + tipo desde el crudo */
 function registrosHist(vehicleId, tipo){
   const tipoN = normTipo(tipo);
   return allHistorialRaw.filter(h =>
@@ -590,7 +601,7 @@ async function verDocumento(path){
 async function borrarDocumento(path){
   if(!path) return;
   const { error } = await sb.storage.from(BUCKET).remove([path]);
-  if(error) console.warn('No se pudo borrar el archivo:', error.message);
+  if(error) console.warn('No se pudo borrar:', error.message);
 }
 async function borrarCarpetaVehiculo(vehicleId){
   const prefix = `${currentUser.id}/${vehicleId}`;
@@ -652,7 +663,6 @@ function renderContent(){
   const enAnio = h => (h.fecha||'').startsWith(String(year));
   const enUlt  = h => { const d = daysUntil(h.fecha); return d !== null && d > -365 && d <= 0; };
 
-  // Registros por tipo desde el crudo
   const itvRegs  = registrosHist(v.id, 'itv');
   const segRegs  = registrosHist(v.id, 'seguro');
   const ivtmRegs = registrosHist(v.id, 'ivtm');
@@ -1025,43 +1035,95 @@ function closeModal(){ modalRoot.innerHTML = ''; }
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
 
 /* =========================================================
-   DIAGNÓSTICO
+   DIAGNÓSTICO EN VIVO
    ========================================================= */
-document.getElementById('btn-diag').addEventListener('click', () => {
+document.getElementById('btn-diag').addEventListener('click', async () => {
   const v = vehicles.find(x => x.id === selected);
-  if(!v){ toast('No hay vehículo seleccionado.', 'error'); return; }
-
-  const itvRegs  = registrosHist(v.id, 'itv');
-  const segRegs  = registrosHist(v.id, 'seguro');
-  const ivtmRegs = registrosHist(v.id, 'ivtm');
 
   const info = {
-    'ID del vehículo actual': v.id,
-    'Matrícula': v.matricula,
-    'Total registros historial (crudo)': allHistorialRaw.length,
-    'ITV encontrados': itvRegs.length,
-    'Seguro encontrados': segRegs.length,
-    'IVTM encontrados': ivtmRegs.length,
-    '--- Registros crudos (todos) ---': allHistorialRaw.map(h => ({
-      vehicle_id: h.vehicle_id,
-      tipo_original: h.tipo,
-      tipo_norm: normTipo(h.tipo),
-      fecha: h.fecha,
-      precio: h.precio,
-      coincide_vehiculo: String(h.vehicle_id) === String(v.id)
-    }))
+    'Fecha': new Date().toLocaleString('es-ES'),
+    'Usuario (auth.uid)': currentUser?.id,
+    'Email': currentUser?.email,
+    'Vehículos cargados en memoria': vehicles.length,
+    'Vehículo seleccionado': v ? { id: v.id, matricula: v.matricula, user_id_en_vehiculo: v.user_id } : null,
+    'Historial en memoria (crudo)': allHistorialRaw.length
   };
 
-  console.log('=== DIAGNÓSTICO ===');
-  console.log(info);
+  console.log('=== DIAGNÓSTICO EN VIVO ===');
+  console.log('Info básica:', info);
+
+  // Consulta EN VIVO a historial_obligaciones (sin filtro)
+  const hist = await sb.from('historial_obligaciones').select('*');
+  console.log('Consulta historial_obligaciones (sin filtro):', hist);
+
+  // Consulta EN VIVO a vehicles (para ver user_id)
+  const veh = await sb.from('vehicles').select('id, matricula, user_id');
+  console.log('Consulta vehicles:', veh);
+
+  // Prueba de INSERT
+  let insertResult = null;
+  if(v){
+    const prueba = {
+      vehicle_id: v.id,
+      tipo: 'itv',
+      fecha: todayISO(),
+      proxima_fecha: null,
+      precio: 0.01,
+      lugar: '__DIAGNOSTICO__',
+      notas: 'Registro de prueba para diagnóstico. Bórralo.'
+    };
+    insertResult = await sb.from('historial_obligaciones').insert(prueba).select();
+    console.log('Prueba de INSERT:', insertResult);
+  }
 
   const body = `
-    <h4>Diagnóstico de datos</h4>
-    <div class="hint" style="margin-bottom:8px">Estos son los datos reales que la app tiene cargados ahora mismo:</div>
-    <pre class="diag-json">${esc(JSON.stringify(info, null, 2))}</pre>
+    <h4>1. Estado de la app</h4>
+    <div class="diag-section">
+      <pre class="diag-json">${esc(JSON.stringify(info, null, 2))}</pre>
+    </div>
+
+    <h4>2. Consulta en vivo: historial_obligaciones</h4>
+    <div class="diag-section">
+      <pre class="diag-json">${esc(JSON.stringify({
+        status: hist.status,
+        statusText: hist.statusText,
+        count: hist.data ? hist.data.length : 0,
+        error: hist.error ? {
+          message: hist.error.message,
+          code: hist.error.code,
+          details: hist.error.details,
+          hint: hist.error.hint
+        } : null,
+        data: hist.data
+      }, null, 2))}</pre>
+    </div>
+
+    <h4>3. Consulta en vivo: vehicles</h4>
+    <div class="diag-section">
+      <pre class="diag-json">${esc(JSON.stringify({
+        status: veh.status,
+        count: veh.data ? veh.data.length : 0,
+        error: veh.error ? { message: veh.error.message, code: veh.error.code } : null,
+        data: veh.data
+      }, null, 2))}</pre>
+    </div>
+
+    <h4>4. Prueba de INSERT</h4>
+    <div class="diag-section">
+      <pre class="diag-json">${esc(JSON.stringify({
+        insertado: !insertResult?.error,
+        error: insertResult?.error ? {
+          message: insertResult.error.message,
+          code: insertResult.error.code,
+          details: insertResult.error.details,
+          hint: insertResult.error.hint
+        } : null,
+        data: insertResult?.data
+      }, null, 2))}</pre>
+    </div>
   `;
 
-  openModal('🔍 Diagnóstico', body, async () => { closeModal(); }, 'Cerrar');
+  openModal('🔍 Diagnóstico en vivo', body, async () => { closeModal(); }, 'Cerrar');
 
   setTimeout(() => {
     const submitBtn = document.getElementById('modal-submit');
@@ -1551,15 +1613,15 @@ function openHistorialForm(vehicleId, tipo, registroId){
         notas: (fd.get('notas') || '').trim() || null
       };
 
-      console.log('Guardando registro historial:', data);
+      console.log('Guardando registro:', data);
 
       if(registroId){
         const { error } = await sb.from('historial_obligaciones').update(data).eq('id', registroId);
-        if(error){ console.error('Error actualizando:', error); throw new Error('Error al actualizar: ' + error.message); }
+        if(error){ console.error('Error update:', error); throw new Error('Error al actualizar: ' + error.message); }
       } else {
         const { data: inserted, error } = await sb.from('historial_obligaciones').insert(data).select();
-        if(error){ console.error('Error insertando:', error); throw new Error('Error al guardar: ' + error.message); }
-        console.log('Insertado correctamente:', inserted);
+        if(error){ console.error('Error insert:', error); throw new Error('Error al guardar: ' + error.message); }
+        console.log('Insert OK:', inserted);
       }
 
       if(fd.get('actualizar_vehiculo') && data.proxima_fecha){
