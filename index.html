@@ -312,16 +312,14 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .row-mp-due:hover{background:color-mix(in srgb,var(--warn-bg) 70%,transparent)}
 .row-mp-soon{background:color-mix(in srgb,var(--accent) 6%,transparent)}
 
-.mp-legend{
-  display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;
-  font-size:.78rem;color:var(--muted);
+.mp-panel[hidden]{display:none}
+.mp-toggle{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:9px 14px;border-radius:10px;
+  background:var(--card);border:1px solid var(--border);color:var(--text);
+  font-weight:600;font-size:.88rem;cursor:pointer;
 }
-.mp-legend .lg{display:inline-flex;align-items:center;gap:5px}
-.mp-legend .dotc{width:9px;height:9px;border-radius:50%}
-.mp-legend .dotc.d{background:var(--danger)}
-.mp-legend .dotc.w{background:var(--warn)}
-.mp-legend .dotc.a{background:var(--accent)}
-.mp-legend .dotc.o{background:var(--ok)}
+.mp-toggle:hover{border-color:var(--accent);color:var(--accent)}
 
 .xml-preview{
   margin-top:8px;border:1px dashed var(--border);border-radius:10px;
@@ -435,27 +433,15 @@ function normTipo(t){
 
 /* =========================================================
    Intervalo → km mínima / km máxima
-   ---------------------------------------------------------
-   Ejemplos soportados:
-     "15000 - 30000 km / 12 meses"  → { kmMin: 15000, kmMax: 30000 }
-     "60000 km / 48 meses"          → { kmMin: 60000, kmMax: null }
-     "200000 km"                    → { kmMin: 200000, kmMax: null }
-     "15000 - 30000"                → { kmMin: 15000, kmMax: 30000 }
    ========================================================= */
 function parseIntervaloKm(intervalo){
   if(!intervalo) return { kmMin: null, kmMax: null };
-
-  // Solo la parte de km: descartamos lo que va después del "/" (meses)
   const soloKm = String(intervalo).split('/')[0];
-
-  // Extraer todos los números (admitiendo separadores de miles con punto o espacio)
   const matches = soloKm.match(/\d[\d.,\s]*/g);
   if(!matches) return { kmMin: null, kmMax: null };
-
   const nums = matches
     .map(s => Number(String(s).replace(/[.,\s]/g, '')))
     .filter(n => Number.isFinite(n) && n > 0);
-
   if(!nums.length) return { kmMin: null, kmMax: null };
   if(nums.length === 1) return { kmMin: nums[0], kmMax: null };
   return { kmMin: Math.min(nums[0], nums[1]), kmMax: Math.max(nums[0], nums[1]) };
@@ -463,19 +449,13 @@ function parseIntervaloKm(intervalo){
 
 /* =========================================================
    Estado del mantenimiento según km actual del vehículo
-   ---------------------------------------------------------
-   - vencido:    km > kmMax (o km > kmMin + 10.000 si no hay max)
-   - toca:       dentro del rango [kmMin, kmMax]
-   - proximo:    kmMin - km <= 3000
-   - programado: aún queda mucho
    ========================================================= */
 function estadoMantProg(intervalo, kmActual){
   const { kmMin, kmMax } = parseIntervaloKm(intervalo);
   if(kmMin == null) return { nivel:'muted', orden: 5, etiqueta:'Sin datos', detalle:'' };
 
-  const MARGEN_VENCIDO = 10000; // si no hay kmMax, el vencimiento se calcula kmMin + 10.000
-  const MARGEN_PROXIMO = 3000;  // a partir de aquí ya avisamos "Próximo"
-
+  const MARGEN_VENCIDO = 10000;
+  const MARGEN_PROXIMO = 3000;
   const kMax = kmMax != null ? kmMax : kmMin + MARGEN_VENCIDO;
 
   if(kmActual > kMax){
@@ -512,10 +492,6 @@ function estadoMantProg(intervalo, kmActual){
 
 /* =========================================================
    Parser XML Spreadsheet 2003
-   ---------------------------------------------------------
-   Formatos soportados:
-     · Nuevo:  Kilómetros | Meses | Revisión
-     · Antiguo: Operación | Intervalo | Notas  (Sistema ignorado)
    ========================================================= */
 function parseMantProgXML(xmlText){
   const NS = 'urn:schemas-microsoft-com:office:spreadsheet';
@@ -661,6 +637,7 @@ let vehicles = [];
 let selected = null;
 let allHistorialRaw = [];
 let allMantProg = [];
+let mostrarMantProg = false;   // 👈 toggle de la sección
 
 const appView   = document.getElementById('app-view');
 const modalRoot = document.getElementById('modal');
@@ -985,49 +962,63 @@ function renderContent(){
       </div>
     </div>
 
+    <!-- ===================== MANTENIMIENTO PROGRAMADO (oculto por defecto) ===================== -->
     <div class="section">
       <div class="section-head">
-        <h2>Mantenimiento programado</h2>
-        <div class="spacer"></div>
-        <button class="btn ghost sm" id="btn-import-xml">📥 Importar XML</button>
-        <button class="btn primary sm" id="btn-add-mant-prog">＋ Añadir registro</button>
+        <button type="button" class="mp-toggle" id="btn-toggle-mp">
+          <span id="mp-toggle-icon">${mostrarMantProg ? '▼' : '▶'}</span>
+          <span id="mp-toggle-text">${mostrarMantProg ? 'Ocultar mantenimiento programado' : 'Ver mantenimiento programado'}</span>
+          ${mantProg.length ? `<span class="badge muted">${mantProg.length}</span>` : ''}
+        </button>
+        ${(mantProg.length && mostrarMantProg) ? `
+          <div class="spacer"></div>
+          <button class="btn ghost sm" id="btn-import-xml">📥 Importar XML</button>
+          <button class="btn primary sm" id="btn-add-mant-prog">＋ Añadir registro</button>
+        ` : ''}
       </div>
-      ${mantProg.length ? `
-        <div class="hint" style="margin-bottom:8px">
-          Estado calculado según los <b>${num.format(Number(v.km)||0)} km</b> actuales del vehículo.
-          ${nVencidos ? `<span style="color:var(--danger);font-weight:700">⛔ ${nVencidos} vencido${nVencidos===1?'':'s'}</span>` : ''}
-          ${nToca ? `· <span style="color:var(--warn);font-weight:700">⚠️ ${nToca} para hacer</span>` : ''}
-          ${nProximos ? `· <span style="color:var(--accent);font-weight:700">🔔 ${nProximos} próximo${nProximos===1?'':'s'}</span>` : ''}
-        </div>
-      ` : ''}
-      <div class="card table-wrap">
+
+      <div class="mp-panel" id="mp-panel" ${mostrarMantProg ? '' : 'hidden'}>
         ${mantProg.length ? `
-        <table>
-          <thead><tr>
-            <th>Estado</th><th>Operación</th><th>Intervalo</th><th>Detalle</th><th>Notas</th><th></th>
-          </tr></thead>
-          <tbody>
-            ${mantProg.map(p => `
-              <tr class="${mpRowClass(p)}">
-                <td>${mpBadge(p)}</td>
-                <td><strong>${esc(p.operacion)}</strong></td>
-                <td>${esc(p.intervalo || '—')}</td>
-                <td class="muted" style="font-size:.8rem">${esc(p._est.detalle || '—')}</td>
-                <td class="muted" style="font-size:.8rem">${esc(p.notas || '—')}</td>
-                <td>
-                  <div class="row-actions">
-                    <button class="icon-btn" title="Editar" data-edit-mp="${p.id}">✎</button>
-                    <button class="icon-btn" title="Eliminar" data-del-mp="${p.id}">🗑</button>
-                  </div>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>` : `
-        <div class="empty" style="padding:44px 20px">
-          <div class="emoji">📋</div>
-          <p style="margin-bottom:0">Aún no has cargado el plan de mantenimiento.<br>Puedes importar un XML o añadir registros manualmente.</p>
-        </div>`}
+          <div class="hint" style="margin-bottom:8px">
+            Estado calculado según los <b>${num.format(Number(v.km)||0)} km</b> actuales del vehículo.
+            ${nVencidos ? `<span style="color:var(--danger);font-weight:700">⛔ ${nVencidos} vencido${nVencidos===1?'':'s'}</span>` : ''}
+            ${nToca ? `· <span style="color:var(--warn);font-weight:700">⚠️ ${nToca} para hacer</span>` : ''}
+            ${nProximos ? `· <span style="color:var(--accent);font-weight:700">🔔 ${nProximos} próximo${nProximos===1?'':'s'}</span>` : ''}
+          </div>
+          <div class="card table-wrap">
+            <table>
+              <thead><tr>
+                <th>Estado</th><th>Operación</th><th>Intervalo</th><th>Detalle</th><th>Notas</th><th></th>
+              </tr></thead>
+              <tbody>
+                ${mantProg.map(p => `
+                  <tr class="${mpRowClass(p)}">
+                    <td>${mpBadge(p)}</td>
+                    <td><strong>${esc(p.operacion)}</strong></td>
+                    <td>${esc(p.intervalo || '—')}</td>
+                    <td class="muted" style="font-size:.8rem">${esc(p._est.detalle || '—')}</td>
+                    <td class="muted" style="font-size:.8rem">${esc(p.notas || '—')}</td>
+                    <td>
+                      <div class="row-actions">
+                        <button class="icon-btn" title="Editar" data-edit-mp="${p.id}">✎</button>
+                        <button class="icon-btn" title="Eliminar" data-del-mp="${p.id}">🗑</button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : `
+          <div class="card empty" style="padding:36px 20px">
+            <div class="emoji">📋</div>
+            <p style="margin:10px 0 16px">Aún no has cargado el plan de mantenimiento.</p>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+              <button class="btn ghost" id="btn-import-xml-empty">📥 Importar XML</button>
+              <button class="btn primary" id="btn-add-mant-prog-empty">＋ Añadir registro</button>
+            </div>
+          </div>
+        `}
       </div>
     </div>
 
@@ -1082,8 +1073,27 @@ function renderContent(){
   document.getElementById('btn-del-vehicle').onclick  = () => deleteVehicle(v.id);
   document.getElementById('btn-km').onclick           = () => openKmForm(v.id);
   document.getElementById('btn-add-mant').onclick     = () => openMantForm(v.id);
-  document.getElementById('btn-add-mant-prog').onclick= () => openMantProgForm(v.id);
-  document.getElementById('btn-import-xml').onclick   = () => openImportXMLModal(v.id);
+
+  // Toggle del panel de mantenimiento programado
+  const btnToggleMp = document.getElementById('btn-toggle-mp');
+  if(btnToggleMp){
+    btnToggleMp.addEventListener('click', () => {
+      mostrarMantProg = !mostrarMantProg;
+      render();
+    });
+  }
+
+  // Botones del plan (solo existen si el panel está abierto)
+  const btnImportXml = document.getElementById('btn-import-xml');
+  if(btnImportXml) btnImportXml.onclick = () => openImportXMLModal(v.id);
+  const btnAddMp = document.getElementById('btn-add-mant-prog');
+  if(btnAddMp) btnAddMp.onclick = () => openMantProgForm(v.id);
+
+  // Botones de la vista vacía del plan
+  const btnImportXmlEmpty = document.getElementById('btn-import-xml-empty');
+  if(btnImportXmlEmpty) btnImportXmlEmpty.onclick = () => openImportXMLModal(v.id);
+  const btnAddMpEmpty = document.getElementById('btn-add-mant-prog-empty');
+  if(btnAddMpEmpty) btnAddMpEmpty.onclick = () => openMantProgForm(v.id);
 
   el.querySelectorAll('[data-edit-mant]').forEach(b => b.onclick = () => openMantForm(v.id, b.dataset.editMant));
   el.querySelectorAll('[data-del-mant]').forEach(b => b.onclick = () => deleteMant(v.id, b.dataset.delMant));
@@ -1214,6 +1224,11 @@ function mantRow(m, v){
 
 /* =========================================================
    Alertas
+   ---------------------------------------------------------
+   · ITV, Seguro, IVTM por fecha
+   · Revisión por km del vehículo
+   · Próximo aviso de cada intervención del historial
+   ⚠️ Se han ELIMINADO los avisos del plan de mantenimiento programado.
    ========================================================= */
 function getAlerts(v){
   const out = [];
@@ -1252,16 +1267,6 @@ function getAlerts(v){
       if(rest <= 1000)
         out.push({ level: rest <= 0 ? 'danger' : 'warn',
                    text: `${m.tipo || 'Mantenimiento'} ${rest <= 0 ? 'superado por ' + kmFmt(Math.abs(rest)) : 'en ' + kmFmt(rest)}` });
-    }
-  });
-
-  // Avisos según el plan de mantenimiento programado (Vencidos y Toca)
-  registrosMantProg(v.id).forEach(p => {
-    const est = estadoMantProg(p.intervalo, v.km);
-    if(est.nivel === 'danger'){
-      out.push({ level:'danger', text:`Plan: "${p.operacion}" vencido (${est.detalle})` });
-    } else if(est.nivel === 'warn'){
-      out.push({ level:'warn', text:`Plan: "${p.operacion}" ${est.detalle.toLowerCase()}` });
     }
   });
 
