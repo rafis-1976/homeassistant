@@ -6,6 +6,7 @@
 <title>Mi Garaje — Control de mantenimiento</title>
 <script>window.process = window.process || { env: {} };</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="config.js"></script>
 <style>
 :root{--bg:#f4f6fa;--card:#ffffff;--text:#131a2b;--muted:#68738a;--border:#e2e7f0;--accent:#2563eb;--accent-dark:#1d4ed8;--ok:#16a34a;--ok-bg:#e8f7ee;--warn:#b45309;--warn-bg:#fef3c7;--danger:#dc2626;--danger-bg:#fee2e2;--radius:14px;--shadow:0 1px 2px rgba(16,24,40,.05),0 12px 28px -16px rgba(16,24,40,.25)}
@@ -190,6 +191,13 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .xml-preview td,.xml-preview th{padding:4px 8px}
 .xml-preview .ok{color:var(--ok);font-weight:700}
 .xml-preview code{background:var(--card);padding:1px 5px;border-radius:4px;border:1px solid var(--border);font-size:.74rem}
+/* Repostajes */
+.rep-chart-wrap{position:relative;height:280px;margin-top:12px}
+.rep-chart-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.rep-chart-tab{border:1px solid var(--border);background:var(--card);color:var(--muted);padding:6px 14px;border-radius:999px;font-weight:700;font-size:.8rem;cursor:pointer;transition:.15s}
+.rep-chart-tab:hover{border-color:var(--accent);color:var(--accent)}
+.rep-chart-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.rep-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:12px}
 #app-view[hidden]{display:none}
 </style>
 </head>
@@ -254,7 +262,6 @@ function parseIntervaloKm(intervalo){
   if(nums.length === 1) return { kmMin: nums[0], kmMax: null };
   return { kmMin: Math.min(nums[0], nums[1]), kmMax: Math.max(nums[0], nums[1]) };
 }
-
 function estadoMantProg(intervalo, kmActual){
   const { kmMin, kmMax } = parseIntervaloKm(intervalo);
   if(kmMin == null) return { nivel:'muted', orden: 5, etiqueta:'Sin datos', detalle:'' };
@@ -265,7 +272,6 @@ function estadoMantProg(intervalo, kmActual){
   if(kmMin - kmActual <= MARGEN_PROXIMO) return { nivel: 'accent', orden: 2, etiqueta: 'Próximo', detalle: `Faltan ${num.format(kmMin - kmActual)} km` };
   return { nivel: 'ok', orden: 3, etiqueta: 'Programado', detalle: `Faltan ${num.format(kmMin - kmActual)} km` };
 }
-
 function parseMantProgXML(xmlText){
   const NS = 'urn:schemas-microsoft-com:office:spreadsheet';
   if(xmlText.charCodeAt(0) === 0xFEFF) xmlText = xmlText.slice(1);
@@ -317,6 +323,7 @@ const TIPOS_MANT = ['Cambio de aceite y filtros','Filtro de aire','Filtro de com
 const TIPOS_SEGURO = ['Terceros','Terceros ampliado','Terceros con lunas','Todo riesgo con franquicia','Todo riesgo sin franquicia','Otro'];
 const PLAZOS_SEGURO = ['Anual','Semestral','Cuatrimestral','Trimestral','Mensual','Otro'];
 const TIPOS_HIST_LABEL = { itv: 'ITV', seguro: 'Seguro', ivtm: 'Impuesto (IVTM)' };
+const TIPOS_REPOSTAJE = ['Gasolina 95','Gasolina 98','Diésel','Diésel+','GLP','GNC','Recarga eléctrica','Otro'];
 
 function mantFromDB(row){
   return { id: row.id, tipo: row.tipo || '', fecha: row.fecha || '', km: row.km ?? '', coste: row.coste ?? 0, taller: row.taller || '', proximaFecha: row.proxima_fecha || '', proximoKm: row.proximo_km ?? '', notas: row.notas || '', materiales: Array.isArray(row.materiales) ? row.materiales : [] };
@@ -343,8 +350,10 @@ function mantToDB(m, vehicleId){
    Estado
    ========================================================= */
 let currentUser = null, vehicles = [], selected = null;
-let allHistorialRaw = [], allMantProg = [], allRecambios = [];
+let allHistorialRaw = [], allMantProg = [], allRecambios = [], allRepostajes = [];
 let mostrarMantProg = false;
+let repVista = 'mensual';   // 'semanal' | 'mensual' | 'anual'
+let repChartInstance = null;
 const appView = document.getElementById('app-view');
 const modalRoot = document.getElementById('modal');
 
@@ -371,18 +380,22 @@ async function entrar(){
 }
 
 async function loadData(){
-  const [vRes, mRes, hRes, pRes, rRes] = await Promise.all([
+  const [vRes, mRes, hRes, pRes, rRes, fRes] = await Promise.all([
     sb.from('vehicles').select('*').order('created_at', { ascending: true }),
     sb.from('mantenimientos').select('*').order('created_at', { ascending: true }),
     sb.from('historial_obligaciones').select('*').order('fecha', { ascending: false }),
     sb.from('mantenimiento_programado').select('*').order('orden', { ascending: true }),
-    sb.from('recambios').select('*').order('orden', { ascending: true })
+    sb.from('recambios').select('*').order('orden', { ascending: true }),
+    sb.from('repostajes').select('*').order('fecha', { ascending: false })
   ]);
   if(vRes.error) throw vRes.error;
   if(mRes.error) throw mRes.error;
   allHistorialRaw = hRes.error ? [] : (hRes.data || []);
   allMantProg = pRes.error ? [] : (pRes.data || []);
   allRecambios = rRes.error ? [] : (rRes.data || []);
+  allRepostajes = fRes.error ? [] : (fRes.data || []);
+  if(fRes.error) console.error('Error repostajes:', fRes.error);
+
   const mantsByVehicle = new Map();
   mRes.data.forEach(m => { if(!mantsByVehicle.has(m.vehicle_id)) mantsByVehicle.set(m.vehicle_id, []); mantsByVehicle.get(m.vehicle_id).push(mantFromDB(m)); });
   vehicles = vRes.data.map(v => ({ ...v, km: Number(v.km) || 0, mantenimientos: mantsByVehicle.get(v.id) || [] }));
@@ -392,6 +405,7 @@ async function loadData(){
 function registrosHist(vehicleId, tipo){ const t = normTipo(tipo); return allHistorialRaw.filter(h => String(h.vehicle_id) === String(vehicleId) && normTipo(h.tipo) === t); }
 function registrosMantProg(vehicleId){ return allMantProg.filter(p => String(p.vehicle_id) === String(vehicleId)); }
 function registrosRecambios(vehicleId){ return allRecambios.filter(r => String(r.vehicle_id) === String(vehicleId)); }
+function registrosRepostajes(vehicleId){ return allRepostajes.filter(r => String(r.vehicle_id) === String(vehicleId)); }
 
 /* =========================================================
    Storage
@@ -487,9 +501,17 @@ function renderContent(){
   const ivtmTotal = ivtmHistTotal > 0 ? ivtmHistTotal : (Number(v.impuesto_precio)||0);
   const ivtmAnio = ivtmHistTotal > 0 ? sumRegs(ivtmRegs, enAnio) : (Number(v.impuesto_precio)||0);
   const ivtmUlt = ivtmHistTotal > 0 ? sumRegs(ivtmRegs, enUlt) : (Number(v.impuesto_precio)||0);
-  const totalGasto = mantTotal + itvTotal + segTotal + ivtmTotal;
-  const gastoAnio = mantAnio + itvAnio + segAnio + ivtmAnio;
-  const gastoUlt = mantUlt + itvUlt + segUlt + ivtmUlt;
+
+  // Repostajes
+  const reps = registrosRepostajes(v.id);
+  const repTotal = reps.reduce((s,r) => s + (Number(r.coste_total)||0), 0);
+  const repAnio = reps.filter(enAnio).reduce((s,r) => s + (Number(r.coste_total)||0), 0);
+  const repUlt = reps.filter(enUlt).reduce((s,r) => s + (Number(r.coste_total)||0), 0);
+
+  const totalGasto = mantTotal + itvTotal + segTotal + ivtmTotal + repTotal;
+  const gastoAnio = mantAnio + itvAnio + segAnio + ivtmAnio + repAnio;
+  const gastoUlt = mantUlt + itvUlt + segUlt + ivtmUlt + repUlt;
+
   const partes = [v.marca, v.modelo].filter(Boolean).join(' ');
   const edad = v.anio ? (year - Number(v.anio)) : null;
 
@@ -517,6 +539,7 @@ function renderContent(){
   };
 
   const recambios = registrosRecambios(v.id);
+  const repostajes = [...reps].sort((a,b) => (b.fecha || '').localeCompare(a.fecha || ''));
 
   el.innerHTML = `
     <div class="card section">
@@ -636,9 +659,72 @@ function renderContent(){
       </div>
       <div class="expense-breakdown">
         <span class="exp-item"><span class="exp-lbl">🔧 Mantenimiento</span><strong>${money(mantTotal)}</strong></span>
+        <span class="exp-item"><span class="exp-lbl">⛽ Repostajes</span><strong>${money(repTotal)}</strong></span>
         <span class="exp-item"><span class="exp-lbl">📋 ITV</span><strong>${money(itvTotal)}</strong></span>
         <span class="exp-item"><span class="exp-lbl">🛡 Seguro</span><strong>${money(segTotal)}</strong></span>
         <span class="exp-item"><span class="exp-lbl">💰 IVTM</span><strong>${money(ivtmTotal)}</strong></span>
+      </div>
+    </div>
+
+    <!-- ===================== REPOSTAJES / RECARGAS ===================== -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Repostajes / Recargas</h2>
+        ${repostajes.length ? `<span class="badge muted">${repostajes.length}</span>` : ''}
+        <div class="spacer"></div>
+        <button class="btn primary sm" id="btn-add-rep">＋ Añadir repostaje</button>
+      </div>
+
+      ${repostajes.length ? `
+        <div class="card" style="padding:16px;margin-bottom:12px">
+          <div class="section-head" style="margin-bottom:6px">
+            <h3 style="font-size:.92rem">Gasto de combustible / recarga</h3>
+            <div class="spacer"></div>
+            <div class="rep-chart-tabs">
+              <button type="button" class="rep-chart-tab ${repVista==='semanal'?'active':''}" data-rep-vista="semanal">Semanal</button>
+              <button type="button" class="rep-chart-tab ${repVista==='mensual'?'active':''}" data-rep-vista="mensual">Mensual</button>
+              <button type="button" class="rep-chart-tab ${repVista==='anual'?'active':''}" data-rep-vista="anual">Anual</button>
+            </div>
+          </div>
+          <div class="rep-chart-wrap"><canvas id="rep-chart"></canvas></div>
+          <div class="rep-stats">
+            <div class="stat"><div class="k">Total gastado</div><div class="v">${money(repTotal)}</div></div>
+            <div class="stat"><div class="k">Este año</div><div class="v">${money(repAnio)}</div></div>
+            <div class="stat"><div class="k">Últimos 12 meses</div><div class="v">${money(repUlt)}</div></div>
+            <div class="stat"><div class="k">Media por repostaje</div><div class="v">${money(repostajes.length ? repTotal / repostajes.length : 0)}</div></div>
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="card table-wrap">
+        ${repostajes.length ? `
+          <table>
+            <thead><tr>
+              <th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Precio unit.</th><th>Total</th><th>Km</th><th>Estación</th><th></th>
+            </tr></thead>
+            <tbody>
+              ${repostajes.map(r => {
+                const esElectrico = normTipo(r.tipo).includes('eléctric') || normTipo(r.tipo).includes('electric');
+                const unidad = esElectrico ? 'kWh' : 'L';
+                return `<tr>
+                  <td>${fmtDate(r.fecha)}</td>
+                  <td><span class="tag">${esc(r.tipo || '—')}</span></td>
+                  <td>${r.cantidad != null && r.cantidad !== '' ? num.format(Number(r.cantidad)) + ' ' + unidad : '<span class="muted">—</span>'}</td>
+                  <td>${r.precio_unitario != null && r.precio_unitario !== '' ? money(r.precio_unitario) + '/' + unidad : '<span class="muted">—</span>'}</td>
+                  <td><strong>${money(r.coste_total)}</strong></td>
+                  <td>${r.km ? kmFmt(r.km) : '<span class="muted">—</span>'}</td>
+                  <td>${r.estacion ? esc(r.estacion) : '<span class="muted">—</span>'}</td>
+                  <td><div class="row-actions"><button class="icon-btn" data-edit-rep="${r.id}">✎</button><button class="icon-btn" data-del-rep="${r.id}">🗑</button></div></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        ` : `
+          <div class="empty" style="padding:36px 20px">
+            <div class="emoji">⛽</div>
+            <p style="margin-bottom:0">Aún no has añadido repostajes.<br>Añade tus repostajes o recargas para ver la gráfica de gasto.</p>
+          </div>
+        `}
       </div>
     </div>
 
@@ -697,6 +783,7 @@ function renderContent(){
   document.getElementById('btn-km').onclick = () => openKmForm(v.id);
   document.getElementById('btn-add-mant').onclick = () => openMantForm(v.id);
   document.getElementById('btn-add-recambio').onclick = () => openRecambioForm(v.id);
+  document.getElementById('btn-add-rep').onclick = () => openRepostajeForm(v.id);
 
   const btnToggleMp = document.getElementById('btn-toggle-mp');
   if(btnToggleMp) btnToggleMp.addEventListener('click', () => { mostrarMantProg = !mostrarMantProg; render(); });
@@ -715,10 +802,128 @@ function renderContent(){
   el.querySelectorAll('[data-del-mp]').forEach(b => b.onclick = () => deleteMantProg(v.id, b.dataset.delMp));
   el.querySelectorAll('[data-edit-rec]').forEach(b => b.onclick = () => openRecambioForm(v.id, b.dataset.editRec));
   el.querySelectorAll('[data-del-rec]').forEach(b => b.onclick = () => deleteRecambio(v.id, b.dataset.delRec));
+  el.querySelectorAll('[data-edit-rep]').forEach(b => b.onclick = () => openRepostajeForm(v.id, b.dataset.editRep));
+  el.querySelectorAll('[data-del-rep]').forEach(b => b.onclick = () => deleteRepostaje(v.id, b.dataset.delRep));
   el.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', () => { const row = document.getElementById(b.dataset.toggle); if(row) row.hidden = !row.hidden; }));
   el.querySelectorAll('[data-ver-doc]').forEach(b => b.addEventListener('click', () => verDocumento(b.dataset.verDoc)));
   el.querySelectorAll('[data-add-hist]').forEach(b => b.addEventListener('click', () => openHistorialForm(v.id, normTipo(b.dataset.addHist))));
   el.querySelectorAll('[data-ver-hist]').forEach(b => b.addEventListener('click', () => openHistorialList(v.id, normTipo(b.dataset.verHist))));
+
+  // Tabs de la gráfica
+  el.querySelectorAll('[data-rep-vista]').forEach(b => b.addEventListener('click', () => {
+    repVista = b.dataset.repVista;
+    render();
+  }));
+
+  // Pintar la gráfica si hay repostajes
+  if(repostajes.length && document.getElementById('rep-chart')){
+    setTimeout(() => dibujarGraficaRepostajes(repostajes), 40);
+  }
+}
+
+/* =========================================================
+   Gráfica de repostajes
+   ========================================================= */
+function dibujarGraficaRepostajes(repostajes){
+  const canvas = document.getElementById('rep-chart');
+  if(!canvas || typeof Chart === 'undefined') return;
+
+  if(repChartInstance){ try { repChartInstance.destroy(); } catch(e){} repChartInstance = null; }
+
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const labels = [];
+  const values = [];
+
+  const fmtISO = d => { const x = new Date(d.getTime() - d.getTimezoneOffset()*60000); return x.toISOString().slice(0,10); };
+  const fmtShort = iso => { const [y,m,d] = iso.split('-'); return `${d}/${m}`; };
+
+  if(repVista === 'semanal'){
+    // Últimos 7 días
+    const dias = [];
+    for(let i = 6; i >= 0; i--){
+      const d = new Date(hoy); d.setDate(d.getDate() - i);
+      dias.push(fmtISO(d));
+    }
+    dias.forEach(iso => { labels.push(fmtShort(iso)); values.push(0); });
+    repostajes.forEach(r => { const i = dias.indexOf(r.fecha); if(i >= 0) values[i] += Number(r.coste_total)||0; });
+  }
+  else if(repVista === 'mensual'){
+    // Últimos 30 días, agrupado por semana (4 semanas) o por día. Haremos por día, mostrando cada 3
+    const dias = [];
+    for(let i = 29; i >= 0; i--){
+      const d = new Date(hoy); d.setDate(d.getDate() - i);
+      dias.push(fmtISO(d));
+    }
+    // Agrupamos por semana relativa (0 = semana actual, 1 = anterior, ...)
+    const buckets = [0, 0, 0, 0, 0]; // hasta 5 semanas atrás
+    dias.forEach((iso, idx) => {
+      const semana = Math.floor((dias.length - 1 - idx) / 7);
+      const valor = repostajes.filter(r => r.fecha === iso).reduce((s,r) => s + (Number(r.coste_total)||0), 0);
+      buckets[semana] += valor;
+    });
+    const nombres = ['Esta semana', 'Hace 1 sem.', 'Hace 2 sem.', 'Hace 3 sem.', 'Hace 4 sem.'];
+    for(let i = 0; i < 5; i++){
+      labels.push(nombres[i]);
+      values.push(buckets[i] || 0);
+    }
+  }
+  else {
+    // Anual: últimos 12 meses, agrupados por mes
+    const meses = [];
+    for(let i = 11; i >= 0; i--){
+      const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      meses.push({ key: `${y}-${m}`, label: `${m}/${String(y).slice(2)}` });
+    }
+    meses.forEach(mm => { labels.push(mm.label); values.push(0); });
+    repostajes.forEach(r => {
+      if(!r.fecha) return;
+      const key = r.fecha.slice(0,7);
+      const i = meses.findIndex(mm => mm.key === key);
+      if(i >= 0) values[i] += Number(r.coste_total)||0;
+    });
+  }
+
+  const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const textColor = isDark ? '#e8edf7' : '#131a2b';
+  const gridColor = isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)';
+
+  repChartInstance = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Gasto (€)',
+        data: values,
+        backgroundColor: isDark ? 'rgba(59,130,246,.65)' : 'rgba(37,99,235,.7)',
+        borderColor: isDark ? '#3b82f6' : '#2563eb',
+        borderWidth: 1,
+        borderRadius: 6,
+        maxBarThickness: 60
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => money(ctx.parsed.y)
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: textColor, font: { size: 11 } }, grid: { display: false } },
+        y: {
+          beginAtZero: true,
+          ticks: { color: textColor, callback: v => money(v) },
+          grid: { color: gridColor }
+        }
+      }
+    }
+  });
 }
 
 function docCard(nombre, iso, warnDays, extraHtml, acciones){
@@ -829,6 +1034,87 @@ function closeModal(){ modalRoot.innerHTML = ''; }
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
 
 /* =========================================================
+   Repostajes
+   ========================================================= */
+function openRepostajeForm(vehicleId, repId){
+  const reg = repId ? allRepostajes.find(r => r.id === repId) : null;
+  const esNuevo = !reg;
+  const fechaVal = reg?.fecha || todayISO();
+  const body = `
+    <div class="grid2">
+      <label>Fecha<input type="date" name="fecha" value="${esc(fechaVal)}" required></label>
+      <label>Tipo
+        <select name="tipo" required>
+          ${TIPOS_REPOSTAJE.map(t => `<option ${reg?.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </label>
+    </div>
+    <div class="grid3">
+      <label>Cantidad (L o kWh)<input name="cantidad" type="number" step="0.01" min="0" value="${esc(reg?.cantidad)}" placeholder="Ej. 45.20"></label>
+      <label>Precio unit. (€/L · €/kWh)<input name="precio_unitario" type="number" step="0.001" min="0" value="${esc(reg?.precio_unitario)}" placeholder="Ej. 1.599"></label>
+      <label>Coste total (€)<input name="coste_total" id="rep-coste" type="number" step="0.01" min="0" value="${esc(reg?.coste_total)}"></label>
+    </div>
+    <div class="hint">Si rellenas cantidad y precio unitario, el coste total se calcula automáticamente. Puedes editarlo manualmente.</div>
+    <div class="grid2">
+      <label>Kilómetros (odómetro)<input name="km" type="number" min="0" step="1" value="${esc(reg?.km)}"></label>
+      <label>Estación / Lugar<input name="estacion" value="${esc(reg?.estacion)}" placeholder="Ej. Repsol, Iberdrola…"></label>
+    </div>
+    <label>Notas<textarea name="notas" rows="2">${esc(reg?.notas)}</textarea></label>`;
+
+  openModal(esNuevo ? 'Nuevo repostaje / recarga' : 'Editar repostaje', body, async fd => {
+    const cantidad = fd.get('cantidad') ? Number(fd.get('cantidad')) : null;
+    const precio = fd.get('precio_unitario') ? Number(fd.get('precio_unitario')) : null;
+    let coste = fd.get('coste_total') ? Number(fd.get('coste_total')) : 0;
+    // Si no se ha puesto coste y tenemos cantidad y precio, calcularlo
+    if(!coste && cantidad != null && precio != null) coste = cantidad * precio;
+
+    const data = {
+      vehicle_id: vehicleId,
+      fecha: fd.get('fecha') || null,
+      tipo: (fd.get('tipo') || 'Otro').trim(),
+      cantidad,
+      precio_unitario: precio,
+      coste_total: coste,
+      km: fd.get('km') ? Number(fd.get('km')) : null,
+      estacion: (fd.get('estacion') || '').trim() || null,
+      notas: (fd.get('notas') || '').trim() || null
+    };
+    if(reg){ const { error } = await sb.from('repostajes').update(data).eq('id', reg.id); if(error) throw error; }
+    else { const { error } = await sb.from('repostajes').insert(data); if(error) throw error; }
+
+    // Si los km del repostaje superan los del vehículo, actualizar
+    if(data.km && Number(data.km) > (Number(vehicles.find(v => v.id === vehicleId)?.km) || 0)){
+      await sb.from('vehicles').update({ km: Number(data.km) }).eq('id', vehicleId);
+    }
+
+    await loadData(); closeModal(); render();
+    toast(reg ? 'Repostaje actualizado' : 'Repostaje añadido', 'ok');
+  }, esNuevo ? 'Añadir' : 'Guardar cambios');
+
+  setTimeout(() => {
+    const cantidadInput = document.querySelector('#modal-form [name="cantidad"]');
+    const precioInput = document.querySelector('#modal-form [name="precio_unitario"]');
+    const costeInput = document.getElementById('rep-coste');
+    if(!cantidadInput || !precioInput || !costeInput) return;
+    const recalcular = () => {
+      const c = Number(cantidadInput.value) || 0;
+      const p = Number(precioInput.value) || 0;
+      if(c > 0 && p > 0) costeInput.value = (c * p).toFixed(2);
+    };
+    cantidadInput.addEventListener('input', recalcular);
+    precioInput.addEventListener('input', recalcular);
+  }, 60);
+}
+
+async function deleteRepostaje(vehicleId, repId){
+  const reg = allRepostajes.find(r => r.id === repId); if(!reg) return;
+  if(!confirm(`¿Eliminar el repostaje del ${fmtDate(reg.fecha)} (${money(reg.coste_total)})?`)) return;
+  const { error } = await sb.from('repostajes').delete().eq('id', repId);
+  if(error) return toast('Error: ' + error.message, 'error');
+  await loadData(); render(); toast('Repostaje eliminado', 'ok');
+}
+
+/* =========================================================
    CRUD vehículos
    ========================================================= */
 function openVehicleForm(id){
@@ -856,7 +1142,7 @@ function openVehicleForm(id){
     </div>
     <h4>Mantenimiento programado (XML)</h4>
     <label>Archivo XML de Excel<input type="file" name="mant_prog_file" id="mant-prog-file" accept=".xml,application/xml,text/xml"></label>
-    <div class="hint">Columnas: <code>Kilómetros</code> · <code>Meses</code> · <code>Revisión</code> (también <code>Operación</code> · <code>Intervalo</code> · <code>Notas</code>). ${esNuevo ? '' : `Este vehículo ya tiene <b>${mantProg.length}</b> registro${mantProg.length===1?'':'s'}.`}</div>
+    <div class="hint">Columnas: <code>Kilómetros</code> · <code>Meses</code> · <code>Revisión</code>. ${esNuevo ? '' : `Este vehículo ya tiene <b>${mantProg.length}</b> registro${mantProg.length===1?'':'s'}.`}</div>
     ${!esNuevo ? `<div class="hint" style="padding-bottom:8px"><label style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-weight:600;font-size:.85rem"><input type="checkbox" name="reemplazar_mant_prog" checked> Reemplazar el plan actual</label></div>` : ''}
     <div id="xml-preview-container"></div>
     <h4>Permiso de circulación</h4>
@@ -867,14 +1153,10 @@ function openVehicleForm(id){
   let xmlParsed = null;
   openModal(esNuevo ? 'Nuevo vehículo' : 'Editar vehículo', body, async fd => {
     const data = {
-      nombre: (fd.get('nombre') || '').trim(),
-      matricula: (fd.get('matricula') || '').trim().toUpperCase(),
-      marca: (fd.get('marca') || '').trim(),
-      modelo: (fd.get('modelo') || '').trim(),
-      anio: (fd.get('anio') || '').trim(),
-      combustible: fd.get('combustible') || '',
-      bastidor: (fd.get('bastidor') || '').trim().toUpperCase(),
-      km: Number(fd.get('km')) || 0,
+      nombre: (fd.get('nombre') || '').trim(), matricula: (fd.get('matricula') || '').trim().toUpperCase(),
+      marca: (fd.get('marca') || '').trim(), modelo: (fd.get('modelo') || '').trim(),
+      anio: (fd.get('anio') || '').trim(), combustible: fd.get('combustible') || '',
+      bastidor: (fd.get('bastidor') || '').trim().toUpperCase(), km: Number(fd.get('km')) || 0,
       intervalo_revision_km: fd.get('intervalo_revision_km') ? Number(fd.get('intervalo_revision_km')) : null,
       ultima_revision_km: fd.get('ultima_revision_km') ? Number(fd.get('ultima_revision_km')) : null,
       notas: (fd.get('notas') || '').trim()
@@ -905,9 +1187,9 @@ function openVehicleForm(id){
           const objs = parseMantProgXML(ev.target.result);
           xmlParsed = objs;
           if(!objs.length){ pc.innerHTML = '<div class="xml-preview">⚠️ No se han detectado filas válidas.</div>'; return; }
-          const preview = objs.slice(0, 8).map(o => `<tr><td>${esc(o.operacion)}</td><td>${esc(o.intervalo || '—')}</td><td>${esc((o.notas || '').slice(0, 60))}</td></tr>`).join('');
-          pc.innerHTML = `<div class="xml-preview"><div class="ok">✓ ${objs.length} registro${objs.length===1?'':'s'}</div><table style="margin-top:8px"><thead><tr><th>Operación</th><th>Intervalo</th><th>Notas</th></tr></thead><tbody>${preview}</tbody></table>${objs.length > 8 ? `<div class="hint" style="margin-top:6px">... y ${objs.length - 8} más.</div>` : ''}</div>`;
-        } catch(err){ console.error(err); xmlParsed = null; pc.innerHTML = '<div class="xml-preview">❌ Error: ' + esc(err.message) + '</div>'; }
+          const preview = objs.slice(0, 8).map(o => `<tr><td>${esc(o.operacion)}</td><td>${esc(o.intervalo || '—')}</td></tr>`).join('');
+          pc.innerHTML = `<div class="xml-preview"><div class="ok">✓ ${objs.length} registros</div><table style="margin-top:8px"><thead><tr><th>Operación</th><th>Intervalo</th></tr></thead><tbody>${preview}</tbody></table></div>`;
+        } catch(err){ console.error(err); xmlParsed = null; pc.innerHTML = '<div class="xml-preview">❌ ' + esc(err.message) + '</div>'; }
       };
       r.readAsText(file, 'UTF-8');
     });
@@ -921,8 +1203,7 @@ async function deleteVehicle(id){
   const { error } = await sb.from('vehicles').delete().eq('id', id);
   if(error) return toast('Error: ' + error.message, 'error');
   if(selected === id) selected = null;
-  await loadData(); render();
-  toast('Vehículo eliminado', 'ok');
+  await loadData(); render(); toast('Vehículo eliminado', 'ok');
 }
 
 function openKmForm(id){
@@ -963,7 +1244,7 @@ async function deleteMantProg(vehicleId, registroId){
 function openImportXMLModal(vehicleId){
   const actuales = registrosMantProg(vehicleId).length;
   const body = `
-    <div class="hint" style="margin-bottom:6px">Columnas: <code>Kilómetros</code> · <code>Meses</code> · <code>Revisión</code>. Actualmente hay <b>${actuales}</b> registros.</div>
+    <div class="hint" style="margin-bottom:6px">Actuales: <b>${actuales}</b>.</div>
     <label>Archivo XML<input type="file" name="xml" id="import-xml-file" accept=".xml,application/xml,text/xml" required></label>
     <div style="padding-top:6px"><label style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-weight:600;font-size:.85rem"><input type="checkbox" name="reemplazar" checked> Reemplazar el plan actual</label></div>
     <div id="import-xml-preview"></div>`;
@@ -987,8 +1268,7 @@ function openImportXMLModal(vehicleId){
         try {
           const objs = parseMantProgXML(ev.target.result); xmlParsed = objs;
           if(!objs.length){ prev.innerHTML = '<div class="xml-preview">⚠️ Sin filas válidas.</div>'; return; }
-          const rows = objs.slice(0, 8).map(o => `<tr><td>${esc(o.operacion)}</td><td>${esc(o.intervalo || '—')}</td></tr>`).join('');
-          prev.innerHTML = `<div class="xml-preview"><div class="ok">✓ ${objs.length} registros</div><table style="margin-top:8px"><thead><tr><th>Operación</th><th>Intervalo</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+          prev.innerHTML = `<div class="xml-preview"><div class="ok">✓ ${objs.length} registros</div></div>`;
         } catch(err){ xmlParsed = null; prev.innerHTML = '<div class="xml-preview">❌ ' + esc(err.message) + '</div>'; }
       };
       r.readAsText(file, 'UTF-8');
@@ -1005,14 +1285,13 @@ function openRecambioForm(vehicleId, recambioId){
   let _file = null, _preview = null;
   const body = `
     <div class="grid2">
-      <label>P/N <span style="text-transform:none;color:var(--danger)">*</span><input name="pn" value="${esc(reg?.pn)}" placeholder="Ej. 06A115561B" required></label>
-      <label>Marca<input name="marca" value="${esc(reg?.marca)}" placeholder="Ej. Bosch, Mann, Valeo"></label>
+      <label>P/N <span style="text-transform:none;color:var(--danger)">*</span><input name="pn" value="${esc(reg?.pn)}" required></label>
+      <label>Marca<input name="marca" value="${esc(reg?.marca)}"></label>
     </div>
     <div class="grid2">
       <label>Cantidad<input name="cantidad" type="number" min="0" step="1" value="${esc(reg?.cantidad ?? 1)}"></label>
-      <label>P/N alternativos<input name="pn_alternativos" value="${esc(reg?.pn_alternativos)}" placeholder="Ej. W712/95, HU 719/7 x"></label>
+      <label>P/N alternativos<input name="pn_alternativos" value="${esc(reg?.pn_alternativos)}"></label>
     </div>
-
     <h4>Imagen (opcional)</h4>
     <div class="rec-img-btns">
       <button type="button" class="mat-img-btn" id="rec-camera-btn">📷 Hacer foto</button>
@@ -1020,16 +1299,13 @@ function openRecambioForm(vehicleId, recambioId){
     </div>
     <input type="file" accept="image/*" capture="environment" id="rec-input-camera" hidden>
     <input type="file" accept="image/*" id="rec-input-gallery" hidden>
-
     <div id="recambio-imagen-preview-container">
       ${reg?.imagen ? `<div class="rec-img-preview"><div class="rec-thumb-tag" data-ver-doc="${esc(reg.imagen)}" title="Ver imagen guardada">📷</div></div>` : ''}
     </div>
-    <div class="hint">En móvil, "Hacer foto" abre la cámara directamente. Si eliges una imagen nueva, se reemplazará la anterior.</div>`;
-
+    <div class="hint">En móvil, "Hacer foto" abre la cámara directamente.</div>`;
   openModal(esNuevo ? 'Añadir recambio' : 'Editar recambio', body, async fd => {
     const data = {
-      vehicle_id: vehicleId,
-      pn: (fd.get('pn') || '').trim(),
+      vehicle_id: vehicleId, pn: (fd.get('pn') || '').trim(),
       marca: (fd.get('marca') || '').trim() || null,
       cantidad: fd.get('cantidad') ? Number(fd.get('cantidad')) : 1,
       pn_alternativos: (fd.get('pn_alternativos') || '').trim() || null
@@ -1045,24 +1321,14 @@ function openRecambioForm(vehicleId, recambioId){
     await loadData(); closeModal(); render();
     toast(reg ? 'Recambio actualizado' : 'Recambio añadido', 'ok');
   }, esNuevo ? 'Añadir' : 'Guardar cambios');
-
   setTimeout(() => {
-    const camBtn = document.getElementById('rec-camera-btn');
-    const galBtn = document.getElementById('rec-gallery-btn');
-    const camInp = document.getElementById('rec-input-camera');
-    const galInp = document.getElementById('rec-input-gallery');
+    const camBtn = document.getElementById('rec-camera-btn'), galBtn = document.getElementById('rec-gallery-btn');
+    const camInp = document.getElementById('rec-input-camera'), galInp = document.getElementById('rec-input-gallery');
     const pc = document.getElementById('recambio-imagen-preview-container');
     if(!camBtn || !galBtn || !camInp || !galInp || !pc) return;
-
     camBtn.addEventListener('click', () => camInp.click());
     galBtn.addEventListener('click', () => galInp.click());
-
-    const handleFile = file => {
-      if(!file) return;
-      _file = file;
-      _preview = URL.createObjectURL(file);
-      pc.innerHTML = `<div class="rec-img-preview"><img class="mat-img" src="${_preview}" alt="Recambio"></div>`;
-    };
+    const handleFile = file => { if(!file) return; _file = file; _preview = URL.createObjectURL(file); pc.innerHTML = `<div class="rec-img-preview"><img class="mat-img" src="${_preview}" alt="Recambio"></div>`; };
     camInp.addEventListener('change', e => handleFile(e.target.files[0]));
     galInp.addEventListener('change', e => handleFile(e.target.files[0]));
   }, 60);
@@ -1085,7 +1351,6 @@ function openMantForm(vehicleId, mantId){
   const m = mantId ? v.mantenimientos.find(x => x.id === mantId) : {};
   const esNuevo = !mantId;
   let mats = Array.isArray(m.materiales) ? m.materiales.map(x => ({ id: x.id || uid(), nombre: x.nombre || '', cantidad: x.cantidad ?? '', precio: x.precio ?? '', tienda: x.tienda || '', imagen: x.imagen || '', _file: null, _preview: null })) : [];
-
   const body = `
     <div class="grid2">
       <label>Tipo de intervención<select name="tipo" required>${TIPOS_MANT.map(t => `<option ${m.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
@@ -1107,7 +1372,6 @@ function openMantForm(vehicleId, mantId){
     </div>
     <label>Notas<textarea name="notas" rows="2">${esc(m.notas)}</textarea></label>
     <div class="total-box"><span>Total</span><strong id="total-intervencion">0,00 €</strong></div>`;
-
   openModal(esNuevo ? 'Nueva intervención' : 'Editar intervención', body, async fd => {
     for(const mat of mats){ if(mat._file && mat._file.size > 0){ try { const path = await subirMaterialImagen(mat._file, vehicleId, mat.id); if(path) mat.imagen = path; } catch(e){ console.warn(e); } } }
     const data = {
@@ -1126,69 +1390,30 @@ function openMantForm(vehicleId, mantId){
     if(data.km && Number(data.km) > (Number(v.km) || 0)) await sb.from('vehicles').update({ km: Number(data.km) }).eq('id', vehicleId);
     await loadData(); closeModal(); render(); toast(esNuevo ? 'Añadido' : 'Actualizado', 'ok');
   }, esNuevo ? 'Añadir' : 'Guardar');
-
   const listEl = document.getElementById('materiales-list'), matTotalEl = document.getElementById('materiales-total'), totalEl = document.getElementById('total-intervencion'), costeInput = document.querySelector('#modal-form [name="coste"]');
   const sumMats = () => mats.reduce((s,x) => s + (Number(x.cantidad)||0) * (Number(x.precio)||0), 0);
   function refreshTotals(){ const t = sumMats(); matTotalEl.textContent = money(t); totalEl.textContent = money((Number(costeInput.value)||0) + t); }
-
   function imagenCell(x, i){
     let inner;
     if(x._preview) inner = `<img class="mat-img" src="${x._preview}" alt="Material">`;
     else if(x.imagen) inner = `<div class="mat-img mat-img-placeholder" data-ver-doc="${esc(x.imagen)}" title="Ver imagen guardada">📷</div>`;
     else inner = `<div class="mat-img-empty">Sin foto</div>`;
-    return `<div class="mat-img-cell">${inner}
-      <div class="mat-img-btns">
-        <button type="button" class="mat-img-btn" data-img-camera="${i}">📷 Hacer foto</button>
-        <button type="button" class="mat-img-btn" data-img-gallery="${i}">🖼 Galería</button>
-      </div>
-      <input type="file" accept="image/*" capture="environment" class="mat-img-input-cam" data-idx="${i}" hidden>
-      <input type="file" accept="image/*" class="mat-img-input-gal" data-idx="${i}" hidden>
-    </div>`;
+    return `<div class="mat-img-cell">${inner}<div class="mat-img-btns"><button type="button" class="mat-img-btn" data-img-camera="${i}">📷 Foto</button><button type="button" class="mat-img-btn" data-img-gallery="${i}">🖼 Galería</button></div><input type="file" accept="image/*" capture="environment" class="mat-img-input-cam" data-idx="${i}" hidden><input type="file" accept="image/*" class="mat-img-input-gal" data-idx="${i}" hidden></div>`;
   }
-
   function renderMats(){
     if(!mats.length) listEl.innerHTML = '<div class="hint" style="padding:4px 0">Sin materiales.</div>';
     else {
-      listEl.innerHTML = mats.map((x,i) => `
-        <div class="material-row" data-idx="${i}">
-          ${imagenCell(x, i)}
-          <input data-field="nombre" placeholder="Material" value="${esc(x.nombre)}">
-          <input data-field="cantidad" type="number" step="0.01" min="0" placeholder="Cant." value="${esc(x.cantidad)}">
-          <input data-field="precio" type="number" step="0.01" min="0" placeholder="€/ud." value="${esc(x.precio)}">
-          <input data-field="tienda" placeholder="Dónde lo compraste" value="${esc(x.tienda)}">
-          <button type="button" class="icon-btn" data-remove="${i}">✕</button>
-        </div>`).join('');
-
+      listEl.innerHTML = mats.map((x,i) => `<div class="material-row" data-idx="${i}">${imagenCell(x, i)}<input data-field="nombre" placeholder="Material" value="${esc(x.nombre)}"><input data-field="cantidad" type="number" step="0.01" min="0" placeholder="Cant." value="${esc(x.cantidad)}"><input data-field="precio" type="number" step="0.01" min="0" placeholder="€/ud." value="${esc(x.precio)}"><input data-field="tienda" placeholder="Dónde lo compraste" value="${esc(x.tienda)}"><button type="button" class="icon-btn" data-remove="${i}">✕</button></div>`).join('');
       listEl.querySelectorAll('input[data-field]').forEach(inp => inp.addEventListener('input', e => { const i = Number(e.target.closest('.material-row').dataset.idx); mats[i][e.target.dataset.field] = e.target.value; refreshTotals(); }));
       listEl.querySelectorAll('[data-ver-doc]').forEach(el => el.addEventListener('click', () => verDocumento(el.dataset.verDoc)));
-
-      // Cámara
-      listEl.querySelectorAll('[data-img-camera]').forEach(b => b.addEventListener('click', () => {
-        const inp = listEl.querySelector(`.mat-img-input-cam[data-idx="${b.dataset.imgCamera}"]`);
-        if(inp) inp.click();
-      }));
-      // Galería
-      listEl.querySelectorAll('[data-img-gallery]').forEach(b => b.addEventListener('click', () => {
-        const inp = listEl.querySelector(`.mat-img-input-gal[data-idx="${b.dataset.imgGallery}"]`);
-        if(inp) inp.click();
-      }));
-
-      const handleImg = (input, cls) => listEl.querySelectorAll(cls).forEach(inp => inp.addEventListener('change', e => {
-        const i = Number(e.target.dataset.idx);
-        const file = e.target.files[0];
-        if(!file) return;
-        mats[i]._file = file;
-        mats[i]._preview = URL.createObjectURL(file);
-        renderMats();
-      }));
-      handleImg(null, '.mat-img-input-cam');
-      handleImg(null, '.mat-img-input-gal');
-
+      listEl.querySelectorAll('[data-img-camera]').forEach(b => b.addEventListener('click', () => { const inp = listEl.querySelector(`.mat-img-input-cam[data-idx="${b.dataset.imgCamera}"]`); if(inp) inp.click(); }));
+      listEl.querySelectorAll('[data-img-gallery]').forEach(b => b.addEventListener('click', () => { const inp = listEl.querySelector(`.mat-img-input-gal[data-idx="${b.dataset.imgGallery}"]`); if(inp) inp.click(); }));
+      listEl.querySelectorAll('.mat-img-input-cam').forEach(inp => inp.addEventListener('change', e => { const i = Number(e.target.dataset.idx); const file = e.target.files[0]; if(!file) return; mats[i]._file = file; mats[i]._preview = URL.createObjectURL(file); renderMats(); }));
+      listEl.querySelectorAll('.mat-img-input-gal').forEach(inp => inp.addEventListener('change', e => { const i = Number(e.target.dataset.idx); const file = e.target.files[0]; if(!file) return; mats[i]._file = file; mats[i]._preview = URL.createObjectURL(file); renderMats(); }));
       listEl.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => { const i = Number(b.dataset.remove); const mat = mats[i]; if(mat.imagen && !mat._file) borrarDocumento(mat.imagen); mats.splice(i, 1); renderMats(); }));
     }
     refreshTotals();
   }
-
   document.getElementById('add-material').addEventListener('click', () => { mats.push({ id: uid(), nombre:'', cantidad:'', precio:'', tienda:'', imagen:'', _file:null, _preview:null }); renderMats(); const rows = listEl.querySelectorAll('.material-row'); const last = rows[rows.length-1]; if(last) last.querySelector('input[data-field="nombre"]').focus(); });
   costeInput.addEventListener('input', refreshTotals);
   renderMats();
@@ -1236,7 +1461,6 @@ function openHistorialForm(vehicleId, tipo, registroId){
       <label>Plazos<select name="plazos"><option value="">— —</option>${PLAZOS_SEGURO.map(p => `<option ${registro?.plazos === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
     </div>`;
   else if(tipo === 'ivtm') camposEspecificos = `<label>Lugar<input name="lugar" value="${esc(registro?.lugar)}"></label>`;
-
   const body = `
     <h4>${tipoLabel} — datos</h4>
     <div class="grid2">
@@ -1249,7 +1473,6 @@ function openHistorialForm(vehicleId, tipo, registroId){
     </div>
     ${camposEspecificos}
     <label>Notas<textarea name="notas" rows="2">${esc(registro?.notas)}</textarea></label>`;
-
   openModal(esNuevo ? `Registrar ${tipoLabel.toLowerCase()}` : `Editar ${tipoLabel.toLowerCase()}`, body, async fd => {
     const data = {
       vehicle_id: vehicleId, tipo: normTipo(tipo),
@@ -1274,7 +1497,6 @@ function openHistorialForm(vehicleId, tipo, registroId){
     }
     await loadData(); closeModal(); render(); toast(registroId ? 'Actualizado' : 'Guardado', 'ok');
   }, esNuevo ? 'Guardar' : 'Guardar cambios');
-
   setTimeout(() => {
     const fF = document.getElementById('hist-fecha'), fP = document.getElementById('hist-proxima');
     if(fF && fP) fF.addEventListener('change', () => { if(!fF.value) return; fP.value = _proximaPorDefecto(fF.value, tipo, v); });
@@ -1283,40 +1505,4 @@ function openHistorialForm(vehicleId, tipo, registroId){
 
 function openHistorialList(vehicleId, tipo){
   tipo = normTipo(tipo);
-  const v = vehicles.find(x => x.id === vehicleId); if(!v) return;
-  const tipoLabel = TIPOS_HIST_LABEL[tipo] || tipo;
-  const items = registrosHist(vehicleId, tipo).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
-  const total = items.reduce((s, h) => s + (Number(h.precio) || 0), 0);
-  const años = items.length ? new Set(items.map(h => (h.fecha || '').slice(0,4))).size : 0;
-  let html = '';
-  if(!items.length) html = `<div class="hist-empty">Sin registros.</div>`;
-  else html = items.map(h => {
-    const extras = [];
-    if(h.lugar) extras.push(`📍 ${esc(h.lugar)}`);
-    if(h.compania) extras.push(`🏢 ${esc(h.compania)}`);
-    if(h.tipo_seguro) extras.push(`🛡 ${esc(h.tipo_seguro)}`);
-    if(h.plazos) extras.push(`📅 ${esc(h.plazos)}`);
-    if(h.proxima_fecha) extras.push(`→ ${fmtDate(h.proxima_fecha)}`);
-    if(h.notas) extras.push(`📝 ${esc(h.notas)}`);
-    return `<div class="hist-item"><div class="hist-info"><div><strong>${fmtDate(h.fecha)}</strong>${h.precio != null ? ` · <strong>${money(h.precio)}</strong>` : ''}</div>${extras.length ? `<div class="hist-line">${extras.join(' · ')}</div>` : ''}</div><div class="hist-actions"><button type="button" class="icon-btn" data-hist-edit="${h.id}">✎</button><button type="button" class="icon-btn" data-hist-del="${h.id}">🗑</button></div></div>`;
-  }).join('');
-  const body = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px"><div class="hint">${items.length} registro${items.length===1?'':'s'} · ${años} año${años===1?'':'s'}</div><button type="button" class="btn primary sm" id="hist-add">＋ Nuevo</button></div><div>${html}</div>${items.length ? `<div class="hist-total">Total: <strong>${money(total)}</strong></div>` : ''}`;
-  openModal(`Historial — ${tipoLabel}`, body, async () => { closeModal(); }, 'Cerrar');
-  setTimeout(() => {
-    const sb2 = document.getElementById('modal-submit'); if(sb2) sb2.style.display = 'none';
-    modalRoot.querySelectorAll('[data-close]').forEach(b => { if(b.classList.contains('btn')){ b.textContent = 'Cerrar'; b.classList.remove('ghost'); b.classList.add('primary'); } });
-    const addBtn = document.getElementById('hist-add'); if(addBtn) addBtn.addEventListener('click', () => { closeModal(); openHistorialForm(vehicleId, tipo); });
-    modalRoot.querySelectorAll('[data-hist-edit]').forEach(b => b.addEventListener('click', () => { closeModal(); openHistorialForm(vehicleId, tipo, b.dataset.histEdit); }));
-    modalRoot.querySelectorAll('[data-hist-del]').forEach(b => b.addEventListener('click', async () => {
-      if(!confirm('¿Eliminar este registro?')) return;
-      const { error } = await sb.from('historial_obligaciones').delete().eq('id', b.dataset.histDel);
-      if(error) return toast('Error: ' + error.message, 'error');
-      await loadData(); closeModal(); render(); toast('Eliminado', 'ok');
-    }));
-  }, 30);
-}
-
-document.getElementById('btn-add-vehicle').addEventListener('click', () => openVehicleForm());
-</script>
-</body>
-</html>
+  const v = vehicles.find(x
