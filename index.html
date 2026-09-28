@@ -154,7 +154,6 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
   display:flex;gap:6px;flex-wrap:wrap;
 }
 
-/* Historial */
 .hist-item{
   display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;
   padding:12px 0;border-bottom:1px dashed var(--border);
@@ -181,7 +180,6 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .stat .k{font-size:.74rem;text-transform:uppercase;font-weight:800;letter-spacing:.05em;color:var(--muted)}
 .stat .v{font-size:1.35rem;font-weight:800;letter-spacing:-.02em;margin-top:4px}
 
-/* Desglose de gastos */
 .expense-breakdown{
   margin-top:12px;padding:12px 14px;border-radius:12px;
   background:var(--bg);border:1px solid var(--border);
@@ -251,7 +249,6 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .toast.ok{background:#16a34a}
 .toast.error{background:#dc2626}
 
-/* Materiales */
 .material-row{
   display:grid;
   grid-template-columns: 90px 2fr 0.7fr 0.9fr 1.4fr auto;
@@ -437,6 +434,7 @@ const TIPOS_SEGURO = [
   'Todo riesgo sin franquicia',
   'Otro'
 ];
+const PLAZOS_SEGURO = ['Anual','Semestral','Trimestral','Mensual','Otro'];
 const TIPOS_HIST_LABEL = { itv: 'ITV', seguro: 'Seguro', ivtm: 'Impuesto (IVTM)' };
 
 /* =========================================================
@@ -662,7 +660,6 @@ function renderContent(){
     (Number(m.coste)||0) +
     (Array.isArray(m.materiales) ? m.materiales.reduce((s,x) => s + (Number(x.cantidad)||0)*(Number(x.precio)||0), 0) : 0);
 
-  // --- Desglose de mantenimientos ---
   const mantTotal = v.mantenimientos.reduce((s,m) => s + totalDeIntervencion(m), 0);
   const mantAnio  = v.mantenimientos
       .filter(m => (m.fecha||'').startsWith(String(year)))
@@ -671,7 +668,6 @@ function renderContent(){
       .filter(m => { const d = daysUntil(m.fecha); return d !== null && d > -365 && d <= 0; })
       .reduce((s,m) => s + totalDeIntervencion(m), 0);
 
-  // --- Desglose de obligaciones (historial ITV / Seguro / IVTM) ---
   const enAnio = h => (h.fecha||'').startsWith(String(year));
   const enUlt  = h => { const d = daysUntil(h.fecha); return d !== null && d > -365 && d <= 0; };
   const sumHist = (tipo, filtro) => (v.historial || [])
@@ -679,25 +675,21 @@ function renderContent(){
     .filter(filtro || (() => true))
     .reduce((s,h) => s + (Number(h.precio)||0), 0);
 
-  // ITV: si hay historial, usar historial; si no, usar el precio del vehículo como respaldo
   const itvHistTotal = sumHist('itv');
   const itvTotal = itvHistTotal > 0 ? itvHistTotal : (Number(v.itv_precio)||0);
   const itvAnio  = itvHistTotal > 0 ? sumHist('itv', enAnio) : (Number(v.itv_precio)||0);
   const itvUlt   = itvHistTotal > 0 ? sumHist('itv', enUlt)  : (Number(v.itv_precio)||0);
 
-  // Seguro
   const segHistTotal = sumHist('seguro');
   const segTotal = segHistTotal > 0 ? segHistTotal : (Number(v.seguro_precio)||0);
   const segAnio  = segHistTotal > 0 ? sumHist('seguro', enAnio) : (Number(v.seguro_precio)||0);
   const segUlt   = segHistTotal > 0 ? sumHist('seguro', enUlt)  : (Number(v.seguro_precio)||0);
 
-  // IVTM
   const ivtmHistTotal = sumHist('ivtm');
   const ivtmTotal = ivtmHistTotal > 0 ? ivtmHistTotal : (Number(v.impuesto_precio)||0);
   const ivtmAnio  = ivtmHistTotal > 0 ? sumHist('ivtm', enAnio) : (Number(v.impuesto_precio)||0);
   const ivtmUlt   = ivtmHistTotal > 0 ? sumHist('ivtm', enUlt)  : (Number(v.impuesto_precio)||0);
 
-  // --- Totales combinados ---
   const totalGasto = mantTotal + itvTotal + segTotal + ivtmTotal;
   const gastoAnio  = mantAnio  + itvAnio  + segAnio  + ivtmAnio;
   const gastoUlt   = mantUlt   + itvUlt   + segUlt   + ivtmUlt;
@@ -757,6 +749,7 @@ function renderContent(){
       <div class="section-head"><h2>Documentos y obligaciones</h2></div>
       <div class="docs">
         ${docCard('ITV', v.itv, 30, [
+          v.itv_fecha ? `<div><span class="lbl">Última ITV</span> ${fmtDate(v.itv_fecha)}</div>` : '',
           v.itv_precio != null && v.itv_precio !== '' ? `<div><span class="lbl">Precio</span> ${money(v.itv_precio)}</div>` : '',
           v.itv_lugar ? `<div><span class="lbl">Lugar</span> ${esc(v.itv_lugar)}</div>` : ''
         ].filter(Boolean).join(''),
@@ -764,17 +757,20 @@ function renderContent(){
            ${histItv.length ? `<button type="button" class="btn ghost tiny" data-ver-hist="itv">📋 Historial (${histItv.length})</button>` : ''}`
         )}
         ${docCard('Seguro', v.seguro, 21, [
+          v.seguro_fecha ? `<div><span class="lbl">Fecha seguro</span> ${fmtDate(v.seguro_fecha)}</div>` : '',
           v.seguro_tipo ? `<div><span class="lbl">Tipo</span> ${esc(v.seguro_tipo)}</div>` : '',
+          v.seguro_plazos ? `<div><span class="lbl">Plazos</span> ${esc(v.seguro_plazos)}</div>` : '',
           v.seguro_compania ? `<div><span class="lbl">Compañía</span> ${esc(v.seguro_compania)}</div>` : '',
-          v.seguro_precio != null && v.seguro_precio !== '' ? `<div><span class="lbl">Precio</span> ${money(v.seguro_precio)}</div>` : ''
+          v.seguro_precio != null && v.seguro_precio !== '' ? `<div><span class="lbl">Cantidad total</span> ${money(v.seguro_precio)}</div>` : ''
         ].filter(Boolean).join(''),
           `<button type="button" class="btn ghost tiny" data-add-hist="seguro">＋ Registrar</button>
            ${histSeg.length ? `<button type="button" class="btn ghost tiny" data-ver-hist="seguro">📋 Historial (${histSeg.length})</button>` : ''}`
         )}
-        ${docCard('Impuesto (IVTM)', v.impuesto, 30,
-          v.impuesto_precio != null && v.impuesto_precio !== ''
-            ? `<div><span class="lbl">Precio</span> ${money(v.impuesto_precio)}</div>`
-            : '',
+        ${docCard('Impuesto (IVTM)', v.impuesto, 30, [
+          v.impuesto_fecha ? `<div><span class="lbl">Fecha pago</span> ${fmtDate(v.impuesto_fecha)}</div>` : '',
+          v.impuesto_lugar ? `<div><span class="lbl">Dónde</span> ${esc(v.impuesto_lugar)}</div>` : '',
+          v.impuesto_precio != null && v.impuesto_precio !== '' ? `<div><span class="lbl">Cantidad</span> ${money(v.impuesto_precio)}</div>` : ''
+        ].filter(Boolean).join(''),
           `<button type="button" class="btn ghost tiny" data-add-hist="ivtm">＋ Registrar</button>
            ${histIvtm.length ? `<button type="button" class="btn ghost tiny" data-ver-hist="ivtm">📋 Historial (${histIvtm.length})</button>` : ''}`
         )}
@@ -964,7 +960,7 @@ function mantRow(m, v){
 }
 
 /* =========================================================
-   Alertas (visual en la app)
+   Alertas
    ========================================================= */
 function getAlerts(v){
   const out = [];
@@ -1117,27 +1113,47 @@ function openVehicleForm(id){
       : `<div class="hint">Opcional: sube una foto o PDF de la ficha técnica.</div>`}
 
     <h4>ITV</h4>
-    <div class="grid3">
-      <label>Próxima ITV<input type="date" name="itv" value="${esc(v.itv)}"></label>
+    <div class="grid2">
+      <label>Fecha ITV pasada
+        <input type="date" name="itv_fecha" value="${esc(v.itv_fecha)}">
+      </label>
+      <label>Próxima ITV
+        <input type="date" name="itv" value="${esc(v.itv)}">
+      </label>
+    </div>
+    <div class="grid2">
       <label>Precio (€)
         <input type="number" min="0" step="0.01" name="itv_precio" value="${esc(v.itv_precio)}" placeholder="0,00">
       </label>
-      <label>Dónde la hice
+      <label>Dónde la hiciste
         <input name="itv_lugar" value="${esc(v.itv_lugar)}" placeholder="Ej. ITV Móstoles">
       </label>
     </div>
     <div class="hint">Turismos: primera ITV a los 4 años, cada 2 años hasta los 10 y anual después.</div>
 
     <h4>Seguro</h4>
+    <div class="grid2">
+      <label>Fecha del seguro
+        <input type="date" name="seguro_fecha" value="${esc(v.seguro_fecha)}">
+      </label>
+      <label>Vencimiento
+        <input type="date" name="seguro" value="${esc(v.seguro)}">
+      </label>
+    </div>
     <div class="grid3">
-      <label>Vencimiento<input type="date" name="seguro" value="${esc(v.seguro)}"></label>
       <label>Tipo de seguro
         <select name="seguro_tipo">
           <option value="">— Selecciona —</option>
           ${TIPOS_SEGURO.map(t => `<option ${v.seguro_tipo === t ? 'selected' : ''}>${t}</option>`).join('')}
         </select>
       </label>
-      <label>Precio (€)
+      <label>Plazos
+        <select name="seguro_plazos">
+          <option value="">— Selecciona —</option>
+          ${PLAZOS_SEGURO.map(p => `<option ${v.seguro_plazos === p ? 'selected' : ''}>${p}</option>`).join('')}
+        </select>
+      </label>
+      <label>Cantidad total (€)
         <input type="number" min="0" step="0.01" name="seguro_precio" value="${esc(v.seguro_precio)}" placeholder="0,00">
       </label>
     </div>
@@ -1147,9 +1163,19 @@ function openVehicleForm(id){
 
     <h4>Impuesto de circulación (IVTM)</h4>
     <div class="grid2">
-      <label>Vencimiento<input type="date" name="impuesto" value="${esc(v.impuesto)}"></label>
-      <label>Precio (€)
+      <label>Fecha de pago
+        <input type="date" name="impuesto_fecha" value="${esc(v.impuesto_fecha)}">
+      </label>
+      <label>Vencimiento
+        <input type="date" name="impuesto" value="${esc(v.impuesto)}">
+      </label>
+    </div>
+    <div class="grid2">
+      <label>Cantidad (€)
         <input type="number" min="0" step="0.01" name="impuesto_precio" value="${esc(v.impuesto_precio)}" placeholder="0,00">
+      </label>
+      <label>Dónde
+        <input name="impuesto_lugar" value="${esc(v.impuesto_lugar)}" placeholder="Ej. Ayuntamiento de Madrid">
       </label>
     </div>
     <div class="hint">El IVTM se paga normalmente entre marzo y mayo en el ayuntamiento donde esté domiciliado el vehículo.</div>
@@ -1171,17 +1197,22 @@ function openVehicleForm(id){
       intervalo_revision_km: fd.get('intervalo_revision_km') ? Number(fd.get('intervalo_revision_km')) : null,
       ultima_revision_km:    fd.get('ultima_revision_km')    ? Number(fd.get('ultima_revision_km'))    : null,
 
+      itv_fecha:      fd.get('itv_fecha') || null,
       itv:            fd.get('itv') || null,
       itv_precio:     fd.get('itv_precio') ? Number(fd.get('itv_precio')) : null,
       itv_lugar:      (fd.get('itv_lugar') || '').trim(),
 
+      seguro_fecha:   fd.get('seguro_fecha') || null,
       seguro:         fd.get('seguro') || null,
       seguro_tipo:    fd.get('seguro_tipo') || '',
+      seguro_plazos:  fd.get('seguro_plazos') || '',
       seguro_precio:  fd.get('seguro_precio') ? Number(fd.get('seguro_precio')) : null,
       seguro_compania:(fd.get('seguro_compania') || '').trim(),
 
+      impuesto_fecha:  fd.get('impuesto_fecha') || null,
       impuesto:        fd.get('impuesto') || null,
       impuesto_precio: fd.get('impuesto_precio') ? Number(fd.get('impuesto_precio')) : null,
+      impuesto_lugar:  (fd.get('impuesto_lugar') || '').trim(),
 
       notas: (fd.get('notas') || '').trim()
     };
@@ -1488,7 +1519,7 @@ async function deleteMant(vehicleId, mantId){
 }
 
 /* =========================================================
-   HISTORIAL DE OBLIGACIONES (ITV / Seguro / IVTM)
+   HISTORIAL DE OBLIGACIONES
    ========================================================= */
 function _proximaPorDefecto(fechaISO, tipo, v){
   if(!fechaISO) return '';
@@ -1529,12 +1560,20 @@ function openHistorialForm(vehicleId, tipo, registroId){
       <label>Compañía aseguradora
         <input name="compania" value="${esc(registro?.compania)}" placeholder="Ej. Mapfre, Mutua Madrileña…">
       </label>
-      <label>Tipo de seguro
-        <select name="tipo_seguro">
-          <option value="">— Selecciona —</option>
-          ${TIPOS_SEGURO.map(t => `<option ${registro?.tipo_seguro === t ? 'selected' : ''}>${t}</option>`).join('')}
-        </select>
-      </label>`;
+      <div class="grid2">
+        <label>Tipo de seguro
+          <select name="tipo_seguro">
+            <option value="">— Selecciona —</option>
+            ${TIPOS_SEGURO.map(t => `<option ${registro?.tipo_seguro === t ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+        </label>
+        <label>Plazos
+          <select name="plazos">
+            <option value="">— Selecciona —</option>
+            ${PLAZOS_SEGURO.map(p => `<option ${registro?.plazos === p ? 'selected' : ''}>${p}</option>`).join('')}
+          </select>
+        </label>
+      </div>`;
   } else if(tipo === 'ivtm'){
     camposEspecificos = `
       <label>Ayuntamiento / Lugar
@@ -1582,6 +1621,7 @@ function openHistorialForm(vehicleId, tipo, registroId){
         lugar: (fd.get('lugar') || '').trim() || null,
         compania: (fd.get('compania') || '').trim() || null,
         tipo_seguro: (fd.get('tipo_seguro') || '').trim() || null,
+        plazos: (fd.get('plazos') || '').trim() || null,
         notas: (fd.get('notas') || '').trim() || null
       };
 
@@ -1599,12 +1639,17 @@ function openHistorialForm(vehicleId, tipo, registroId){
         if(tipo === 'itv'){
           if(data.precio != null) camposExtra.itv_precio = data.precio;
           if(data.lugar) camposExtra.itv_lugar = data.lugar;
+          if(data.fecha) camposExtra.itv_fecha = data.fecha;
         } else if(tipo === 'seguro'){
           if(data.precio != null) camposExtra.seguro_precio = data.precio;
           if(data.compania) camposExtra.seguro_compania = data.compania;
           if(data.tipo_seguro) camposExtra.seguro_tipo = data.tipo_seguro;
+          if(data.plazos) camposExtra.seguro_plazos = data.plazos;
+          if(data.fecha) camposExtra.seguro_fecha = data.fecha;
         } else if(tipo === 'ivtm'){
           if(data.precio != null) camposExtra.impuesto_precio = data.precio;
+          if(data.lugar) camposExtra.impuesto_lugar = data.lugar;
+          if(data.fecha) camposExtra.impuesto_fecha = data.fecha;
         }
         const { error } = await sb.from('vehicles').update({
           [campoVenc]: data.proxima_fecha,
@@ -1653,6 +1698,7 @@ function openHistorialList(vehicleId, tipo){
       if(h.lugar) extras.push(`📍 ${esc(h.lugar)}`);
       if(h.compania) extras.push(`🏢 ${esc(h.compania)}`);
       if(h.tipo_seguro) extras.push(`🛡 ${esc(h.tipo_seguro)}`);
+      if(h.plazos) extras.push(`📅 ${esc(h.plazos)}`);
       if(h.proxima_fecha) extras.push(`→ vence ${fmtDate(h.proxima_fecha)}`);
       if(h.notas) extras.push(`📝 ${esc(h.notas)}`);
       return `
