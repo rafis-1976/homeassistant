@@ -304,6 +304,14 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .mat-thumb-tag{display:grid;place-items:center;font-size:1.15rem;color:var(--muted)}
 .mat-thumb-tag:hover{border-color:var(--accent);color:var(--accent)}
 
+/* Diagnóstico */
+.diag-json{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.76rem;background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;padding:12px;max-height:400px;overflow:auto;white-space:pre-wrap;
+  word-break:break-all;color:var(--text);
+}
+
 #app-view[hidden]{display:none}
 </style>
 </head>
@@ -315,6 +323,7 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
       <div class="logo"><span class="mark">🚗</span> Mi Garaje</div>
       <div class="header-actions">
         <div class="user-chip"><span id="user-email">—</span></div>
+        <button class="btn ghost sm" id="btn-diag" title="Ver diagnóstico de datos">🔍 Diagnóstico</button>
         <button class="btn ghost sm" id="btn-test-email" title="Enviar un email de prueba simple">📨 Test email</button>
         <button class="btn ghost sm" id="btn-test-avisos" title="Enviar los avisos reales pendientes">📧 Probar avisos</button>
         <button class="btn ghost sm" id="btn-logout" title="Cerrar sesión">Salir</button>
@@ -452,11 +461,12 @@ function mantToDB(m, vehicleId){
 }
 
 /* =========================================================
-   Estado
+   Estado GLOBAL
    ========================================================= */
 let currentUser = null;
 let vehicles = [];
 let selected = null;
+let allHistorialRaw = [];     // Todos los registros crudos de historial_obligaciones
 
 const appView   = document.getElementById('app-view');
 const modalRoot = document.getElementById('modal');
@@ -518,37 +528,32 @@ async function loadData(){
     mantsByVehicle.get(m.vehicle_id).push(mantFromDB(m));
   });
 
-  const histByVehicle = new Map();
-  hRes.data.forEach(h => {
-    h.tipo = normTipo(h.tipo);
-    if(!histByVehicle.has(h.vehicle_id)) histByVehicle.set(h.vehicle_id, []);
-    histByVehicle.get(h.vehicle_id).push(h);
-  });
+  // Guardamos crudo
+  allHistorialRaw = hRes.data || [];
 
   vehicles = vRes.data.map(v => ({
     ...v,
     km: Number(v.km) || 0,
-    mantenimientos: mantsByVehicle.get(v.id) || [],
-    historial: histByVehicle.get(v.id) || []
+    mantenimientos: mantsByVehicle.get(v.id) || []
   }));
 
   if(!selected || !vehicles.find(v => v.id === selected)){
     selected = vehicles[0]?.id || null;
   }
 
-  // Diagnóstico en consola
   console.log('=== CARGA DE DATOS ===');
-  console.log('Total vehículos:', vehicles.length);
-  hRes.data.forEach(h => console.log('Registro historial:', { vehiculo: h.vehicle_id, tipo_original: h.tipo, tipo_norm: normTipo(h.tipo), fecha: h.fecha }));
-  vehicles.forEach(v => {
-    const hist = v.historial || [];
-    console.log(`Vehículo ${v.matricula}:`, {
-      total_historial: hist.length,
-      itv: hist.filter(h => normTipo(h.tipo) === 'itv').length,
-      seguro: hist.filter(h => normTipo(h.tipo) === 'seguro').length,
-      ivtm: hist.filter(h => normTipo(h.tipo) === 'ivtm').length
-    });
-  });
+  console.log('Vehículos:', vehicles.map(v => ({ id: v.id, matricula: v.matricula })));
+  console.log('Historial crudo total:', allHistorialRaw.length);
+  allHistorialRaw.forEach(h => console.log('  →', { vehicle_id: h.vehicle_id, tipo: h.tipo, fecha: h.fecha, precio: h.precio }));
+}
+
+/* Función central: obtiene registros de un vehículo + tipo desde el crudo */
+function registrosHist(vehicleId, tipo){
+  const tipoN = normTipo(tipo);
+  return allHistorialRaw.filter(h =>
+    String(h.vehicle_id) === String(vehicleId) &&
+    normTipo(h.tipo) === tipoN
+  );
 }
 
 /* =========================================================
@@ -646,27 +651,29 @@ function renderContent(){
 
   const enAnio = h => (h.fecha||'').startsWith(String(year));
   const enUlt  = h => { const d = daysUntil(h.fecha); return d !== null && d > -365 && d <= 0; };
-  const sumHist = (tipo, filtro) => (v.historial || [])
-    .filter(h => normTipo(h.tipo) === tipo)
-    .filter(filtro || (() => true))
+
+  // Registros por tipo desde el crudo
+  const itvRegs  = registrosHist(v.id, 'itv');
+  const segRegs  = registrosHist(v.id, 'seguro');
+  const ivtmRegs = registrosHist(v.id, 'ivtm');
+
+  const sumRegs = (regs, filtro) => regs.filter(filtro || (() => true))
     .reduce((s,h) => s + (Number(h.precio)||0), 0);
 
-  const histPorTipo = tipo => (v.historial || []).filter(h => normTipo(h.tipo) === tipo);
-
-  const itvHistTotal = sumHist('itv');
+  const itvHistTotal = sumRegs(itvRegs);
   const itvTotal = itvHistTotal > 0 ? itvHistTotal : (Number(v.itv_precio)||0);
-  const itvAnio  = itvHistTotal > 0 ? sumHist('itv', enAnio) : (Number(v.itv_precio)||0);
-  const itvUlt   = itvHistTotal > 0 ? sumHist('itv', enUlt)  : (Number(v.itv_precio)||0);
+  const itvAnio  = itvHistTotal > 0 ? sumRegs(itvRegs, enAnio) : (Number(v.itv_precio)||0);
+  const itvUlt   = itvHistTotal > 0 ? sumRegs(itvRegs, enUlt)  : (Number(v.itv_precio)||0);
 
-  const segHistTotal = sumHist('seguro');
+  const segHistTotal = sumRegs(segRegs);
   const segTotal = segHistTotal > 0 ? segHistTotal : (Number(v.seguro_precio)||0);
-  const segAnio  = segHistTotal > 0 ? sumHist('seguro', enAnio) : (Number(v.seguro_precio)||0);
-  const segUlt   = segHistTotal > 0 ? sumHist('seguro', enUlt)  : (Number(v.seguro_precio)||0);
+  const segAnio  = segHistTotal > 0 ? sumRegs(segRegs, enAnio) : (Number(v.seguro_precio)||0);
+  const segUlt   = segHistTotal > 0 ? sumRegs(segRegs, enUlt)  : (Number(v.seguro_precio)||0);
 
-  const ivtmHistTotal = sumHist('ivtm');
+  const ivtmHistTotal = sumRegs(ivtmRegs);
   const ivtmTotal = ivtmHistTotal > 0 ? ivtmHistTotal : (Number(v.impuesto_precio)||0);
-  const ivtmAnio  = ivtmHistTotal > 0 ? sumHist('ivtm', enAnio) : (Number(v.impuesto_precio)||0);
-  const ivtmUlt   = ivtmHistTotal > 0 ? sumHist('ivtm', enUlt)  : (Number(v.impuesto_precio)||0);
+  const ivtmAnio  = ivtmHistTotal > 0 ? sumRegs(ivtmRegs, enAnio) : (Number(v.impuesto_precio)||0);
+  const ivtmUlt   = ivtmHistTotal > 0 ? sumRegs(ivtmRegs, enUlt)  : (Number(v.impuesto_precio)||0);
 
   const totalGasto = mantTotal + itvTotal + segTotal + ivtmTotal;
   const gastoAnio  = mantAnio  + itvAnio  + segAnio  + ivtmAnio;
@@ -684,10 +691,6 @@ function renderContent(){
     else if(restantes <= 1000){ cls = 'warn'; txt = `Revisión próxima: faltan ${kmFmt(restantes)} (a los ${kmFmt(proxima)})`; }
     revisionHtml = `<div class="vehicle-meta" style="margin-top:6px"><span class="badge ${cls}">🔧 ${esc(txt)}</span></div>`;
   }
-
-  const histItv  = histPorTipo('itv');
-  const histSeg  = histPorTipo('seguro');
-  const histIvtm = histPorTipo('ivtm');
 
   el.innerHTML = `
     <div class="card section">
@@ -730,7 +733,7 @@ function renderContent(){
           v.itv_lugar ? `<div><span class="lbl">Lugar</span> ${esc(v.itv_lugar)}</div>` : ''
         ].filter(Boolean).join(''),
           `<button type="button" class="btn ghost tiny" data-add-hist="itv">＋ Registrar</button>
-           <button type="button" class="btn ghost tiny" data-ver-hist="itv">📋 Historial (${histItv.length})</button>`
+           <button type="button" class="btn ghost tiny" data-ver-hist="itv">📋 Historial (${itvRegs.length})</button>`
         )}
         ${docCard('Seguro', v.seguro, 21, [
           v.seguro_fecha ? `<div><span class="lbl">Fecha seguro</span> ${fmtDate(v.seguro_fecha)}</div>` : '',
@@ -740,7 +743,7 @@ function renderContent(){
           v.seguro_precio != null && v.seguro_precio !== '' ? `<div><span class="lbl">Cantidad total</span> ${money(v.seguro_precio)}</div>` : ''
         ].filter(Boolean).join(''),
           `<button type="button" class="btn ghost tiny" data-add-hist="seguro">＋ Registrar</button>
-           <button type="button" class="btn ghost tiny" data-ver-hist="seguro">📋 Historial (${histSeg.length})</button>`
+           <button type="button" class="btn ghost tiny" data-ver-hist="seguro">📋 Historial (${segRegs.length})</button>`
         )}
         ${docCard('Impuesto (IVTM)', v.impuesto, 30, [
           v.impuesto_fecha ? `<div><span class="lbl">Fecha pago</span> ${fmtDate(v.impuesto_fecha)}</div>` : '',
@@ -748,7 +751,7 @@ function renderContent(){
           v.impuesto_precio != null && v.impuesto_precio !== '' ? `<div><span class="lbl">Cantidad</span> ${money(v.impuesto_precio)}</div>` : ''
         ].filter(Boolean).join(''),
           `<button type="button" class="btn ghost tiny" data-add-hist="ivtm">＋ Registrar</button>
-           <button type="button" class="btn ghost tiny" data-ver-hist="ivtm">📋 Historial (${histIvtm.length})</button>`
+           <button type="button" class="btn ghost tiny" data-ver-hist="ivtm">📋 Historial (${ivtmRegs.length})</button>`
         )}
       </div>
     </div>
@@ -1022,6 +1025,58 @@ function closeModal(){ modalRoot.innerHTML = ''; }
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
 
 /* =========================================================
+   DIAGNÓSTICO
+   ========================================================= */
+document.getElementById('btn-diag').addEventListener('click', () => {
+  const v = vehicles.find(x => x.id === selected);
+  if(!v){ toast('No hay vehículo seleccionado.', 'error'); return; }
+
+  const itvRegs  = registrosHist(v.id, 'itv');
+  const segRegs  = registrosHist(v.id, 'seguro');
+  const ivtmRegs = registrosHist(v.id, 'ivtm');
+
+  const info = {
+    'ID del vehículo actual': v.id,
+    'Matrícula': v.matricula,
+    'Total registros historial (crudo)': allHistorialRaw.length,
+    'ITV encontrados': itvRegs.length,
+    'Seguro encontrados': segRegs.length,
+    'IVTM encontrados': ivtmRegs.length,
+    '--- Registros crudos (todos) ---': allHistorialRaw.map(h => ({
+      vehicle_id: h.vehicle_id,
+      tipo_original: h.tipo,
+      tipo_norm: normTipo(h.tipo),
+      fecha: h.fecha,
+      precio: h.precio,
+      coincide_vehiculo: String(h.vehicle_id) === String(v.id)
+    }))
+  };
+
+  console.log('=== DIAGNÓSTICO ===');
+  console.log(info);
+
+  const body = `
+    <h4>Diagnóstico de datos</h4>
+    <div class="hint" style="margin-bottom:8px">Estos son los datos reales que la app tiene cargados ahora mismo:</div>
+    <pre class="diag-json">${esc(JSON.stringify(info, null, 2))}</pre>
+  `;
+
+  openModal('🔍 Diagnóstico', body, async () => { closeModal(); }, 'Cerrar');
+
+  setTimeout(() => {
+    const submitBtn = document.getElementById('modal-submit');
+    if(submitBtn) submitBtn.style.display = 'none';
+    modalRoot.querySelectorAll('[data-close]').forEach(b => {
+      if(b.classList.contains('btn')){
+        b.textContent = 'Cerrar';
+        b.classList.remove('ghost');
+        b.classList.add('primary');
+      }
+    });
+  }, 30);
+});
+
+/* =========================================================
    CRUD vehículos
    ========================================================= */
 function openVehicleForm(id){
@@ -1050,9 +1105,8 @@ function openVehicleForm(id){
         <input name="km" type="number" min="0" step="1" value="${esc(v.km)}" placeholder="125000">
       </label>
     </div>
-    <div class="hint">El VIN es el número de 17 caracteres que aparece en la ficha técnica y en el permiso de circulación.</div>
 
-    <h4>Revisión por kilometraje (aviso automático)</h4>
+    <h4>Revisión por kilometraje</h4>
     <div class="grid2">
       <label>Intervalo de revisión (km)
         <input name="intervalo_revision_km" type="number" min="0" step="500" value="${esc(v.intervalo_revision_km)}" placeholder="Ej. 15000">
@@ -1066,44 +1120,26 @@ function openVehicleForm(id){
     <label>Documento (PDF o imagen)
       <input type="file" name="permiso_file" accept="application/pdf,image/*">
     </label>
-    ${v.permiso_circulacion_path
-      ? `<div class="hint">📎 Ya hay un documento subido. Si eliges otro archivo, se reemplazará.</div>`
-      : `<div class="hint">Opcional: sube una foto o PDF del permiso de circulación.</div>`}
 
     <h4>Ficha técnica</h4>
     <label>Documento (PDF o imagen)
       <input type="file" name="ficha_file" accept="application/pdf,image/*">
     </label>
-    ${v.ficha_tecnica_path
-      ? `<div class="hint">📎 Ya hay un documento subido. Si eliges otro archivo, se reemplazará.</div>`
-      : `<div class="hint">Opcional: sube una foto o PDF de la ficha técnica.</div>`}
 
     <h4>ITV</h4>
     <div class="grid2">
-      <label>Fecha ITV pasada
-        <input type="date" name="itv_fecha" value="${esc(v.itv_fecha)}">
-      </label>
-      <label>Próxima ITV
-        <input type="date" name="itv" value="${esc(v.itv)}">
-      </label>
+      <label>Fecha ITV pasada<input type="date" name="itv_fecha" value="${esc(v.itv_fecha)}"></label>
+      <label>Próxima ITV<input type="date" name="itv" value="${esc(v.itv)}"></label>
     </div>
     <div class="grid2">
-      <label>Precio (€)
-        <input type="number" min="0" step="0.01" name="itv_precio" value="${esc(v.itv_precio)}" placeholder="0,00">
-      </label>
-      <label>Dónde la hiciste
-        <input name="itv_lugar" value="${esc(v.itv_lugar)}" placeholder="Ej. ITV Móstoles">
-      </label>
+      <label>Precio (€)<input type="number" min="0" step="0.01" name="itv_precio" value="${esc(v.itv_precio)}" placeholder="0,00"></label>
+      <label>Dónde la hiciste<input name="itv_lugar" value="${esc(v.itv_lugar)}" placeholder="Ej. ITV Móstoles"></label>
     </div>
 
     <h4>Seguro</h4>
     <div class="grid2">
-      <label>Fecha del seguro
-        <input type="date" name="seguro_fecha" value="${esc(v.seguro_fecha)}">
-      </label>
-      <label>Vencimiento
-        <input type="date" name="seguro" value="${esc(v.seguro)}">
-      </label>
+      <label>Fecha del seguro<input type="date" name="seguro_fecha" value="${esc(v.seguro_fecha)}"></label>
+      <label>Vencimiento<input type="date" name="seguro" value="${esc(v.seguro)}"></label>
     </div>
     <div class="grid3">
       <label>Tipo de seguro
@@ -1118,33 +1154,23 @@ function openVehicleForm(id){
           ${PLAZOS_SEGURO.map(p => `<option ${v.seguro_plazos === p ? 'selected' : ''}>${p}</option>`).join('')}
         </select>
       </label>
-      <label>Cantidad total (€)
-        <input type="number" min="0" step="0.01" name="seguro_precio" value="${esc(v.seguro_precio)}" placeholder="0,00">
-      </label>
+      <label>Cantidad total (€)<input type="number" min="0" step="0.01" name="seguro_precio" value="${esc(v.seguro_precio)}" placeholder="0,00"></label>
     </div>
     <label>Compañía aseguradora
-      <input name="seguro_compania" value="${esc(v.seguro_compania)}" placeholder="Ej. Mapfre, Mutua Madrileña, Línea Directa…">
+      <input name="seguro_compania" value="${esc(v.seguro_compania)}" placeholder="Ej. Mapfre, Mutua Madrileña…">
     </label>
 
     <h4>Impuesto de circulación (IVTM)</h4>
     <div class="grid2">
-      <label>Fecha de pago
-        <input type="date" name="impuesto_fecha" value="${esc(v.impuesto_fecha)}">
-      </label>
-      <label>Vencimiento
-        <input type="date" name="impuesto" value="${esc(v.impuesto)}">
-      </label>
+      <label>Fecha de pago<input type="date" name="impuesto_fecha" value="${esc(v.impuesto_fecha)}"></label>
+      <label>Vencimiento<input type="date" name="impuesto" value="${esc(v.impuesto)}"></label>
     </div>
     <div class="grid2">
-      <label>Cantidad (€)
-        <input type="number" min="0" step="0.01" name="impuesto_precio" value="${esc(v.impuesto_precio)}" placeholder="0,00">
-      </label>
-      <label>Dónde
-        <input name="impuesto_lugar" value="${esc(v.impuesto_lugar)}" placeholder="Ej. Ayuntamiento de Madrid">
-      </label>
+      <label>Cantidad (€)<input type="number" min="0" step="0.01" name="impuesto_precio" value="${esc(v.impuesto_precio)}" placeholder="0,00"></label>
+      <label>Dónde<input name="impuesto_lugar" value="${esc(v.impuesto_lugar)}" placeholder="Ej. Ayuntamiento de Madrid"></label>
     </div>
 
-    <label>Notas<textarea name="notas" rows="2" placeholder="Taller habitual, observaciones…">${esc(v.notas)}</textarea></label>
+    <label>Notas<textarea name="notas" rows="2">${esc(v.notas)}</textarea></label>
   `;
 
   openModal(esNuevo ? 'Nuevo vehículo' : 'Editar vehículo', body, async fd => {
@@ -1444,7 +1470,8 @@ function openHistorialForm(vehicleId, tipo, registroId){
   tipo = normTipo(tipo);
   const v = vehicles.find(x => x.id === vehicleId);
   if(!v) return;
-  const registro = registroId ? (v.historial || []).find(h => h.id === registroId) : null;
+  const regs = registrosHist(vehicleId, tipo);
+  const registro = registroId ? regs.find(h => h.id === registroId) : null;
   const esNuevo = !registro;
   const tipoLabel = TIPOS_HIST_LABEL[tipo] || tipo;
 
@@ -1499,7 +1526,7 @@ function openHistorialForm(vehicleId, tipo, registroId){
       <div class="hint" style="align-self:end;padding-bottom:10px">
         <label style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-weight:600;font-size:.85rem">
           <input type="checkbox" name="actualizar_vehiculo" checked>
-          Actualizar el vencimiento del vehículo
+          Actualizar vencimiento del vehículo
         </label>
       </div>
     </div>
@@ -1530,8 +1557,9 @@ function openHistorialForm(vehicleId, tipo, registroId){
         const { error } = await sb.from('historial_obligaciones').update(data).eq('id', registroId);
         if(error){ console.error('Error actualizando:', error); throw new Error('Error al actualizar: ' + error.message); }
       } else {
-        const { error } = await sb.from('historial_obligaciones').insert(data);
+        const { data: inserted, error } = await sb.from('historial_obligaciones').insert(data).select();
         if(error){ console.error('Error insertando:', error); throw new Error('Error al guardar: ' + error.message); }
+        console.log('Insertado correctamente:', inserted);
       }
 
       if(fd.get('actualizar_vehiculo') && data.proxima_fecha){
@@ -1581,8 +1609,7 @@ function openHistorialList(vehicleId, tipo){
   if(!v) return;
   const tipoLabel = TIPOS_HIST_LABEL[tipo] || tipo;
 
-  const items = (v.historial || [])
-    .filter(h => normTipo(h.tipo) === tipo)
+  const items = registrosHist(vehicleId, tipo)
     .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
 
   const total = items.reduce((s, h) => s + (Number(h.precio) || 0), 0);
@@ -1695,12 +1722,12 @@ document.getElementById('btn-test-avisos').addEventListener('click', async () =>
     });
     let json = null;
     try { json = await res.json(); } catch(_) { json = { error: 'Respuesta no válida' }; }
-    if(!res.ok || json.error){ console.error('Error al probar avisos:', json); toast('Error: ' + (json.error || res.statusText), 'error'); return; }
+    if(!res.ok || json.error){ console.error('Error:', json); toast('Error: ' + (json.error || res.statusText), 'error'); return; }
     const resultados = json.resultados || [];
     const totalAvisos = resultados.reduce((s,r) => s + (r.enviados || 0), 0);
     const totalVehiculos = resultados.length;
     const errores = resultados.filter(r => r.error);
-    if(errores.length && totalAvisos === 0){ console.error('Errores:', errores); toast('No se pudo enviar: ' + errores[0].error, 'error'); return; }
+    if(errores.length && totalAvisos === 0){ toast('No se pudo enviar: ' + errores[0].error, 'error'); return; }
     if(totalAvisos === 0){
       toast(`Prueba completada. No hay avisos pendientes en ${totalVehiculos} vehículo${totalVehiculos===1?'':'s'}.`, 'info');
     } else {
