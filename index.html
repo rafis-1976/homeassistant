@@ -322,6 +322,11 @@ function mantToDB(m,vehicleId){
 let currentUser=null, vehicles=[], selected=null;
 let allHistorialRaw=[], allMantProg=[], allRecambios=[], allRepostajes=[];
 let mostrarMantProg=false;
+let mostrarDocs=true;
+let mostrarDocOficial=true;
+let mostrarRepostajes=true;
+let mostrarRecambios=true;
+let mostrarHistorial=true;
 let repVista='mensual';
 let repChart=null;
 const appView=document.getElementById('app-view');
@@ -533,29 +538,38 @@ function renderContent(){
 
     ${alerts.length?`<div class="section">${alerts.map(a=>`<div class="alert ${a.level}">${a.level==='danger'?'⛔':a.level==='warn'?'⚠️':'✅'} <span>${esc(a.text)}</span></div>`).join('')}</div>`:''}
 
+    <!-- ===================== DOCUMENTOS Y OBLIGACIONES ===================== -->
     <div class="section">
-      <div class="section-head"><h2>Documentos y obligaciones</h2></div>
-      <div class="docs">
-        ${docCard('ITV',v.itv,30,[
-          v.itv_fecha?`<div><span class="lbl">Última ITV</span> ${fmtDate(v.itv_fecha)}</div>`:'',
-          v.itv_precio!=null&&v.itv_precio!==''?`<div><span class="lbl">Precio</span> ${money(v.itv_precio)}</div>`:'',
-          v.itv_lugar?`<div><span class="lbl">Lugar</span> ${esc(v.itv_lugar)}</div>`:''
-        ].filter(Boolean).join(''),`<button type="button" class="btn ghost tiny" data-add-hist="itv">＋ Registrar</button><button type="button" class="btn ghost tiny" data-ver-hist="itv">📋 Historial (${itvRegs.length})</button>`)}
-        ${docCard('Seguro',v.seguro,21,[
-          v.seguro_fecha?`<div><span class="lbl">Fecha</span> ${fmtDate(v.seguro_fecha)}</div>`:'',
-          v.seguro_tipo?`<div><span class="lbl">Tipo</span> ${esc(v.seguro_tipo)}</div>`:'',
-          v.seguro_plazos?`<div><span class="lbl">Plazos</span> ${esc(v.seguro_plazos)}</div>`:'',
-          v.seguro_compania?`<div><span class="lbl">Compañía</span> ${esc(v.seguro_compania)}</div>`:'',
-          v.seguro_precio!=null&&v.seguro_precio!==''?`<div><span class="lbl">Precio</span> ${money(v.seguro_precio)}</div>`:''
-        ].filter(Boolean).join(''),`<button type="button" class="btn ghost tiny" data-add-hist="seguro">＋ Registrar</button><button type="button" class="btn ghost tiny" data-ver-hist="seguro">📋 Historial (${segRegs.length})</button>`)}
-        ${docCard('Impuesto (IVTM)',v.impuesto,30,[
-          v.impuesto_fecha?`<div><span class="lbl">Fecha pago</span> ${fmtDate(v.impuesto_fecha)}</div>`:'',
-          v.impuesto_lugar?`<div><span class="lbl">Dónde</span> ${esc(v.impuesto_lugar)}</div>`:'',
-          v.impuesto_precio!=null&&v.impuesto_precio!==''?`<div><span class="lbl">Cantidad</span> ${money(v.impuesto_precio)}</div>`:''
-        ].filter(Boolean).join(''),`<button type="button" class="btn ghost tiny" data-add-hist="ivtm">＋ Registrar</button><button type="button" class="btn ghost tiny" data-ver-hist="ivtm">📋 Historial (${ivtmRegs.length})</button>`)}
+      <div class="section-head">
+        <button type="button" class="mp-toggle" id="btn-toggle-docs">
+          <span>${mostrarDocs?'▼':'▶'}</span>
+          <span>${mostrarDocs?'Ocultar documentos y obligaciones':'Ver documentos y obligaciones'}</span>
+        </button>
+      </div>
+      <div class="mp-panel" id="docs-panel" ${mostrarDocs?'':'hidden'}>
+        <div class="docs">
+          ${docCard('ITV',v.itv,30,[
+            v.itv_fecha?`<div><span class="lbl">Última ITV</span> ${fmtDate(v.itv_fecha)}</div>`:'',
+            v.itv_precio!=null&&v.itv_precio!==''?`<div><span class="lbl">Precio</span> ${money(v.itv_precio)}</div>`:'',
+            v.itv_lugar?`<div><span class="lbl">Lugar</span> ${esc(v.itv_lugar)}</div>`:''
+          ].filter(Boolean).join(''),`<button type="button" class="btn ghost tiny" data-add-hist="itv">＋ Registrar</button><button type="button" class="btn ghost tiny" data-ver-hist="itv">📋 Historial (${itvRegs.length})</button>`)}
+          ${docCard('Seguro',v.seguro,21,[
+            v.seguro_fecha?`<div><span class="lbl">Fecha</span> ${fmtDate(v.seguro_fecha)}</div>`:'',
+            v.seguro_tipo?`<div><span class="lbl">Tipo</span> ${esc(v.seguro_tipo)}</div>`:'',
+            v.seguro_plazos?`<div><span class="lbl">Plazos</span> ${esc(v.seguro_plazos)}</div>`:'',
+            v.seguro_compania?`<div><span class="lbl">Compañía</span> ${esc(v.seguro_compania)}</div>`:'',
+            v.seguro_precio!=null&&v.seguro_precio!==''?`<div><span class="lbl">Precio</span> ${money(v.seguro_precio)}</div>`:''
+          ].filter(Boolean).join(''),`<button type="button" class="btn ghost tiny" data-add-hist="seguro">＋ Registrar</button><button type="button" class="btn ghost tiny" data-ver-hist="seguro">📋 Historial (${segRegs.length})</button>`)}
+          ${docCard('Impuesto (IVTM)',v.impuesto,30,[
+            v.impuesto_fecha?`<div><span class="lbl">Fecha pago</span> ${fmtDate(v.impuesto_fecha)}</div>`:'',
+            v.impuesto_lugar?`<div><span class="lbl">Dónde</span> ${esc(v.impuesto_lugar)}</div>`:'',
+            v.impuesto_precio!=null&&v.impuesto_precio!==''?`<div><span class="lbl">Cantidad</span> ${money(v.impuesto_precio)}</div>`:''
+          ].filter(Boolean).join(''),`<button type="button" class="btn ghost tiny" data-add-hist="ivtm">＋ Registrar</button><button type="button" class="btn ghost tiny" data-ver-hist="ivtm">📋 Historial (${ivtmRegs.length})</button>`)}
+        </div>
       </div>
     </div>
 
+    <!-- ===================== MANTENIMIENTO PROGRAMADO ===================== -->
     <div class="section">
       <div class="section-head">
         <button type="button" class="mp-toggle" id="btn-toggle-mp">
@@ -601,14 +615,23 @@ function renderContent(){
       </div>
     </div>
 
+    <!-- ===================== DOCUMENTACIÓN OFICIAL ===================== -->
     <div class="section">
-      <div class="section-head"><h2>Documentación oficial del vehículo</h2></div>
-      <div class="docs">
-        ${docFileCard('Permiso de circulación',v.permiso_circulacion_path)}
-        ${docFileCard('Ficha técnica',v.ficha_tecnica_path)}
+      <div class="section-head">
+        <button type="button" class="mp-toggle" id="btn-toggle-docoficial">
+          <span>${mostrarDocOficial?'▼':'▶'}</span>
+          <span>${mostrarDocOficial?'Ocultar documentación oficial del vehículo':'Ver documentación oficial del vehículo'}</span>
+        </button>
+      </div>
+      <div class="mp-panel" id="docoficial-panel" ${mostrarDocOficial?'':'hidden'}>
+        <div class="docs">
+          ${docFileCard('Permiso de circulación',v.permiso_circulacion_path)}
+          ${docFileCard('Ficha técnica',v.ficha_tecnica_path)}
+        </div>
       </div>
     </div>
 
+    <!-- ===================== RESUMEN DE GASTOS ===================== -->
     <div class="section">
       <div class="section-head"><h2>Resumen de gastos</h2></div>
       <div class="stats">
@@ -626,109 +649,125 @@ function renderContent(){
       </div>
     </div>
 
+    <!-- ===================== REPOSTAJES / RECARGAS ===================== -->
     <div class="section">
       <div class="section-head">
-        <h2>Repostajes / Recargas</h2>
-        ${repostajes.length?`<span class="badge muted">${repostajes.length}</span>`:''}
-        <div class="spacer"></div>
-        <button class="btn primary sm" id="btn-add-rep">＋ Añadir repostaje</button>
+        <button type="button" class="mp-toggle" id="btn-toggle-rep">
+          <span>${mostrarRepostajes?'▼':'▶'}</span>
+          <span>${mostrarRepostajes?'Ocultar repostajes / recargas':'Ver repostajes / recargas'}</span>
+          ${repostajes.length?`<span class="badge muted">${repostajes.length}</span>`:''}
+        </button>
+        ${mostrarRepostajes?`<div class="spacer"></div><button class="btn primary sm" id="btn-add-rep">＋ Añadir repostaje</button>`:''}
       </div>
-      ${repostajes.length?`
-        <div class="card" style="padding:16px;margin-bottom:12px">
-          <div class="section-head" style="margin-bottom:6px">
-            <h3 style="font-size:.92rem">Gasto de combustible / recarga</h3>
-            <div class="spacer"></div>
-            <div class="rep-chart-tabs">
-              <button type="button" class="rep-chart-tab ${repVista==='semanal'?'active':''}" data-rep-vista="semanal">Semanal</button>
-              <button type="button" class="rep-chart-tab ${repVista==='mensual'?'active':''}" data-rep-vista="mensual">Mensual</button>
-              <button type="button" class="rep-chart-tab ${repVista==='anual'?'active':''}" data-rep-vista="anual">Anual</button>
+      <div class="mp-panel" id="rep-panel" ${mostrarRepostajes?'':'hidden'}>
+        ${repostajes.length?`
+          <div class="card" style="padding:16px;margin-bottom:12px">
+            <div class="section-head" style="margin-bottom:6px">
+              <h3 style="font-size:.92rem">Gasto de combustible / recarga</h3>
+              <div class="spacer"></div>
+              <div class="rep-chart-tabs">
+                <button type="button" class="rep-chart-tab ${repVista==='semanal'?'active':''}" data-rep-vista="semanal">Semanal</button>
+                <button type="button" class="rep-chart-tab ${repVista==='mensual'?'active':''}" data-rep-vista="mensual">Mensual</button>
+                <button type="button" class="rep-chart-tab ${repVista==='anual'?'active':''}" data-rep-vista="anual">Anual</button>
+              </div>
+            </div>
+            <div class="rep-chart-wrap"><canvas id="rep-chart"></canvas></div>
+            <div class="rep-stats">
+              <div class="stat"><div class="k">Total gastado</div><div class="v">${money(repTotal)}</div></div>
+              <div class="stat"><div class="k">Este año</div><div class="v">${money(repAnio)}</div></div>
+              <div class="stat"><div class="k">Últimos 12 meses</div><div class="v">${money(repUlt)}</div></div>
+              <div class="stat"><div class="k">Media / repostaje</div><div class="v">${money(repostajes.length?repTotal/repostajes.length:0)}</div></div>
             </div>
           </div>
-          <div class="rep-chart-wrap"><canvas id="rep-chart"></canvas></div>
-          <div class="rep-stats">
-            <div class="stat"><div class="k">Total gastado</div><div class="v">${money(repTotal)}</div></div>
-            <div class="stat"><div class="k">Este año</div><div class="v">${money(repAnio)}</div></div>
-            <div class="stat"><div class="k">Últimos 12 meses</div><div class="v">${money(repUlt)}</div></div>
-            <div class="stat"><div class="k">Media / repostaje</div><div class="v">${money(repostajes.length?repTotal/repostajes.length:0)}</div></div>
-          </div>
+        `:''}
+        <div class="card table-wrap">
+          ${repostajes.length?`
+            <table>
+              <thead><tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Precio unit.</th><th>Total</th><th>Km</th><th>Estación</th><th></th></tr></thead>
+              <tbody>${repostajes.map(r=>{
+                const esE = normTipo(r.tipo).includes('eléctric')||normTipo(r.tipo).includes('electric');
+                const u = esE?'kWh':'L';
+                return `<tr>
+                  <td>${fmtDate(r.fecha)}</td>
+                  <td><span class="tag">${esc(r.tipo||'—')}</span></td>
+                  <td>${r.cantidad!=null&&r.cantidad!==''?num.format(Number(r.cantidad))+' '+u:'<span class="muted">—</span>'}</td>
+                  <td>${r.precio_unitario!=null&&r.precio_unitario!==''?money(r.precio_unitario)+'/'+u:'<span class="muted">—</span>'}</td>
+                  <td><strong>${money(r.coste_total)}</strong></td>
+                  <td>${r.km?kmFmt(r.km):'<span class="muted">—</span>'}</td>
+                  <td>${r.estacion?esc(r.estacion):'<span class="muted">—</span>'}</td>
+                  <td><div class="row-actions"><button class="icon-btn" data-edit-rep="${r.id}">✎</button><button class="icon-btn" data-del-rep="${r.id}">🗑</button></div></td>
+                </tr>`;
+              }).join('')}</tbody>
+            </table>
+          `:`
+            <div class="empty" style="padding:36px 20px">
+              <div class="emoji">⛽</div>
+              <p style="margin-bottom:0">Aún no has añadido repostajes.<br>Añade tus repostajes o recargas para ver la gráfica.</p>
+            </div>
+          `}
         </div>
-      `:''}
-      <div class="card table-wrap">
-        ${repostajes.length?`
-          <table>
-            <thead><tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Precio unit.</th><th>Total</th><th>Km</th><th>Estación</th><th></th></tr></thead>
-            <tbody>${repostajes.map(r=>{
-              const esE = normTipo(r.tipo).includes('eléctric')||normTipo(r.tipo).includes('electric');
-              const u = esE?'kWh':'L';
-              return `<tr>
-                <td>${fmtDate(r.fecha)}</td>
-                <td><span class="tag">${esc(r.tipo||'—')}</span></td>
-                <td>${r.cantidad!=null&&r.cantidad!==''?num.format(Number(r.cantidad))+' '+u:'<span class="muted">—</span>'}</td>
-                <td>${r.precio_unitario!=null&&r.precio_unitario!==''?money(r.precio_unitario)+'/'+u:'<span class="muted">—</span>'}</td>
-                <td><strong>${money(r.coste_total)}</strong></td>
-                <td>${r.km?kmFmt(r.km):'<span class="muted">—</span>'}</td>
-                <td>${r.estacion?esc(r.estacion):'<span class="muted">—</span>'}</td>
-                <td><div class="row-actions"><button class="icon-btn" data-edit-rep="${r.id}">✎</button><button class="icon-btn" data-del-rep="${r.id}">🗑</button></div></td>
-              </tr>`;
-            }).join('')}</tbody>
-          </table>
-        `:`
-          <div class="empty" style="padding:36px 20px">
-            <div class="emoji">⛽</div>
-            <p style="margin-bottom:0">Aún no has añadido repostajes.<br>Añade tus repostajes o recargas para ver la gráfica.</p>
-          </div>
-        `}
       </div>
     </div>
 
+    <!-- ===================== RECAMBIOS BÁSICOS ===================== -->
     <div class="section">
       <div class="section-head">
-        <h2>Recambios básicos</h2>
-        ${recambios.length?`<span class="badge muted">${recambios.length}</span>`:''}
-        <div class="spacer"></div>
-        <button class="btn primary sm" id="btn-add-rec">＋ Añadir recambio</button>
+        <button type="button" class="mp-toggle" id="btn-toggle-rec">
+          <span>${mostrarRecambios?'▼':'▶'}</span>
+          <span>${mostrarRecambios?'Ocultar recambios básicos':'Ver recambios básicos'}</span>
+          ${recambios.length?`<span class="badge muted">${recambios.length}</span>`:''}
+        </button>
+        ${mostrarRecambios?`<div class="spacer"></div><button class="btn primary sm" id="btn-add-rec">＋ Añadir recambio</button>`:''}
       </div>
-      <div class="card table-wrap">
-        ${recambios.length?`
-          <table>
-            <thead><tr><th>Imagen</th><th>P/N</th><th>Marca</th><th>Cantidad</th><th>P/N alternativos</th><th></th></tr></thead>
-            <tbody>${recambios.map(r=>`
-              <tr>
-                <td>${r.imagen?`<div class="rec-thumb rec-thumb-tag" data-ver-doc="${esc(r.imagen)}" title="Ver imagen">📷</div>`:`<div class="rec-thumb-tag">🔩</div>`}</td>
-                <td><span class="rec-pn">${esc(r.pn||'—')}</span></td>
-                <td>${r.marca?esc(r.marca):'<span class="muted">—</span>'}</td>
-                <td>${r.cantidad??1}</td>
-                <td>${r.pn_alternativos?`<span class="rec-alt">${esc(r.pn_alternativos)}</span>`:'<span class="muted">—</span>'}</td>
-                <td><div class="row-actions"><button class="icon-btn" data-edit-rec="${r.id}">✎</button><button class="icon-btn" data-del-rec="${r.id}">🗑</button></div></td>
-              </tr>`).join('')}</tbody>
-          </table>
-        `:`
-          <div class="empty" style="padding:36px 20px">
-            <div class="emoji">🔩</div>
-            <p style="margin-bottom:0">Aún no has añadido recambios.</p>
-          </div>
-        `}
+      <div class="mp-panel" id="rec-panel" ${mostrarRecambios?'':'hidden'}>
+        <div class="card table-wrap">
+          ${recambios.length?`
+            <table>
+              <thead><tr><th>Imagen</th><th>P/N</th><th>Marca</th><th>Cantidad</th><th>P/N alternativos</th><th></th></tr></thead>
+              <tbody>${recambios.map(r=>`
+                <tr>
+                  <td>${r.imagen?`<div class="rec-thumb rec-thumb-tag" data-ver-doc="${esc(r.imagen)}" title="Ver imagen">📷</div>`:`<div class="rec-thumb-tag">🔩</div>`}</td>
+                  <td><span class="rec-pn">${esc(r.pn||'—')}</span></td>
+                  <td>${r.marca?esc(r.marca):'<span class="muted">—</span>'}</td>
+                  <td>${r.cantidad??1}</td>
+                  <td>${r.pn_alternativos?`<span class="rec-alt">${esc(r.pn_alternativos)}</span>`:'<span class="muted">—</span>'}</td>
+                  <td><div class="row-actions"><button class="icon-btn" data-edit-rec="${r.id}">✎</button><button class="icon-btn" data-del-rec="${r.id}">🗑</button></div></td>
+                </tr>`).join('')}</tbody>
+            </table>
+          `:`
+            <div class="empty" style="padding:36px 20px">
+              <div class="emoji">🔩</div>
+              <p style="margin-bottom:0">Aún no has añadido recambios.</p>
+            </div>
+          `}
+        </div>
       </div>
     </div>
 
+    <!-- ===================== HISTORIAL DE MANTENIMIENTO ===================== -->
     <div class="section">
       <div class="section-head">
-        <h2>Historial de mantenimiento</h2>
-        <div class="spacer"></div>
-        <button class="btn primary sm" id="btn-add-mant">＋ Añadir intervención</button>
+        <button type="button" class="mp-toggle" id="btn-toggle-hist">
+          <span>${mostrarHistorial?'▼':'▶'}</span>
+          <span>${mostrarHistorial?'Ocultar historial de mantenimiento':'Ver historial de mantenimiento'}</span>
+          ${mants.length?`<span class="badge muted">${mants.length}</span>`:''}
+        </button>
+        ${mostrarHistorial?`<div class="spacer"></div><button class="btn primary sm" id="btn-add-mant">＋ Añadir intervención</button>`:''}
       </div>
-      <div class="card table-wrap">
-        ${mants.length?`
-          <table>
-            <thead><tr><th>Tipo</th><th>Fecha</th><th>Km</th><th>Coste</th><th>Taller</th><th>Próximo</th><th></th></tr></thead>
-            <tbody>${mants.map(m=>mantRow(m,v)).join('')}</tbody>
-          </table>
-        `:`
-          <div class="empty" style="padding:44px 20px">
-            <div class="emoji">🔧</div>
-            <p style="margin-bottom:0">Todavía no has registrado ninguna intervención.</p>
-          </div>
-        `}
+      <div class="mp-panel" id="hist-panel" ${mostrarHistorial?'':'hidden'}>
+        <div class="card table-wrap">
+          ${mants.length?`
+            <table>
+              <thead><tr><th>Tipo</th><th>Fecha</th><th>Km</th><th>Coste</th><th>Taller</th><th>Próximo</th><th></th></tr></thead>
+              <tbody>${mants.map(m=>mantRow(m,v)).join('')}</tbody>
+            </table>
+          `:`
+            <div class="empty" style="padding:44px 20px">
+              <div class="emoji">🔧</div>
+              <p style="margin-bottom:0">Todavía no has registrado ninguna intervención.</p>
+            </div>
+          `}
+        </div>
       </div>
     </div>
   `;
@@ -736,11 +775,27 @@ function renderContent(){
   document.getElementById('btn-edit-vehicle').onclick = () => openVehicleForm(v.id);
   document.getElementById('btn-del-vehicle').onclick = () => deleteVehicle(v.id);
   document.getElementById('btn-km').onclick = () => openKmForm(v.id);
-  document.getElementById('btn-add-mant').onclick = () => openMantForm(v.id);
-  document.getElementById('btn-add-rec').onclick = () => openRecambioForm(v.id);
-  document.getElementById('btn-add-rep').onclick = () => openRepostajeForm(v.id);
-  const bTog = document.getElementById('btn-toggle-mp');
-  if(bTog) bTog.addEventListener('click',()=>{mostrarMantProg=!mostrarMantProg;render();});
+  const bAddMant = document.getElementById('btn-add-mant');
+  if(bAddMant) bAddMant.onclick = () => openMantForm(v.id);
+  const bAddRec = document.getElementById('btn-add-rec');
+  if(bAddRec) bAddRec.onclick = () => openRecambioForm(v.id);
+  const bAddRep = document.getElementById('btn-add-rep');
+  if(bAddRep) bAddRep.onclick = () => openRepostajeForm(v.id);
+
+  // Toggles de minimizar
+  const bTogMp = document.getElementById('btn-toggle-mp');
+  if(bTogMp) bTogMp.addEventListener('click',()=>{mostrarMantProg=!mostrarMantProg;render();});
+  const bTogDocs = document.getElementById('btn-toggle-docs');
+  if(bTogDocs) bTogDocs.addEventListener('click',()=>{mostrarDocs=!mostrarDocs;render();});
+  const bTogDocOf = document.getElementById('btn-toggle-docoficial');
+  if(bTogDocOf) bTogDocOf.addEventListener('click',()=>{mostrarDocOficial=!mostrarDocOficial;render();});
+  const bTogRep = document.getElementById('btn-toggle-rep');
+  if(bTogRep) bTogRep.addEventListener('click',()=>{mostrarRepostajes=!mostrarRepostajes;render();});
+  const bTogRec = document.getElementById('btn-toggle-rec');
+  if(bTogRec) bTogRec.addEventListener('click',()=>{mostrarRecambios=!mostrarRecambios;render();});
+  const bTogHist = document.getElementById('btn-toggle-hist');
+  if(bTogHist) bTogHist.addEventListener('click',()=>{mostrarHistorial=!mostrarHistorial;render();});
+
   const bImp = document.getElementById('btn-import-xml'); if(bImp) bImp.onclick = () => openImportXMLModal(v.id);
   const bAmp = document.getElementById('btn-add-mp'); if(bAmp) bAmp.onclick = () => openMantProgForm(v.id);
   const bImpE = document.getElementById('btn-import-xml-empty'); if(bImpE) bImpE.onclick = () => openImportXMLModal(v.id);
@@ -1348,55 +1403,4 @@ function openHistorialForm(vid,tipo,rid){
       const cv = tipo==='itv'?'itv':tipo==='seguro'?'seguro':'impuesto';
       const extra = {};
       if(tipo==='itv'){if(data.precio!=null)extra.itv_precio=data.precio;if(data.lugar)extra.itv_lugar=data.lugar;if(data.fecha)extra.itv_fecha=data.fecha;}
-      else if(tipo==='seguro'){if(data.precio!=null)extra.seguro_precio=data.precio;if(data.compania)extra.seguro_compania=data.compania;if(data.tipo_seguro)extra.seguro_tipo=data.tipo_seguro;if(data.plazos)extra.seguro_plazos=data.plazos;if(data.fecha)extra.seguro_fecha=data.fecha;}
-      else if(tipo==='ivtm'){if(data.precio!=null)extra.impuesto_precio=data.precio;if(data.lugar)extra.impuesto_lugar=data.lugar;if(data.fecha)extra.impuesto_fecha=data.fecha;}
-      const {error}=await sb.from('vehicles').update({[cv]:data.proxima_fecha,...extra}).eq('id',vid);
-      if(error) console.warn(error.message);
-    }
-    await loadData(); closeModal(); render(); toast(rid?'Actualizado':'Guardado','ok');
-  }, esNuevo?'Guardar':'Guardar cambios');
-  setTimeout(()=>{
-    const fF=document.getElementById('hf'),fP=document.getElementById('hp');
-    if(fF&&fP) fF.addEventListener('change',()=>{if(!fF.value)return;fP.value=_proxDef(fF.value,tipo,v);});
-  },30);
-}
-function openHistorialList(vid,tipo){
-  tipo = normTipo(tipo);
-  const v = vehicles.find(x=>x.id===vid); if(!v) return;
-  const lbl = TIPOS_HIST_LABEL[tipo]||tipo;
-  const items = registrosHist(vid,tipo).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-  const total = items.reduce((s,h)=>s+(Number(h.precio)||0),0);
-  const anios = items.length ? new Set(items.map(h=>(h.fecha||'').slice(0,4))).size : 0;
-  let html='';
-  if(!items.length) html='<div class="hist-empty">Sin registros.</div>';
-  else html = items.map(h=>{
-    const ex=[];
-    if(h.lugar) ex.push(`📍 ${esc(h.lugar)}`);
-    if(h.compania) ex.push(`🏢 ${esc(h.compania)}`);
-    if(h.tipo_seguro) ex.push(`🛡 ${esc(h.tipo_seguro)}`);
-    if(h.plazos) ex.push(`📅 ${esc(h.plazos)}`);
-    if(h.proxima_fecha) ex.push(`→ ${fmtDate(h.proxima_fecha)}`);
-    if(h.notas) ex.push(`📝 ${esc(h.notas)}`);
-    return `<div class="hist-item"><div class="hist-info"><div><strong>${fmtDate(h.fecha)}</strong>${h.precio!=null?` · <strong>${money(h.precio)}</strong>`:''}</div>${ex.length?`<div class="hist-line">${ex.join(' · ')}</div>`:''}</div><div class="hist-actions"><button type="button" class="icon-btn" data-hist-edit="${h.id}">✎</button><button type="button" class="icon-btn" data-hist-del="${h.id}">🗑</button></div></div>`;
-  }).join('');
-  const body = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px"><div class="hint">${items.length} registro${items.length===1?'':'s'} · ${anios} año${anios===1?'':'s'}</div><button type="button" class="btn primary sm" id="hist-add">＋ Nuevo</button></div><div>${html}</div>${items.length?`<div class="hist-total">Total: <strong>${money(total)}</strong></div>`:''}`;
-  openModal(`Historial — ${lbl}`,body,async()=>{closeModal();},'Cerrar');
-  setTimeout(()=>{
-    const sb2=document.getElementById('modal-submit'); if(sb2) sb2.style.display='none';
-    modalRoot.querySelectorAll('[data-close]').forEach(b=>{if(b.classList.contains('btn')){b.textContent='Cerrar';b.classList.remove('ghost');b.classList.add('primary');}});
-    const add=document.getElementById('hist-add'); if(add) add.addEventListener('click',()=>{closeModal();openHistorialForm(vid,tipo);});
-    modalRoot.querySelectorAll('[data-hist-edit]').forEach(b=>b.addEventListener('click',()=>{closeModal();openHistorialForm(vid,tipo,b.dataset.histEdit);}));
-    modalRoot.querySelectorAll('[data-hist-del]').forEach(b=>b.addEventListener('click',async()=>{
-      if(!confirm('¿Eliminar este registro?')) return;
-      const {error}=await sb.from('historial_obligaciones').delete().eq('id',b.dataset.histDel);
-      if(error) return toast('Error: '+error.message,'error');
-      await loadData(); closeModal(); render(); toast('Eliminado','ok');
-    }));
-  },30);
-}
-
-/* ============ INICIO ============ */
-document.getElementById('btn-add-vehicle').addEventListener('click',()=>openVehicleForm());
-</script>
-</body>
-</html>
+      else if(tipo==='seguro'){if(data.precio!=null)extra.seguro_precio=data.precio;if(data.compania)extra.seguro_compania=data.compania;if(data.tipo_seguro)extra.seguro_tipo=data.tipo_seguro;if(data.plazos)extra.seguro_plazos=data.plazos;if(data.fecha)extra.seguro_fecha=data
