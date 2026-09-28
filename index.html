@@ -679,9 +679,23 @@ function renderContent(){
     .filter(filtro || (() => true))
     .reduce((s,h) => s + (Number(h.precio)||0), 0);
 
-  const itvTotal = sumHist('itv'),    itvAnio = sumHist('itv', enAnio),    itvUlt = sumHist('itv', enUlt);
-  const segTotal = sumHist('seguro'), segAnio = sumHist('seguro', enAnio), segUlt = sumHist('seguro', enUlt);
-  const ivtmTotal= sumHist('ivtm'),   ivtmAnio= sumHist('ivtm', enAnio),   ivtmUlt= sumHist('ivtm', enUlt);
+  // ITV: si hay historial, usar historial; si no, usar el precio del vehículo como respaldo
+  const itvHistTotal = sumHist('itv');
+  const itvTotal = itvHistTotal > 0 ? itvHistTotal : (Number(v.itv_precio)||0);
+  const itvAnio  = itvHistTotal > 0 ? sumHist('itv', enAnio) : (Number(v.itv_precio)||0);
+  const itvUlt   = itvHistTotal > 0 ? sumHist('itv', enUlt)  : (Number(v.itv_precio)||0);
+
+  // Seguro
+  const segHistTotal = sumHist('seguro');
+  const segTotal = segHistTotal > 0 ? segHistTotal : (Number(v.seguro_precio)||0);
+  const segAnio  = segHistTotal > 0 ? sumHist('seguro', enAnio) : (Number(v.seguro_precio)||0);
+  const segUlt   = segHistTotal > 0 ? sumHist('seguro', enUlt)  : (Number(v.seguro_precio)||0);
+
+  // IVTM
+  const ivtmHistTotal = sumHist('ivtm');
+  const ivtmTotal = ivtmHistTotal > 0 ? ivtmHistTotal : (Number(v.impuesto_precio)||0);
+  const ivtmAnio  = ivtmHistTotal > 0 ? sumHist('ivtm', enAnio) : (Number(v.impuesto_precio)||0);
+  const ivtmUlt   = ivtmHistTotal > 0 ? sumHist('ivtm', enUlt)  : (Number(v.impuesto_precio)||0);
 
   // --- Totales combinados ---
   const totalGasto = mantTotal + itvTotal + segTotal + ivtmTotal;
