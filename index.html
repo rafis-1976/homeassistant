@@ -8,25 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <style>
-:root{
-  --bg:#f4f6fa; --card:#ffffff; --text:#131a2b; --muted:#68738a;
-  --border:#e2e7f0; --accent:#2563eb; --accent-dark:#1d4ed8;
-  --ok:#16a34a; --ok-bg:#e8f7ee;
-  --warn:#b45309; --warn-bg:#fef3c7;
-  --danger:#dc2626; --danger-bg:#fee2e2;
-  --radius:14px;
-  --shadow:0 1px 2px rgba(16,24,40,.05), 0 12px 28px -16px rgba(16,24,40,.25);
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#0e1420; --card:#161e2e; --text:#e8edf7; --muted:#93a0b8;
-    --border:#26314a; --accent:#3b82f6; --accent-dark:#2563eb;
-    --ok:#4ade80; --ok-bg:#14301f;
-    --warn:#fbbf24; --warn-bg:#3a2c0a;
-    --danger:#f87171; --danger-bg:#3b1414;
-    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 28px -16px rgba(0,0,0,.7);
-  }
-}
+:root{--bg:#f4f6fa;--card:#ffffff;--text:#131a2b;--muted:#68738a;--border:#e2e7f0;--accent:#2563eb;--accent-dark:#1d4ed8;--ok:#16a34a;--ok-bg:#e8f7ee;--warn:#b45309;--warn-bg:#fef3c7;--danger:#dc2626;--danger-bg:#fee2e2;--radius:14px;--shadow:0 1px 2px rgba(16,24,40,.05),0 12px 28px -16px rgba(16,24,40,.25)}
+@media (prefers-color-scheme: dark){:root{--bg:#0e1420;--card:#161e2e;--text:#e8edf7;--muted:#93a0b8;--border:#26314a;--accent:#3b82f6;--accent-dark:#2563eb;--ok:#4ade80;--ok-bg:#14301f;--warn:#fbbf24;--warn-bg:#3a2c0a;--danger:#f87171;--danger-bg:#3b1414;--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 28px -16px rgba(0,0,0,.7)}}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased}
@@ -74,7 +57,7 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .vehicle-head{padding:20px;display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
 .plate{background:#fff;color:#111;border:2px solid #111;border-radius:8px;padding:6px 12px 6px 8px;font-weight:800;letter-spacing:.06em;font-size:1rem;display:inline-flex;align-items:center;gap:8px;font-family:ui-monospace,"SFMono-Regular",Menlo,monospace}
 .plate::before{content:"";display:block;width:8px;height:22px;border-radius:2px;background:#003399}
-@media (prefers-color-scheme: dark){ .plate{border-color:#cbd5e1} }
+@media (prefers-color-scheme: dark){.plate{border-color:#cbd5e1}}
 .vehicle-title{flex:1;min-width:220px}
 .vehicle-title h2{font-size:1.35rem;letter-spacing:-.02em}
 .vehicle-meta{color:var(--muted);font-size:.86rem;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -151,23 +134,24 @@ tbody tr:hover{background:var(--bg)}
 .modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:16px 20px;border-top:1px solid var(--border)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-@media(max-width:560px){ .grid2,.grid3{grid-template-columns:1fr} }
+@media(max-width:560px){.grid2,.grid3{grid-template-columns:1fr}}
 .hint{font-size:.76rem;color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0}
 footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px 40px}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 18px;border-radius:10px;font-size:.86rem;font-weight:600;z-index:200;box-shadow:0 12px 30px rgba(0,0,0,.35);animation:pop .2s ease;max-width:90%}
 .toast.ok{background:#16a34a}
 .toast.error{background:#dc2626}
-.material-row{display:grid;grid-template-columns:90px 2fr 0.7fr 0.9fr 1.4fr auto;gap:8px;align-items:start;margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed var(--border)}
+.material-row{display:grid;grid-template-columns:130px 2fr 0.7fr 0.9fr 1.4fr auto;gap:8px;align-items:start;margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed var(--border)}
 .material-row:last-child{border-bottom:none;padding-bottom:0;margin-bottom:0}
 .material-row input{padding:8px 10px;font-size:.85rem}
-@media(max-width:780px){.material-row{grid-template-columns:90px 1fr 1fr;grid-auto-rows:auto}.material-row input[data-field="nombre"]{grid-column:2/-1}.material-row input[data-field="tienda"]{grid-column:2/-1}.material-row button[data-remove]{grid-column:3;justify-self:end}}
-.mat-img-cell{display:flex;flex-direction:column;gap:4px;align-items:center;padding-top:2px}
+@media(max-width:780px){.material-row{grid-template-columns:130px 1fr 1fr;grid-auto-rows:auto}.material-row input[data-field="nombre"]{grid-column:2/-1}.material-row input[data-field="tienda"]{grid-column:2/-1}.material-row button[data-remove]{grid-column:3;justify-self:end}}
+.mat-img-cell{display:flex;flex-direction:column;gap:5px;align-items:center;padding-top:2px}
 .mat-img{width:78px;height:78px;border-radius:10px;object-fit:cover;border:1px solid var(--border);background:var(--bg);display:block}
 .mat-img-placeholder{display:grid;place-items:center;cursor:pointer;font-size:1.6rem;color:var(--muted)}
 .mat-img-placeholder:hover{border-color:var(--accent);color:var(--accent)}
 .mat-img-empty{width:78px;height:78px;border-radius:10px;border:1px dashed var(--border);display:grid;place-items:center;font-size:.68rem;font-weight:700;color:var(--muted);text-align:center;background:var(--bg);line-height:1.15;padding:4px;text-transform:uppercase;letter-spacing:.03em}
-.mat-img-btn{border:none;background:transparent;color:var(--accent);font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:0;cursor:pointer}
-.mat-img-btn:hover{text-decoration:underline}
+.mat-img-btns{display:flex;flex-direction:column;gap:3px;width:100%}
+.mat-img-btn{border:1px solid var(--border);background:var(--card);color:var(--accent);font-size:.68rem;font-weight:800;padding:4px 6px;border-radius:6px;cursor:pointer;letter-spacing:.02em;white-space:nowrap;text-align:center}
+.mat-img-btn:hover{background:var(--bg);border-color:var(--accent)}
 .total-box{margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--bg);border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:.9rem;font-weight:600}
 .total-box strong{font-size:1.1rem}
 .link-btn{border:none;background:transparent;color:var(--accent);font-size:.76rem;font-weight:700;padding:0;margin-top:3px;cursor:pointer;display:block}
@@ -183,16 +167,16 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .mat-thumb{width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--border);background:var(--bg);display:block;cursor:pointer}
 .mat-thumb-tag{display:grid;place-items:center;font-size:1.15rem;color:var(--muted)}
 .mat-thumb-tag:hover{border-color:var(--accent);color:var(--accent)}
-/* Recambios */
 .rec-thumb{width:56px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--border);background:var(--bg);display:block;cursor:pointer}
 .rec-thumb-tag{display:grid;place-items:center;font-size:1.4rem;color:var(--muted);width:56px;height:56px;border-radius:8px;border:1px solid var(--border);background:var(--bg);cursor:pointer}
 .rec-thumb-tag:hover{border-color:var(--accent);color:var(--accent)}
 .rec-pn{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);padding:2px 8px;border-radius:6px;border:1px solid var(--border);font-size:.82rem;font-weight:700}
 .rec-alt{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem;color:var(--muted)}
-.rec-img-preview{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-top:6px}
+.rec-img-preview{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-top:6px}
 .rec-img-preview .mat-img{width:96px;height:96px}
 .rec-img-preview .rec-thumb-tag{width:96px;height:96px;font-size:2rem}
-/* Mantenimiento programado */
+.rec-img-btns{display:flex;flex-direction:row;gap:6px;flex-wrap:wrap;margin-top:6px}
+.rec-img-btns .mat-img-btn{font-size:.74rem;padding:6px 10px}
 .row-mp-overdue{background:color-mix(in srgb,var(--danger-bg) 45%,transparent)}
 .row-mp-overdue:hover{background:color-mix(in srgb,var(--danger-bg) 70%,transparent)}
 .row-mp-due{background:color-mix(in srgb,var(--warn-bg) 45%,transparent)}
@@ -290,7 +274,7 @@ function parseMantProgXML(xmlText){
   function findElems(parent, tag){ let els = parent.getElementsByTagNameNS(NS, tag); if(els.length === 0) els = parent.getElementsByTagName(tag); return els; }
   function getAttr(elem, name){ let v = elem.getAttributeNS(NS, name); if(v == null) v = elem.getAttribute('ss:' + name) || elem.getAttribute(name); return v; }
   const worksheets = findElems(doc, 'Worksheet');
-  if(!worksheets.length) throw new Error('El XML no contiene ninguna hoja de cálculo.');
+  if(!worksheets.length) throw new Error('El XML no contiene ninguna hoja.');
   const rows = findElems(worksheets[0], 'Row');
   if(!rows.length) return [];
   function getRowValues(rowEl){
@@ -326,7 +310,7 @@ function parseMantProgXML(xmlText){
 }
 
 /* =========================================================
-   Catálogos
+   Catálogos y mapeos
    ========================================================= */
 const COMBUSTIBLES = ['Gasolina','Diésel','Híbrido','Híbrido enchufable','Eléctrico','GLP','GNC','Otro'];
 const TIPOS_MANT = ['Cambio de aceite y filtros','Filtro de aire','Filtro de combustible','Filtro de habitáculo','Frenos (pastillas/discos)','Neumáticos','Batería','Correa de distribución','Bujías','Líquido de frenos','Refrigerante','Aire acondicionado','Revisión oficial','ITV','Escobillas limpiaparabrisas','Suspensión','Embrague','Diagnosis / electrónica','Otros'];
@@ -356,7 +340,7 @@ function mantToDB(m, vehicleId){
 }
 
 /* =========================================================
-   Estado GLOBAL
+   Estado
    ========================================================= */
 let currentUser = null, vehicles = [], selected = null;
 let allHistorialRaw = [], allMantProg = [], allRecambios = [];
@@ -382,7 +366,7 @@ async function entrar(){
   appView.hidden = false;
   document.getElementById('user-email').textContent = currentUser?.email || '';
   try { await loadData(); }
-  catch(err){ console.error('Error cargando datos:', err); vehicles = []; selected = null; setTimeout(() => toast('Error: ' + (err?.message || 'Error'), 'error'), 200); }
+  catch(err){ console.error('Error:', err); vehicles = []; selected = null; setTimeout(() => toast('Error: ' + (err?.message || 'Error'), 'error'), 200); }
   render();
 }
 
@@ -399,17 +383,13 @@ async function loadData(){
   allHistorialRaw = hRes.error ? [] : (hRes.data || []);
   allMantProg = pRes.error ? [] : (pRes.data || []);
   allRecambios = rRes.error ? [] : (rRes.data || []);
-  if(hRes.error) console.error('Error historial:', hRes.error);
-  if(pRes.error) console.error('Error mantenimiento_programado:', pRes.error);
-  if(rRes.error) console.error('Error recambios:', rRes.error);
-
   const mantsByVehicle = new Map();
   mRes.data.forEach(m => { if(!mantsByVehicle.has(m.vehicle_id)) mantsByVehicle.set(m.vehicle_id, []); mantsByVehicle.get(m.vehicle_id).push(mantFromDB(m)); });
   vehicles = vRes.data.map(v => ({ ...v, km: Number(v.km) || 0, mantenimientos: mantsByVehicle.get(v.id) || [] }));
   if(!selected || !vehicles.find(v => v.id === selected)) selected = vehicles[0]?.id || null;
 }
 
-function registrosHist(vehicleId, tipo){ const tipoN = normTipo(tipo); return allHistorialRaw.filter(h => String(h.vehicle_id) === String(vehicleId) && normTipo(h.tipo) === tipoN); }
+function registrosHist(vehicleId, tipo){ const t = normTipo(tipo); return allHistorialRaw.filter(h => String(h.vehicle_id) === String(vehicleId) && normTipo(h.tipo) === t); }
 function registrosMantProg(vehicleId){ return allMantProg.filter(p => String(p.vehicle_id) === String(vehicleId)); }
 function registrosRecambios(vehicleId){ return allRecambios.filter(r => String(r.vehicle_id) === String(vehicleId)); }
 
@@ -493,9 +473,7 @@ function renderContent(){
   const mantUlt = v.mantenimientos.filter(m => { const d = daysUntil(m.fecha); return d !== null && d > -365 && d <= 0; }).reduce((s,m) => s + totalDeIntervencion(m), 0);
   const enAnio = h => (h.fecha||'').startsWith(String(year));
   const enUlt = h => { const d = daysUntil(h.fecha); return d !== null && d > -365 && d <= 0; };
-  const itvRegs = registrosHist(v.id, 'itv');
-  const segRegs = registrosHist(v.id, 'seguro');
-  const ivtmRegs = registrosHist(v.id, 'ivtm');
+  const itvRegs = registrosHist(v.id, 'itv'), segRegs = registrosHist(v.id, 'seguro'), ivtmRegs = registrosHist(v.id, 'ivtm');
   const sumRegs = (regs, filtro) => regs.filter(filtro || (() => true)).reduce((s,h) => s + (Number(h.precio)||0), 0);
   const itvHistTotal = sumRegs(itvRegs);
   const itvTotal = itvHistTotal > 0 ? itvHistTotal : (Number(v.itv_precio)||0);
@@ -530,8 +508,7 @@ function renderContent(){
   const nToca = mantProg.filter(p => p._est.nivel === 'warn').length;
   const nProximos = mantProg.filter(p => p._est.nivel === 'accent').length;
   const mpRowClass = p => p._est.nivel === 'danger' ? 'row-mp-overdue' : p._est.nivel === 'warn' ? 'row-mp-due' : p._est.nivel === 'accent' ? 'row-mp-soon' : '';
-  const mpBadge = p => {
-    const n = p._est.nivel;
+  const mpBadge = p => { const n = p._est.nivel;
     if(n === 'danger') return '<span class="badge danger">⛔ Vencido</span>';
     if(n === 'warn') return '<span class="badge warn">⚠️ Toca</span>';
     if(n === 'accent') return '<span class="badge" style="background:var(--bg);color:var(--accent);border:1px solid var(--accent)">🔔 Próximo</span>';
@@ -879,11 +856,7 @@ function openVehicleForm(id){
     </div>
     <h4>Mantenimiento programado (XML)</h4>
     <label>Archivo XML de Excel<input type="file" name="mant_prog_file" id="mant-prog-file" accept=".xml,application/xml,text/xml"></label>
-    <div class="hint">
-      Columnas: <code>Kilómetros</code> · <code>Meses</code> · <code>Revisión</code>
-      (también <code>Operación</code> · <code>Intervalo</code> · <code>Notas</code>).
-      ${esNuevo ? '' : `Este vehículo ya tiene <b>${mantProg.length}</b> registro${mantProg.length===1?'':'s'}.`}
-    </div>
+    <div class="hint">Columnas: <code>Kilómetros</code> · <code>Meses</code> · <code>Revisión</code> (también <code>Operación</code> · <code>Intervalo</code> · <code>Notas</code>). ${esNuevo ? '' : `Este vehículo ya tiene <b>${mantProg.length}</b> registro${mantProg.length===1?'':'s'}.`}</div>
     ${!esNuevo ? `<div class="hint" style="padding-bottom:8px"><label style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-weight:600;font-size:.85rem"><input type="checkbox" name="reemplazar_mant_prog" checked> Reemplazar el plan actual</label></div>` : ''}
     <div id="xml-preview-container"></div>
     <h4>Permiso de circulación</h4>
@@ -917,8 +890,7 @@ function openVehicleForm(id){
       const registros = xmlParsed.map((r, i) => ({ vehicle_id: vehicleId, operacion: r.operacion, intervalo: r.intervalo || null, notas: r.notas || null, orden: i }));
       for(let i = 0; i < registros.length; i += 500){ const { error } = await sb.from('mantenimiento_programado').insert(registros.slice(i, i + 500)); if(error) throw error; }
     }
-    await loadData();
-    closeModal(); render();
+    await loadData(); closeModal(); render();
     toast(id ? 'Vehículo actualizado' : 'Vehículo añadido', 'ok');
   }, esNuevo ? 'Añadir vehículo' : 'Guardar cambios');
   setTimeout(() => {
@@ -934,7 +906,7 @@ function openVehicleForm(id){
           xmlParsed = objs;
           if(!objs.length){ pc.innerHTML = '<div class="xml-preview">⚠️ No se han detectado filas válidas.</div>'; return; }
           const preview = objs.slice(0, 8).map(o => `<tr><td>${esc(o.operacion)}</td><td>${esc(o.intervalo || '—')}</td><td>${esc((o.notas || '').slice(0, 60))}</td></tr>`).join('');
-          pc.innerHTML = `<div class="xml-preview"><div class="ok">✓ ${objs.length} registro${objs.length===1?'':'s'} detectado${objs.length===1?'':'s'}</div><table style="margin-top:8px"><thead><tr><th>Operación</th><th>Intervalo</th><th>Notas</th></tr></thead><tbody>${preview}</tbody></table>${objs.length > 8 ? `<div class="hint" style="margin-top:6px">... y ${objs.length - 8} más.</div>` : ''}</div>`;
+          pc.innerHTML = `<div class="xml-preview"><div class="ok">✓ ${objs.length} registro${objs.length===1?'':'s'}</div><table style="margin-top:8px"><thead><tr><th>Operación</th><th>Intervalo</th><th>Notas</th></tr></thead><tbody>${preview}</tbody></table>${objs.length > 8 ? `<div class="hint" style="margin-top:6px">... y ${objs.length - 8} más.</div>` : ''}</div>`;
         } catch(err){ console.error(err); xmlParsed = null; pc.innerHTML = '<div class="xml-preview">❌ Error: ' + esc(err.message) + '</div>'; }
       };
       r.readAsText(file, 'UTF-8');
@@ -1040,11 +1012,20 @@ function openRecambioForm(vehicleId, recambioId){
       <label>Cantidad<input name="cantidad" type="number" min="0" step="1" value="${esc(reg?.cantidad ?? 1)}"></label>
       <label>P/N alternativos<input name="pn_alternativos" value="${esc(reg?.pn_alternativos)}" placeholder="Ej. W712/95, HU 719/7 x"></label>
     </div>
-    <label>Imagen (opcional)<input type="file" name="imagen_file" id="recambio-imagen-file" accept="image/*"></label>
+
+    <h4>Imagen (opcional)</h4>
+    <div class="rec-img-btns">
+      <button type="button" class="mat-img-btn" id="rec-camera-btn">📷 Hacer foto</button>
+      <button type="button" class="mat-img-btn" id="rec-gallery-btn">🖼 Galería</button>
+    </div>
+    <input type="file" accept="image/*" capture="environment" id="rec-input-camera" hidden>
+    <input type="file" accept="image/*" id="rec-input-gallery" hidden>
+
     <div id="recambio-imagen-preview-container">
       ${reg?.imagen ? `<div class="rec-img-preview"><div class="rec-thumb-tag" data-ver-doc="${esc(reg.imagen)}" title="Ver imagen guardada">📷</div></div>` : ''}
     </div>
-    <div class="hint">Si eliges una imagen nueva, se reemplazará la anterior.</div>`;
+    <div class="hint">En móvil, "Hacer foto" abre la cámara directamente. Si eliges una imagen nueva, se reemplazará la anterior.</div>`;
+
   openModal(esNuevo ? 'Añadir recambio' : 'Editar recambio', body, async fd => {
     const data = {
       vehicle_id: vehicleId,
@@ -1064,14 +1045,26 @@ function openRecambioForm(vehicleId, recambioId){
     await loadData(); closeModal(); render();
     toast(reg ? 'Recambio actualizado' : 'Recambio añadido', 'ok');
   }, esNuevo ? 'Añadir' : 'Guardar cambios');
+
   setTimeout(() => {
-    const fi = document.getElementById('recambio-imagen-file'), pc = document.getElementById('recambio-imagen-preview-container');
-    if(!fi || !pc) return;
-    fi.addEventListener('change', e => {
-      const file = e.target.files[0]; if(!file) return;
-      _file = file; _preview = URL.createObjectURL(file);
+    const camBtn = document.getElementById('rec-camera-btn');
+    const galBtn = document.getElementById('rec-gallery-btn');
+    const camInp = document.getElementById('rec-input-camera');
+    const galInp = document.getElementById('rec-input-gallery');
+    const pc = document.getElementById('recambio-imagen-preview-container');
+    if(!camBtn || !galBtn || !camInp || !galInp || !pc) return;
+
+    camBtn.addEventListener('click', () => camInp.click());
+    galBtn.addEventListener('click', () => galInp.click());
+
+    const handleFile = file => {
+      if(!file) return;
+      _file = file;
+      _preview = URL.createObjectURL(file);
       pc.innerHTML = `<div class="rec-img-preview"><img class="mat-img" src="${_preview}" alt="Recambio"></div>`;
-    });
+    };
+    camInp.addEventListener('change', e => handleFile(e.target.files[0]));
+    galInp.addEventListener('change', e => handleFile(e.target.files[0]));
   }, 60);
 }
 
@@ -1092,6 +1085,7 @@ function openMantForm(vehicleId, mantId){
   const m = mantId ? v.mantenimientos.find(x => x.id === mantId) : {};
   const esNuevo = !mantId;
   let mats = Array.isArray(m.materiales) ? m.materiales.map(x => ({ id: x.id || uid(), nombre: x.nombre || '', cantidad: x.cantidad ?? '', precio: x.precio ?? '', tienda: x.tienda || '', imagen: x.imagen || '', _file: null, _preview: null })) : [];
+
   const body = `
     <div class="grid2">
       <label>Tipo de intervención<select name="tipo" required>${TIPOS_MANT.map(t => `<option ${m.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
@@ -1113,6 +1107,7 @@ function openMantForm(vehicleId, mantId){
     </div>
     <label>Notas<textarea name="notas" rows="2">${esc(m.notas)}</textarea></label>
     <div class="total-box"><span>Total</span><strong id="total-intervencion">0,00 €</strong></div>`;
+
   openModal(esNuevo ? 'Nueva intervención' : 'Editar intervención', body, async fd => {
     for(const mat of mats){ if(mat._file && mat._file.size > 0){ try { const path = await subirMaterialImagen(mat._file, vehicleId, mat.id); if(path) mat.imagen = path; } catch(e){ console.warn(e); } } }
     const data = {
@@ -1131,16 +1126,26 @@ function openMantForm(vehicleId, mantId){
     if(data.km && Number(data.km) > (Number(v.km) || 0)) await sb.from('vehicles').update({ km: Number(data.km) }).eq('id', vehicleId);
     await loadData(); closeModal(); render(); toast(esNuevo ? 'Añadido' : 'Actualizado', 'ok');
   }, esNuevo ? 'Añadir' : 'Guardar');
+
   const listEl = document.getElementById('materiales-list'), matTotalEl = document.getElementById('materiales-total'), totalEl = document.getElementById('total-intervencion'), costeInput = document.querySelector('#modal-form [name="coste"]');
   const sumMats = () => mats.reduce((s,x) => s + (Number(x.cantidad)||0) * (Number(x.precio)||0), 0);
   function refreshTotals(){ const t = sumMats(); matTotalEl.textContent = money(t); totalEl.textContent = money((Number(costeInput.value)||0) + t); }
+
   function imagenCell(x, i){
     let inner;
     if(x._preview) inner = `<img class="mat-img" src="${x._preview}" alt="Material">`;
-    else if(x.imagen) inner = `<div class="mat-img mat-img-placeholder" data-ver-doc="${esc(x.imagen)}" title="Ver imagen">📷</div>`;
+    else if(x.imagen) inner = `<div class="mat-img mat-img-placeholder" data-ver-doc="${esc(x.imagen)}" title="Ver imagen guardada">📷</div>`;
     else inner = `<div class="mat-img-empty">Sin foto</div>`;
-    return `<div class="mat-img-cell">${inner}<button type="button" class="mat-img-btn" data-img-trigger="${i}">${x._preview || x.imagen ? 'Cambiar' : 'Subir foto'}</button><input type="file" accept="image/*" class="mat-img-input" data-idx="${i}" hidden></div>`;
+    return `<div class="mat-img-cell">${inner}
+      <div class="mat-img-btns">
+        <button type="button" class="mat-img-btn" data-img-camera="${i}">📷 Hacer foto</button>
+        <button type="button" class="mat-img-btn" data-img-gallery="${i}">🖼 Galería</button>
+      </div>
+      <input type="file" accept="image/*" capture="environment" class="mat-img-input-cam" data-idx="${i}" hidden>
+      <input type="file" accept="image/*" class="mat-img-input-gal" data-idx="${i}" hidden>
+    </div>`;
   }
+
   function renderMats(){
     if(!mats.length) listEl.innerHTML = '<div class="hint" style="padding:4px 0">Sin materiales.</div>';
     else {
@@ -1153,14 +1158,37 @@ function openMantForm(vehicleId, mantId){
           <input data-field="tienda" placeholder="Dónde lo compraste" value="${esc(x.tienda)}">
           <button type="button" class="icon-btn" data-remove="${i}">✕</button>
         </div>`).join('');
+
       listEl.querySelectorAll('input[data-field]').forEach(inp => inp.addEventListener('input', e => { const i = Number(e.target.closest('.material-row').dataset.idx); mats[i][e.target.dataset.field] = e.target.value; refreshTotals(); }));
       listEl.querySelectorAll('[data-ver-doc]').forEach(el => el.addEventListener('click', () => verDocumento(el.dataset.verDoc)));
-      listEl.querySelectorAll('[data-img-trigger]').forEach(b => b.addEventListener('click', () => { const inp = listEl.querySelector(`.mat-img-input[data-idx="${b.dataset.imgTrigger}"]`); if(inp) inp.click(); }));
-      listEl.querySelectorAll('.mat-img-input').forEach(inp => inp.addEventListener('change', e => { const i = Number(e.target.dataset.idx); const file = e.target.files[0]; if(!file) return; mats[i]._file = file; mats[i]._preview = URL.createObjectURL(file); renderMats(); }));
+
+      // Cámara
+      listEl.querySelectorAll('[data-img-camera]').forEach(b => b.addEventListener('click', () => {
+        const inp = listEl.querySelector(`.mat-img-input-cam[data-idx="${b.dataset.imgCamera}"]`);
+        if(inp) inp.click();
+      }));
+      // Galería
+      listEl.querySelectorAll('[data-img-gallery]').forEach(b => b.addEventListener('click', () => {
+        const inp = listEl.querySelector(`.mat-img-input-gal[data-idx="${b.dataset.imgGallery}"]`);
+        if(inp) inp.click();
+      }));
+
+      const handleImg = (input, cls) => listEl.querySelectorAll(cls).forEach(inp => inp.addEventListener('change', e => {
+        const i = Number(e.target.dataset.idx);
+        const file = e.target.files[0];
+        if(!file) return;
+        mats[i]._file = file;
+        mats[i]._preview = URL.createObjectURL(file);
+        renderMats();
+      }));
+      handleImg(null, '.mat-img-input-cam');
+      handleImg(null, '.mat-img-input-gal');
+
       listEl.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => { const i = Number(b.dataset.remove); const mat = mats[i]; if(mat.imagen && !mat._file) borrarDocumento(mat.imagen); mats.splice(i, 1); renderMats(); }));
     }
     refreshTotals();
   }
+
   document.getElementById('add-material').addEventListener('click', () => { mats.push({ id: uid(), nombre:'', cantidad:'', precio:'', tienda:'', imagen:'', _file:null, _preview:null }); renderMats(); const rows = listEl.querySelectorAll('.material-row'); const last = rows[rows.length-1]; if(last) last.querySelector('input[data-field="nombre"]').focus(); });
   costeInput.addEventListener('input', refreshTotals);
   renderMats();
@@ -1208,6 +1236,7 @@ function openHistorialForm(vehicleId, tipo, registroId){
       <label>Plazos<select name="plazos"><option value="">— —</option>${PLAZOS_SEGURO.map(p => `<option ${registro?.plazos === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
     </div>`;
   else if(tipo === 'ivtm') camposEspecificos = `<label>Lugar<input name="lugar" value="${esc(registro?.lugar)}"></label>`;
+
   const body = `
     <h4>${tipoLabel} — datos</h4>
     <div class="grid2">
@@ -1220,6 +1249,7 @@ function openHistorialForm(vehicleId, tipo, registroId){
     </div>
     ${camposEspecificos}
     <label>Notas<textarea name="notas" rows="2">${esc(registro?.notas)}</textarea></label>`;
+
   openModal(esNuevo ? `Registrar ${tipoLabel.toLowerCase()}` : `Editar ${tipoLabel.toLowerCase()}`, body, async fd => {
     const data = {
       vehicle_id: vehicleId, tipo: normTipo(tipo),
@@ -1244,6 +1274,7 @@ function openHistorialForm(vehicleId, tipo, registroId){
     }
     await loadData(); closeModal(); render(); toast(registroId ? 'Actualizado' : 'Guardado', 'ok');
   }, esNuevo ? 'Guardar' : 'Guardar cambios');
+
   setTimeout(() => {
     const fF = document.getElementById('hist-fecha'), fP = document.getElementById('hist-proxima');
     if(fF && fP) fF.addEventListener('change', () => { if(!fF.value) return; fP.value = _proximaPorDefecto(fF.value, tipo, v); });
