@@ -305,6 +305,31 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .mat-thumb-tag{display:grid;place-items:center;font-size:1.15rem;color:var(--muted)}
 .mat-thumb-tag:hover{border-color:var(--accent);color:var(--accent)}
 
+/* Recambios */
+.rec-thumb{
+  width:56px;height:56px;border-radius:8px;object-fit:cover;
+  border:1px solid var(--border);background:var(--bg);display:block;cursor:pointer;
+}
+.rec-thumb-tag{
+  display:grid;place-items:center;font-size:1.4rem;color:var(--muted);
+  width:56px;height:56px;border-radius:8px;border:1px solid var(--border);background:var(--bg);
+}
+.rec-thumb-tag:hover{border-color:var(--accent);color:var(--accent)}
+.rec-pn{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  background:var(--bg);padding:2px 8px;border-radius:6px;border:1px solid var(--border);
+  font-size:.82rem;font-weight:700;
+}
+.rec-alt{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.78rem;color:var(--muted);
+}
+.rec-img-preview{
+  display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-top:6px;
+}
+.rec-img-preview .mat-img{width:96px;height:96px}
+.rec-img-preview .rec-thumb-tag{width:96px;height:96px}
+
 /* Mantenimiento programado */
 .row-mp-overdue{background:color-mix(in srgb,var(--danger-bg) 45%,transparent)}
 .row-mp-overdue:hover{background:color-mix(in srgb,var(--danger-bg) 70%,transparent)}
@@ -344,8 +369,6 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
       <div class="logo"><span class="mark">🚗</span> Mi Garaje</div>
       <div class="header-actions">
         <div class="user-chip"><span id="user-email">—</span></div>
-        <button class="btn ghost sm" id="btn-test-email" title="Enviar un email de prueba simple">📨 Test email</button>
-        <button class="btn ghost sm" id="btn-test-avisos" title="Enviar los avisos reales pendientes">📧 Probar avisos</button>
         <button class="btn ghost sm" id="btn-logout" title="Cerrar sesión">Salir</button>
         <button class="btn primary" id="btn-add-vehicle">＋ Añadir vehículo</button>
       </div>
@@ -459,35 +482,19 @@ function estadoMantProg(intervalo, kmActual){
   const kMax = kmMax != null ? kmMax : kmMin + MARGEN_VENCIDO;
 
   if(kmActual > kMax){
-    return {
-      nivel: 'danger',
-      orden: 0,
-      etiqueta: 'Vencido',
-      detalle: `Superado por ${num.format(kmActual - kMax)} km`
-    };
+    return { nivel: 'danger', orden: 0, etiqueta: 'Vencido',
+      detalle: `Superado por ${num.format(kmActual - kMax)} km` };
   }
   if(kmActual >= kmMin){
-    return {
-      nivel: 'warn',
-      orden: 1,
-      etiqueta: 'Toca',
-      detalle: `En rango (${num.format(kmMin)}${kmMax ? ' - ' + num.format(kmMax) : ''} km)`
-    };
+    return { nivel: 'warn', orden: 1, etiqueta: 'Toca',
+      detalle: `En rango (${num.format(kmMin)}${kmMax ? ' - ' + num.format(kmMax) : ''} km)` };
   }
   if(kmMin - kmActual <= MARGEN_PROXIMO){
-    return {
-      nivel: 'accent',
-      orden: 2,
-      etiqueta: 'Próximo',
-      detalle: `Faltan ${num.format(kmMin - kmActual)} km`
-    };
+    return { nivel: 'accent', orden: 2, etiqueta: 'Próximo',
+      detalle: `Faltan ${num.format(kmMin - kmActual)} km` };
   }
-  return {
-    nivel: 'ok',
-    orden: 3,
-    etiqueta: 'Programado',
-    detalle: `Faltan ${num.format(kmMin - kmActual)} km`
-  };
+  return { nivel: 'ok', orden: 3, etiqueta: 'Programado',
+    detalle: `Faltan ${num.format(kmMin - kmActual)} km` };
 }
 
 /* =========================================================
@@ -495,7 +502,6 @@ function estadoMantProg(intervalo, kmActual){
    ========================================================= */
 function parseMantProgXML(xmlText){
   const NS = 'urn:schemas-microsoft-com:office:spreadsheet';
-
   if(xmlText.charCodeAt(0) === 0xFEFF) xmlText = xmlText.slice(1);
 
   const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
@@ -637,7 +643,8 @@ let vehicles = [];
 let selected = null;
 let allHistorialRaw = [];
 let allMantProg = [];
-let mostrarMantProg = false;   // 👈 toggle de la sección
+let allRecambios = [];
+let mostrarMantProg = false;
 
 const appView   = document.getElementById('app-view');
 const modalRoot = document.getElementById('modal');
@@ -684,11 +691,12 @@ async function entrar(){
    Carga
    ========================================================= */
 async function loadData(){
-  const [vRes, mRes, hRes, pRes] = await Promise.all([
+  const [vRes, mRes, hRes, pRes, rRes] = await Promise.all([
     sb.from('vehicles').select('*').order('created_at', { ascending: true }),
     sb.from('mantenimientos').select('*').order('created_at', { ascending: true }),
     sb.from('historial_obligaciones').select('*').order('fecha', { ascending: false }),
-    sb.from('mantenimiento_programado').select('*').order('orden', { ascending: true })
+    sb.from('mantenimiento_programado').select('*').order('orden', { ascending: true }),
+    sb.from('recambios').select('*').order('orden', { ascending: true })
   ]);
   if(vRes.error) throw vRes.error;
   if(mRes.error) throw mRes.error;
@@ -705,6 +713,13 @@ async function loadData(){
     allMantProg = [];
   } else {
     allMantProg = pRes.data || [];
+  }
+
+  if(rRes.error){
+    console.error('Error al leer recambios:', rRes.error);
+    allRecambios = [];
+  } else {
+    allRecambios = rRes.data || [];
   }
 
   const mantsByVehicle = new Map();
@@ -734,6 +749,9 @@ function registrosHist(vehicleId, tipo){
 function registrosMantProg(vehicleId){
   return allMantProg.filter(p => String(p.vehicle_id) === String(vehicleId));
 }
+function registrosRecambios(vehicleId){
+  return allRecambios.filter(r => String(r.vehicle_id) === String(vehicleId));
+}
 
 /* =========================================================
    Storage
@@ -753,6 +771,17 @@ async function subirMaterialImagen(file, vehicleId, materialId){
   if(!file || file.size === 0) return null;
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
   const path = `${currentUser.id}/${vehicleId}/material_${materialId}.${ext}`;
+  const { error } = await sb.storage.from(BUCKET).upload(path, file, {
+    upsert: true, cacheControl: '3600',
+    contentType: file.type || 'image/jpeg'
+  });
+  if(error) throw error;
+  return path;
+}
+async function subirRecambioImagen(file, vehicleId, recambioId){
+  if(!file || file.size === 0) return null;
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const path = `${currentUser.id}/${vehicleId}/recambio_${recambioId}.${ext}`;
   const { error } = await sb.storage.from(BUCKET).upload(path, file, {
     upsert: true, cacheControl: '3600',
     contentType: file.type || 'image/jpeg'
@@ -898,6 +927,9 @@ function renderContent(){
     return `<span class="badge muted">— Sin datos</span>`;
   };
 
+  // ---- Recambios ----
+  const recambios = registrosRecambios(v.id);
+
   el.innerHTML = `
     <div class="card section">
       <div class="vehicle-head">
@@ -962,7 +994,6 @@ function renderContent(){
       </div>
     </div>
 
-    <!-- ===================== MANTENIMIENTO PROGRAMADO (oculto por defecto) ===================== -->
     <div class="section">
       <div class="section-head">
         <button type="button" class="mp-toggle" id="btn-toggle-mp">
@@ -1046,6 +1077,49 @@ function renderContent(){
       </div>
     </div>
 
+    <!-- ===================== RECAMBIOS BÁSICOS ===================== -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Recambios básicos</h2>
+        ${recambios.length ? `<span class="badge muted">${recambios.length}</span>` : ''}
+        <div class="spacer"></div>
+        <button class="btn primary sm" id="btn-add-recambio">＋ Añadir recambio</button>
+      </div>
+      <div class="card table-wrap">
+        ${recambios.length ? `
+        <table>
+          <thead><tr>
+            <th>Imagen</th><th>P/N</th><th>Marca</th><th>Cantidad</th><th>P/N alternativos</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${recambios.map(r => `
+              <tr>
+                <td>
+                  ${r.imagen
+                    ? `<div class="rec-thumb rec-thumb-tag" data-ver-doc="${esc(r.imagen)}" title="Ver imagen">📷</div>`
+                    : `<div class="rec-thumb-tag">🔩</div>`}
+                </td>
+                <td><span class="rec-pn">${esc(r.pn || '—')}</span></td>
+                <td>${r.marca ? esc(r.marca) : '<span class="muted">—</span>'}</td>
+                <td>${r.cantidad ?? 1}</td>
+                <td>${r.pn_alternativos ? `<span class="rec-alt">${esc(r.pn_alternativos)}</span>` : '<span class="muted">—</span>'}</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="icon-btn" title="Editar" data-edit-rec="${r.id}">✎</button>
+                    <button class="icon-btn" title="Eliminar" data-del-rec="${r.id}">🗑</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>` : `
+        <div class="empty" style="padding:36px 20px">
+          <div class="emoji">🔩</div>
+          <p style="margin-bottom:0">Aún no has añadido recambios básicos.<br>Añade P/N, marca, cantidad y alternativas para tenerlos siempre a mano.</p>
+        </div>`}
+      </div>
+    </div>
+
     <div class="section">
       <div class="section-head">
         <h2>Historial de mantenimiento</h2>
@@ -1073,8 +1147,8 @@ function renderContent(){
   document.getElementById('btn-del-vehicle').onclick  = () => deleteVehicle(v.id);
   document.getElementById('btn-km').onclick           = () => openKmForm(v.id);
   document.getElementById('btn-add-mant').onclick     = () => openMantForm(v.id);
+  document.getElementById('btn-add-recambio').onclick = () => openRecambioForm(v.id);
 
-  // Toggle del panel de mantenimiento programado
   const btnToggleMp = document.getElementById('btn-toggle-mp');
   if(btnToggleMp){
     btnToggleMp.addEventListener('click', () => {
@@ -1083,13 +1157,11 @@ function renderContent(){
     });
   }
 
-  // Botones del plan (solo existen si el panel está abierto)
   const btnImportXml = document.getElementById('btn-import-xml');
   if(btnImportXml) btnImportXml.onclick = () => openImportXMLModal(v.id);
   const btnAddMp = document.getElementById('btn-add-mant-prog');
   if(btnAddMp) btnAddMp.onclick = () => openMantProgForm(v.id);
 
-  // Botones de la vista vacía del plan
   const btnImportXmlEmpty = document.getElementById('btn-import-xml-empty');
   if(btnImportXmlEmpty) btnImportXmlEmpty.onclick = () => openImportXMLModal(v.id);
   const btnAddMpEmpty = document.getElementById('btn-add-mant-prog-empty');
@@ -1099,6 +1171,8 @@ function renderContent(){
   el.querySelectorAll('[data-del-mant]').forEach(b => b.onclick = () => deleteMant(v.id, b.dataset.delMant));
   el.querySelectorAll('[data-edit-mp]').forEach(b => b.onclick = () => openMantProgForm(v.id, b.dataset.editMp));
   el.querySelectorAll('[data-del-mp]').forEach(b => b.onclick = () => deleteMantProg(v.id, b.dataset.delMp));
+  el.querySelectorAll('[data-edit-rec]').forEach(b => b.onclick = () => openRecambioForm(v.id, b.dataset.editRec));
+  el.querySelectorAll('[data-del-rec]').forEach(b => b.onclick = () => deleteRecambio(v.id, b.dataset.delRec));
   el.querySelectorAll('[data-toggle]').forEach(b =>
     b.addEventListener('click', () => {
       const row = document.getElementById(b.dataset.toggle);
@@ -1224,11 +1298,6 @@ function mantRow(m, v){
 
 /* =========================================================
    Alertas
-   ---------------------------------------------------------
-   · ITV, Seguro, IVTM por fecha
-   · Revisión por km del vehículo
-   · Próximo aviso de cada intervención del historial
-   ⚠️ Se han ELIMINADO los avisos del plan de mantenimiento programado.
    ========================================================= */
 function getAlerts(v){
   const out = [];
@@ -1718,6 +1787,117 @@ function openImportXMLModal(vehicleId){
 }
 
 /* =========================================================
+   CRUD RECAMBIOS
+   ========================================================= */
+function openRecambioForm(vehicleId, recambioId){
+  const reg = recambioId ? allRecambios.find(r => r.id === recambioId) : null;
+  const esNuevo = !reg;
+
+  let _file = null;
+  let _preview = null;
+
+  const body = `
+    <div class="grid2">
+      <label>P/N <span style="text-transform:none;color:var(--danger)">*</span>
+        <input name="pn" value="${esc(reg?.pn)}" placeholder="Ej. 06A115561B" required>
+      </label>
+      <label>Marca
+        <input name="marca" value="${esc(reg?.marca)}" placeholder="Ej. Bosch, Mann, Valeo">
+      </label>
+    </div>
+    <div class="grid2">
+      <label>Cantidad
+        <input name="cantidad" type="number" min="0" step="1" value="${esc(reg?.cantidad ?? 1)}">
+      </label>
+      <label>P/N alternativos
+        <input name="pn_alternativos" value="${esc(reg?.pn_alternativos)}" placeholder="Ej. W712/95, HU 719/7 x">
+      </label>
+    </div>
+    <label>Imagen (opcional)
+      <input type="file" name="imagen_file" id="recambio-imagen-file" accept="image/*">
+    </label>
+    <div id="recambio-imagen-preview-container">
+      ${reg?.imagen ? `
+        <div class="rec-img-preview">
+          <div class="rec-thumb-tag" data-ver-doc="${esc(reg.imagen)}" title="Ver imagen guardada">📷</div>
+        </div>` : ''}
+    </div>
+    <div class="hint">Si eliges una imagen nueva, se reemplazará la anterior.</div>
+  `;
+
+  openModal(
+    esNuevo ? 'Añadir recambio' : 'Editar recambio',
+    body,
+    async fd => {
+      const data = {
+        vehicle_id: vehicleId,
+        pn:             (fd.get('pn') || '').trim(),
+        marca:          (fd.get('marca') || '').trim() || null,
+        cantidad:       fd.get('cantidad') ? Number(fd.get('cantidad')) : 1,
+        pn_alternativos:(fd.get('pn_alternativos') || '').trim() || null
+      };
+      if(!data.pn) throw new Error('El P/N es obligatorio.');
+
+      let recambioIdFinal = reg?.id;
+
+      if(reg){
+        const { error } = await sb.from('recambios').update(data).eq('id', reg.id);
+        if(error) throw error;
+      } else {
+        const existentes = registrosRecambios(vehicleId);
+        data.orden = existentes.length;
+        const { data: inserted, error } = await sb.from('recambios').insert(data).select('id').single();
+        if(error) throw error;
+        recambioIdFinal = inserted.id;
+      }
+
+      // Subir imagen si se ha seleccionado
+      if(_file && _file.size > 0 && recambioIdFinal){
+        const path = await subirRecambioImagen(_file, vehicleId, recambioIdFinal);
+        if(path){
+          const { error } = await sb.from('recambios').update({ imagen: path }).eq('id', recambioIdFinal);
+          if(error) throw error;
+        }
+      }
+
+      await loadData();
+      closeModal(); render();
+      toast(reg ? 'Recambio actualizado' : 'Recambio añadido', 'ok');
+    },
+    esNuevo ? 'Añadir' : 'Guardar cambios'
+  );
+
+  setTimeout(() => {
+    const fileInput = document.getElementById('recambio-imagen-file');
+    const previewCont = document.getElementById('recambio-imagen-preview-container');
+    if(!fileInput || !previewCont) return;
+
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if(!file) return;
+      _file = file;
+      _preview = URL.createObjectURL(file);
+      previewCont.innerHTML = `
+        <div class="rec-img-preview">
+          <img class="mat-img" src="${_preview}" alt="Recambio">
+        </div>`;
+    });
+  }, 60);
+}
+
+async function deleteRecambio(vehicleId, recambioId){
+  const reg = allRecambios.find(r => r.id === recambioId);
+  if(!reg) return;
+  if(!confirm(`¿Eliminar el recambio «${reg.pn}»?`)) return;
+  if(reg.imagen) await borrarDocumento(reg.imagen);
+  const { error } = await sb.from('recambios').delete().eq('id', recambioId);
+  if(error) return toast('Error: ' + error.message, 'error');
+  await loadData();
+  render();
+  toast('Recambio eliminado', 'ok');
+}
+
+/* =========================================================
    CRUD mantenimientos (historial)
    ========================================================= */
 function openMantForm(vehicleId, mantId){
@@ -2086,114 +2266,3 @@ function openHistorialList(vehicleId, tipo){
           <button type="button" class="icon-btn" title="Eliminar" data-hist-del="${h.id}">🗑</button>
         </div>
       </div>`;
-    }).join('');
-  }
-
-  const body = `
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px">
-      <div class="hint">${items.length} registro${items.length===1?'':'s'} · ${años} año${años===1?'':'s'}</div>
-      <button type="button" class="btn primary sm" id="hist-add">＋ Nuevo registro</button>
-    </div>
-    <div>${html}</div>
-    ${items.length ? `<div class="hist-total">Total pagado en ${tipoLabel.toLowerCase()}: <strong>${money(total)}</strong></div>` : ''}
-  `;
-
-  openModal(`Historial — ${tipoLabel} · ${v.matricula || v.nombre}`, body, async () => { closeModal(); }, 'Cerrar');
-
-  setTimeout(() => {
-    const submitBtn = document.getElementById('modal-submit');
-    if(submitBtn) submitBtn.style.display = 'none';
-    modalRoot.querySelectorAll('[data-close]').forEach(b => {
-      if(b.classList.contains('btn')){
-        b.textContent = 'Cerrar';
-        b.classList.remove('ghost');
-        b.classList.add('primary');
-      }
-    });
-    const addBtn = document.getElementById('hist-add');
-    if(addBtn) addBtn.addEventListener('click', () => { closeModal(); openHistorialForm(vehicleId, tipo); });
-    modalRoot.querySelectorAll('[data-hist-edit]').forEach(b =>
-      b.addEventListener('click', () => { closeModal(); openHistorialForm(vehicleId, tipo, b.dataset.histEdit); })
-    );
-    modalRoot.querySelectorAll('[data-hist-del]').forEach(b =>
-      b.addEventListener('click', async () => {
-        if(!confirm('¿Eliminar este registro del historial?\n\nNo se puede deshacer.')) return;
-        const { error } = await sb.from('historial_obligaciones').delete().eq('id', b.dataset.histDel);
-        if(error) return toast('Error: ' + error.message, 'error');
-        await loadData(); closeModal(); render();
-        toast('Registro eliminado', 'ok');
-      })
-    );
-  }, 30);
-}
-
-/* =========================================================
-   Probar envío de emails
-   ========================================================= */
-document.getElementById('btn-test-email').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-test-email');
-  const original = btn.textContent;
-  btn.disabled = true; btn.textContent = '⏳ Enviando…';
-  try{
-    const { data: { session } } = await sb.auth.getSession();
-    if(!session){ toast('No hay sesión activa.', 'error'); return; }
-    const url = `${CFG.SUPABASE_URL}/functions/v1/enviar-avisos`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ ping: true }),
-    });
-    let json = null;
-    try { json = await res.json(); } catch(_) { json = { error: 'Respuesta no válida' }; }
-    if(!res.ok || !json.ok){ console.error('Error test email:', json); toast('❌ Error: ' + (json.error || res.statusText), 'error'); return; }
-    toast(`✅ Email de prueba enviado a ${json.email}. Revisa tu bandeja (y spam).`, 'ok');
-  }catch(err){
-    console.error(err);
-    toast('Error de red: ' + err.message, 'error');
-  }finally{
-    btn.disabled = false; btn.textContent = original;
-  }
-});
-
-document.getElementById('btn-test-avisos').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-test-avisos');
-  const original = btn.textContent;
-  if(vehicles.length === 0){ toast('Añade primero algún vehículo.', 'error'); return; }
-  btn.disabled = true; btn.textContent = '⏳ Enviando…';
-  try{
-    const { data: { session } } = await sb.auth.getSession();
-    if(!session){ toast('No hay sesión activa.', 'error'); return; }
-    const url = `${CFG.SUPABASE_URL}/functions/v1/enviar-avisos`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ test: true }),
-    });
-    let json = null;
-    try { json = await res.json(); } catch(_) { json = { error: 'Respuesta no válida' }; }
-    if(!res.ok || json.error){ console.error('Error:', json); toast('Error: ' + (json.error || res.statusText), 'error'); return; }
-    const resultados = json.resultados || [];
-    const totalAvisos = resultados.reduce((s,r) => s + (r.enviados || 0), 0);
-    const totalVehiculos = resultados.length;
-    const errores = resultados.filter(r => r.error);
-    if(errores.length && totalAvisos === 0){ toast('No se pudo enviar: ' + errores[0].error, 'error'); return; }
-    if(totalAvisos === 0){
-      toast(`Prueba completada. No hay avisos pendientes en ${totalVehiculos} vehículo${totalVehiculos===1?'':'s'}.`, 'info');
-    } else {
-      toast(`✅ Email enviado: ${totalAvisos} aviso${totalAvisos===1?'':'s'} de ${totalVehiculos} vehículo${totalVehiculos===1?'':'s'}.`, 'ok');
-    }
-  }catch(err){
-    console.error(err);
-    toast('Error de red: ' + err.message, 'error');
-  }finally{
-    btn.disabled = false; btn.textContent = original;
-  }
-});
-
-/* =========================================================
-   Botones globales
-   ========================================================= */
-document.getElementById('btn-add-vehicle').addEventListener('click', () => openVehicleForm());
-</script>
-</body>
-</html>
