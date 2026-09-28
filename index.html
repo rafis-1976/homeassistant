@@ -512,13 +512,8 @@ async function loadData(){
   if(vRes.error) throw vRes.error;
   if(mRes.error) throw mRes.error;
 
-  // No lanzamos error del historial: lo mostramos en consola y seguimos
   if(hRes.error){
-    console.error('❌ ERROR al leer historial_obligaciones:', hRes.error);
-    console.error('  Código:', hRes.error.code);
-    console.error('  Mensaje:', hRes.error.message);
-    console.error('  Detalle:', hRes.error.details);
-    console.error('  Hint:', hRes.error.hint);
+    console.error('Error al leer historial_obligaciones:', hRes.error);
     allHistorialRaw = [];
   } else {
     allHistorialRaw = hRes.data || [];
@@ -539,10 +534,6 @@ async function loadData(){
   if(!selected || !vehicles.find(v => v.id === selected)){
     selected = vehicles[0]?.id || null;
   }
-
-  console.log('=== CARGA ===');
-  console.log('Vehículos cargados:', vehicles.length);
-  console.log('Historial cargado:', allHistorialRaw.length);
 }
 
 function registrosHist(vehicleId, tipo){
@@ -1020,7 +1011,6 @@ function openModal(title, bodyHtml, onSubmit, submitLabel = 'Guardar'){
 function closeModal(){ modalRoot.innerHTML = ''; }
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
 
-
 /* =========================================================
    CRUD vehículos
    ========================================================= */
@@ -1071,6 +1061,50 @@ function openVehicleForm(id){
       <input type="file" name="ficha_file" accept="application/pdf,image/*">
     </label>
 
+    <h4>ITV</h4>
+    <div class="grid2">
+      <label>Fecha ITV pasada<input type="date" name="itv_fecha" value="${esc(v.itv_fecha)}"></label>
+      <label>Próxima ITV<input type="date" name="itv" value="${esc(v.itv)}"></label>
+    </div>
+    <div class="grid2">
+      <label>Precio (€)<input type="number" min="0" step="0.01" name="itv_precio" value="${esc(v.itv_precio)}" placeholder="0,00"></label>
+      <label>Dónde la hiciste<input name="itv_lugar" value="${esc(v.itv_lugar)}" placeholder="Ej. ITV Móstoles"></label>
+    </div>
+
+    <h4>Seguro</h4>
+    <div class="grid2">
+      <label>Fecha del seguro<input type="date" name="seguro_fecha" value="${esc(v.seguro_fecha)}"></label>
+      <label>Vencimiento<input type="date" name="seguro" value="${esc(v.seguro)}"></label>
+    </div>
+    <div class="grid3">
+      <label>Tipo de seguro
+        <select name="seguro_tipo">
+          <option value="">— Selecciona —</option>
+          ${TIPOS_SEGURO.map(t => `<option ${v.seguro_tipo === t ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </label>
+      <label>Plazos
+        <select name="seguro_plazos">
+          <option value="">— Selecciona —</option>
+          ${PLAZOS_SEGURO.map(p => `<option ${v.seguro_plazos === p ? 'selected' : ''}>${p}</option>`).join('')}
+        </select>
+      </label>
+      <label>Cantidad total (€)<input type="number" min="0" step="0.01" name="seguro_precio" value="${esc(v.seguro_precio)}" placeholder="0,00"></label>
+    </div>
+    <label>Compañía aseguradora
+      <input name="seguro_compania" value="${esc(v.seguro_compania)}" placeholder="Ej. Mapfre, Mutua Madrileña…">
+    </label>
+
+    <h4>Impuesto de circulación (IVTM)</h4>
+    <div class="grid2">
+      <label>Fecha de pago<input type="date" name="impuesto_fecha" value="${esc(v.impuesto_fecha)}"></label>
+      <label>Vencimiento<input type="date" name="impuesto" value="${esc(v.impuesto)}"></label>
+    </div>
+    <div class="grid2">
+      <label>Cantidad (€)<input type="number" min="0" step="0.01" name="impuesto_precio" value="${esc(v.impuesto_precio)}" placeholder="0,00"></label>
+      <label>Dónde<input name="impuesto_lugar" value="${esc(v.impuesto_lugar)}" placeholder="Ej. Ayuntamiento de Madrid"></label>
+    </div>
+
     <label>Notas<textarea name="notas" rows="2">${esc(v.notas)}</textarea></label>
   `;
 
@@ -1086,6 +1120,20 @@ function openVehicleForm(id){
       km:          Number(fd.get('km')) || 0,
       intervalo_revision_km: fd.get('intervalo_revision_km') ? Number(fd.get('intervalo_revision_km')) : null,
       ultima_revision_km:    fd.get('ultima_revision_km')    ? Number(fd.get('ultima_revision_km'))    : null,
+      itv_fecha:      fd.get('itv_fecha') || null,
+      itv:            fd.get('itv') || null,
+      itv_precio:     fd.get('itv_precio') ? Number(fd.get('itv_precio')) : null,
+      itv_lugar:      (fd.get('itv_lugar') || '').trim(),
+      seguro_fecha:   fd.get('seguro_fecha') || null,
+      seguro:         fd.get('seguro') || null,
+      seguro_tipo:    fd.get('seguro_tipo') || '',
+      seguro_plazos:  fd.get('seguro_plazos') || '',
+      seguro_precio:  fd.get('seguro_precio') ? Number(fd.get('seguro_precio')) : null,
+      seguro_compania:(fd.get('seguro_compania') || '').trim(),
+      impuesto_fecha:  fd.get('impuesto_fecha') || null,
+      impuesto:        fd.get('impuesto') || null,
+      impuesto_precio: fd.get('impuesto_precio') ? Number(fd.get('impuesto_precio')) : null,
+      impuesto_lugar:  (fd.get('impuesto_lugar') || '').trim(),
       notas: (fd.get('notas') || '').trim()
     };
 
