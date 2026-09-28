@@ -181,6 +181,16 @@ main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
 .stat .k{font-size:.74rem;text-transform:uppercase;font-weight:800;letter-spacing:.05em;color:var(--muted)}
 .stat .v{font-size:1.35rem;font-weight:800;letter-spacing:-.02em;margin-top:4px}
 
+/* Desglose de gastos */
+.expense-breakdown{
+  margin-top:12px;padding:12px 14px;border-radius:12px;
+  background:var(--bg);border:1px solid var(--border);
+  display:flex;gap:20px;flex-wrap:wrap;font-size:.85rem;
+}
+.expense-breakdown .exp-item{display:flex;align-items:center;gap:6px}
+.expense-breakdown .exp-lbl{color:var(--muted);font-weight:600}
+.expense-breakdown strong{font-weight:800;letter-spacing:-.01em}
+
 .table-wrap{overflow-x:auto;border-radius:var(--radius)}
 table{width:100%;border-collapse:collapse;font-size:.88rem;min-width:720px}
 thead th{
@@ -652,13 +662,31 @@ function renderContent(){
     (Number(m.coste)||0) +
     (Array.isArray(m.materiales) ? m.materiales.reduce((s,x) => s + (Number(x.cantidad)||0)*(Number(x.precio)||0), 0) : 0);
 
-  const totalGasto = v.mantenimientos.reduce((s,m) => s + totalDeIntervencion(m), 0);
-  const gastoAnio  = v.mantenimientos
+  // --- Desglose de mantenimientos ---
+  const mantTotal = v.mantenimientos.reduce((s,m) => s + totalDeIntervencion(m), 0);
+  const mantAnio  = v.mantenimientos
       .filter(m => (m.fecha||'').startsWith(String(year)))
       .reduce((s,m) => s + totalDeIntervencion(m), 0);
-  const gastoUlt   = v.mantenimientos
+  const mantUlt   = v.mantenimientos
       .filter(m => { const d = daysUntil(m.fecha); return d !== null && d > -365 && d <= 0; })
       .reduce((s,m) => s + totalDeIntervencion(m), 0);
+
+  // --- Desglose de obligaciones (historial ITV / Seguro / IVTM) ---
+  const enAnio = h => (h.fecha||'').startsWith(String(year));
+  const enUlt  = h => { const d = daysUntil(h.fecha); return d !== null && d > -365 && d <= 0; };
+  const sumHist = (tipo, filtro) => (v.historial || [])
+    .filter(h => h.tipo === tipo)
+    .filter(filtro || (() => true))
+    .reduce((s,h) => s + (Number(h.precio)||0), 0);
+
+  const itvTotal = sumHist('itv'),    itvAnio = sumHist('itv', enAnio),    itvUlt = sumHist('itv', enUlt);
+  const segTotal = sumHist('seguro'), segAnio = sumHist('seguro', enAnio), segUlt = sumHist('seguro', enUlt);
+  const ivtmTotal= sumHist('ivtm'),   ivtmAnio= sumHist('ivtm', enAnio),   ivtmUlt= sumHist('ivtm', enUlt);
+
+  // --- Totales combinados ---
+  const totalGasto = mantTotal + itvTotal + segTotal + ivtmTotal;
+  const gastoAnio  = mantAnio  + itvAnio  + segAnio  + ivtmAnio;
+  const gastoUlt   = mantUlt   + itvUlt   + segUlt   + ivtmUlt;
 
   const partes = [v.marca, v.modelo].filter(Boolean).join(' ');
   const edad = v.anio ? (year - Number(v.anio)) : null;
@@ -754,6 +782,12 @@ function renderContent(){
         <div class="stat"><div class="k">Últimos 12 meses</div><div class="v">${money(gastoUlt)}</div></div>
         <div class="stat"><div class="k">Año ${year}</div><div class="v">${money(gastoAnio)}</div></div>
         <div class="stat"><div class="k">Intervenciones</div><div class="v">${v.mantenimientos.length}</div></div>
+      </div>
+      <div class="expense-breakdown">
+        <span class="exp-item"><span class="exp-lbl">🔧 Mantenimiento</span><strong>${money(mantTotal)}</strong></span>
+        <span class="exp-item"><span class="exp-lbl">📋 ITV</span><strong>${money(itvTotal)}</strong></span>
+        <span class="exp-item"><span class="exp-lbl">🛡 Seguro</span><strong>${money(segTotal)}</strong></span>
+        <span class="exp-item"><span class="exp-lbl">💰 IVTM</span><strong>${money(ivtmTotal)}</strong></span>
       </div>
     </div>
 
@@ -1572,7 +1606,6 @@ function openHistorialForm(vehicleId, tipo, registroId){
     esNuevo ? 'Guardar registro' : 'Guardar cambios'
   );
 
-  // Autocompletar la fecha próxima al cambiar la fecha base
   setTimeout(() => {
     const fFecha = document.getElementById('hist-fecha');
     const fProx = document.getElementById('hist-proxima');
@@ -1637,7 +1670,6 @@ function openHistorialList(vehicleId, tipo){
     closeModal();
   }, 'Cerrar');
 
-  // Ajustar botones del pie
   setTimeout(() => {
     const submitBtn = document.getElementById('modal-submit');
     if(submitBtn){
