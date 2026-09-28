@@ -416,6 +416,11 @@ function toast(msg, type='info'){
   setTimeout(() => el.remove(), 3600);
 }
 
+// Normaliza el tipo para comparaciones robustas
+function normTipo(t){
+  return String(t || '').toLowerCase().trim();
+}
+
 /* =========================================================
    Catálogos
    ========================================================= */
@@ -434,7 +439,7 @@ const TIPOS_SEGURO = [
   'Todo riesgo sin franquicia',
   'Otro'
 ];
-const PLAZOS_SEGURO = ['Anual','Semestral','Trimestral','Mensual','Otro'];
+const PLAZOS_SEGURO = ['Anual','Semestral','Cuatrimestral','Trimestral','Mensual','Otro'];
 const TIPOS_HIST_LABEL = { itv: 'ITV', seguro: 'Seguro', ivtm: 'Impuesto (IVTM)' };
 
 /* =========================================================
@@ -544,6 +549,8 @@ async function loadData(){
 
   const histByVehicle = new Map();
   hRes.data.forEach(h => {
+    // Normalizamos el tipo al cargar para evitar problemas de mayúsculas/espacios
+    h.tipo = normTipo(h.tipo);
     if(!histByVehicle.has(h.vehicle_id)) histByVehicle.set(h.vehicle_id, []);
     histByVehicle.get(h.vehicle_id).push(h);
   });
@@ -671,9 +678,12 @@ function renderContent(){
   const enAnio = h => (h.fecha||'').startsWith(String(year));
   const enUlt  = h => { const d = daysUntil(h.fecha); return d !== null && d > -365 && d <= 0; };
   const sumHist = (tipo, filtro) => (v.historial || [])
-    .filter(h => h.tipo === tipo)
+    .filter(h => normTipo(h.tipo) === tipo)
     .filter(filtro || (() => true))
     .reduce((s,h) => s + (Number(h.precio)||0), 0);
+
+  // Función común para obtener registros de un tipo
+  const histPorTipo = tipo => (v.historial || []).filter(h => normTipo(h.tipo) === tipo);
 
   const itvHistTotal = sumHist('itv');
   const itvTotal = itvHistTotal > 0 ? itvHistTotal : (Number(v.itv_precio)||0);
@@ -709,9 +719,10 @@ function renderContent(){
     </div>`;
   }
 
-  const histItv = (v.historial || []).filter(h => h.tipo === 'itv');
-  const histSeg = (v.historial || []).filter(h => h.tipo === 'seguro');
-  const histIvtm = (v.historial || []).filter(h => h.tipo === 'ivtm');
+  // Contadores por tipo (usando la función común)
+  const histItv  = histPorTipo('itv');
+  const histSeg  = histPorTipo('seguro');
+  const histIvtm = histPorTipo('ivtm');
 
   el.innerHTML = `
     <div class="card section">
@@ -754,7 +765,7 @@ function renderContent(){
           v.itv_lugar ? `<div><span class="lbl">Lugar</span> ${esc(v.itv_lugar)}</div>` : ''
         ].filter(Boolean).join(''),
           `<button type="button" class="btn ghost tiny" data-add-hist="itv">＋ Registrar</button>
-           ${histItv.length ? `<button type="button" class="btn ghost tiny" data-ver-hist="itv">📋 Historial (${histItv.length})</button>` : ''}`
+           ${histItv.length > 0 ? `<button type="button" class="btn ghost tiny" data-ver-hist="itv">📋 Historial (${histItv.length})</button>` : ''}`
         )}
         ${docCard('Seguro', v.seguro, 21, [
           v.seguro_fecha ? `<div><span class="lbl">Fecha seguro</span> ${fmtDate(v.seguro_fecha)}</div>` : '',
@@ -764,7 +775,7 @@ function renderContent(){
           v.seguro_precio != null && v.seguro_precio !== '' ? `<div><span class="lbl">Cantidad total</span> ${money(v.seguro_precio)}</div>` : ''
         ].filter(Boolean).join(''),
           `<button type="button" class="btn ghost tiny" data-add-hist="seguro">＋ Registrar</button>
-           ${histSeg.length ? `<button type="button" class="btn ghost tiny" data-ver-hist="seguro">📋 Historial (${histSeg.length})</button>` : ''}`
+           ${histSeg.length > 0 ? `<button type="button" class="btn ghost tiny" data-ver-hist="seguro">📋 Historial (${histSeg.length})</button>` : ''}`
         )}
         ${docCard('Impuesto (IVTM)', v.impuesto, 30, [
           v.impuesto_fecha ? `<div><span class="lbl">Fecha pago</span> ${fmtDate(v.impuesto_fecha)}</div>` : '',
@@ -772,7 +783,7 @@ function renderContent(){
           v.impuesto_precio != null && v.impuesto_precio !== '' ? `<div><span class="lbl">Cantidad</span> ${money(v.impuesto_precio)}</div>` : ''
         ].filter(Boolean).join(''),
           `<button type="button" class="btn ghost tiny" data-add-hist="ivtm">＋ Registrar</button>
-           ${histIvtm.length ? `<button type="button" class="btn ghost tiny" data-ver-hist="ivtm">📋 Historial (${histIvtm.length})</button>` : ''}`
+           ${histIvtm.length > 0 ? `<button type="button" class="btn ghost tiny" data-ver-hist="ivtm">📋 Historial (${histIvtm.length})</button>` : ''}`
         )}
       </div>
     </div>
@@ -840,9 +851,9 @@ function renderContent(){
   el.querySelectorAll('[data-ver-doc]').forEach(b =>
     b.addEventListener('click', () => verDocumento(b.dataset.verDoc)));
   el.querySelectorAll('[data-add-hist]').forEach(b =>
-    b.addEventListener('click', () => openHistorialForm(v.id, b.dataset.addHist)));
+    b.addEventListener('click', () => openHistorialForm(v.id, normTipo(b.dataset.addHist))));
   el.querySelectorAll('[data-ver-hist]').forEach(b =>
-    b.addEventListener('click', () => openHistorialList(v.id, b.dataset.verHist)));
+    b.addEventListener('click', () => openHistorialList(v.id, normTipo(b.dataset.verHist))));
 }
 
 function docCard(nombre, iso, warnDays, extraHtml, acciones){
@@ -1537,6 +1548,7 @@ function _proximaPorDefecto(fechaISO, tipo, v){
 }
 
 function openHistorialForm(vehicleId, tipo, registroId){
+  tipo = normTipo(tipo);
   const v = vehicles.find(x => x.id === vehicleId);
   if(!v) return;
   const registro = registroId
@@ -1612,9 +1624,10 @@ function openHistorialForm(vehicleId, tipo, registroId){
     esNuevo ? `Registrar ${tipoLabel.toLowerCase()}` : `Editar registro de ${tipoLabel.toLowerCase()}`,
     body,
     async fd => {
+      // Normalizamos el tipo antes de enviar
       const data = {
         vehicle_id: vehicleId,
-        tipo,
+        tipo: normTipo(tipo),
         fecha: fd.get('fecha') || null,
         proxima_fecha: fd.get('proxima_fecha') || null,
         precio: fd.get('precio') ? Number(fd.get('precio')) : null,
@@ -1627,10 +1640,16 @@ function openHistorialForm(vehicleId, tipo, registroId){
 
       if(registroId){
         const { error } = await sb.from('historial_obligaciones').update(data).eq('id', registroId);
-        if(error) throw error;
+        if(error){
+          console.error('Error actualizando historial:', error);
+          throw new Error('Error al actualizar: ' + error.message);
+        }
       } else {
         const { error } = await sb.from('historial_obligaciones').insert(data);
-        if(error) throw error;
+        if(error){
+          console.error('Error insertando historial:', error);
+          throw new Error('Error al guardar: ' + error.message);
+        }
       }
 
       if(fd.get('actualizar_vehiculo') && data.proxima_fecha){
@@ -1655,7 +1674,10 @@ function openHistorialForm(vehicleId, tipo, registroId){
           [campoVenc]: data.proxima_fecha,
           ...camposExtra
         }).eq('id', vehicleId);
-        if(error) throw error;
+        if(error){
+          console.warn('Aviso: no se pudo actualizar el vehículo:', error.message);
+          // No lanzamos porque el registro del historial ya se guardó
+        }
       }
 
       await loadData();
@@ -1678,12 +1700,13 @@ function openHistorialForm(vehicleId, tipo, registroId){
 }
 
 function openHistorialList(vehicleId, tipo){
+  tipo = normTipo(tipo);
   const v = vehicles.find(x => x.id === vehicleId);
   if(!v) return;
   const tipoLabel = TIPOS_HIST_LABEL[tipo] || tipo;
 
   const items = (v.historial || [])
-    .filter(h => h.tipo === tipo)
+    .filter(h => normTipo(h.tipo) === tipo)
     .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
 
   const total = items.reduce((s, h) => s + (Number(h.precio) || 0), 0);
