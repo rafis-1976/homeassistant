@@ -309,14 +309,14 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
   font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;
   background:var(--bg);border:1px solid var(--border);color:var(--text);
 }
-.json-preview{
+.xml-preview{
   margin-top:8px;border:1px dashed var(--border);border-radius:10px;
   padding:10px;background:var(--bg);font-size:.78rem;max-height:220px;overflow:auto;
 }
-.json-preview table{min-width:0;font-size:.78rem}
-.json-preview td,.json-preview th{padding:4px 8px}
-.json-preview .ok{color:var(--ok);font-weight:700}
-.json-preview code{
+.xml-preview table{min-width:0;font-size:.78rem}
+.xml-preview td,.xml-preview th{padding:4px 8px}
+.xml-preview .ok{color:var(--ok);font-weight:700}
+.xml-preview code{
   background:var(--card);padding:1px 5px;border-radius:4px;
   border:1px solid var(--border);font-size:.74rem;
 }
@@ -420,52 +420,101 @@ function normTipo(t){
 }
 
 /* =========================================================
-   Parser JSON para el plan de mantenimiento
+   Parser XML Spreadsheet 2003 para el plan de mantenimiento
    ---------------------------------------------------------
-   Formato esperado: array de objetos con campos:
-     { sistema, operacion, intervalo, notas }
-   Solo "operacion" es obligatorio.
+   Formatos soportados:
+     · Nuevo:  Kilómetros | Meses | Revisión
+     · Antiguo: Sistema | Operación | Intervalo | Notas
+   Se combinan Kilómetros y Meses en un campo "intervalo".
    ========================================================= */
-function parseMantProgJSON(text){
-  let data;
-  try{
-    data = JSON.parse(text);
-  }catch(err){
-    throw new Error('El archivo no es un JSON válido: ' + err.message);
+function parseMantProgXML(xmlText){
+  const NS = 'urn:schemas-microsoft-com:office:spreadsheet';
+
+  // Limpiar BOM
+  if(xmlText.charCodeAt(0) === 0xFEFF) xmlText = xmlText.slice(1);
+
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  const parserError = doc.querySelector('parsererror');
+  if(parserError) throw new Error('El archivo no es un XML válido.');
+
+  // Helper: encontrar elementos teniendo en cuenta si hay namespace o no
+  function findElems(parent, tag){
+    let els = parent.getElementsByTagNameNS(NS, tag);
+    if(els.length === 0) els = parent.getElementsByTagName(tag);
+    return els;
+  }
+  function getAttr(elem, name){
+    let v = elem.getAttributeNS(NS, name);
+    if(v == null) v = elem.getAttribute('ss:' + name) || elem.getAttribute(name);
+    return v;
   }
 
-  // Acepta tanto array directo como { "mantenimiento": [...] } o { "items": [...] }
-  let arr = null;
-  if(Array.isArray(data)) arr = data;
-  else if(data && typeof data === 'object'){
-    arr = data.mantenimiento || data.items || data.plan || data.registros || null;
+  const worksheets = findElems(doc, 'Worksheet');
+  if(!worksheets.length) throw new Error('El XML no contiene ninguna hoja de cálculo.');
+
+  const rows = findElems(worksheets[0], 'Row');
+  if(!rows.length) return [];
+
+  function getRowValues(rowEl){
+    const out = [];
+    const cells = findElems(rowEl, 'Cell');
+    let col = 0;
+    for(const cell of cells){
+      const idxAttr = getAttr(cell, 'Index');
+      if(idxAttr) col = Number(idxAttr) - 1;
+      const dataEls = findElems(cell, 'Data');
+      out[col] = dataEls.length ? String(dataEls[0].textContent || '').trim() : '';
+      col++;
+    }
+    return out;
   }
 
-  if(!Array.isArray(arr)){
-    throw new Error('El JSON debe ser un array de registros (o un objeto con la clave "mantenimiento").');
-  }
-
-  // Normalizar claves (acepta sistema/Sistema, operacion/operación/tarea/operacion, etc.)
-  const norm = s => String(s || '')
+  const norm = s => String(s||'')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().trim();
 
+  const headers = getRowValues(rows[0]).map(norm);
+
+  const idx = {
+    operacion: headers.findIndex(h =>
+      ['revision','operacion','tarea','mantenimiento','nombre','descripcion'].includes(h)),
+    intervalo: headers.findIndex(h =>
+      ['intervalo','periodicidad','cada','frecuencia'].includes(h)),
+    sistema:   headers.findIndex(h =>
+      ['sistema','zona','grupo'].includes(h)),
+    notas:     headers.findIndex(h =>
+      ['notas','nota','observaciones','comentarios'].includes(h)),
+    kilometros:headers.findIndex(h =>
+      ['kilometros','kilometraje','km'].includes(h)),
+    meses:     headers.findIndex(h =>
+      ['meses','mes','periodo'].includes(h))
+  };
+
   const out = [];
-  for(const raw of arr){
-    if(!raw || typeof raw !== 'object') continue;
-    const obj = {};
-    for(const k of Object.keys(raw)){
-      obj[norm(k)] = raw[k];
-    }
-    const operacion = String(
-      obj.operacion || obj.tarea || obj.mantenimiento || obj['nombre'] || ''
-    ).trim();
+  for(let r = 1; r < rows.length; r++){
+    const row = getRowValues(rows[r]);
+    const operacion = idx.operacion >= 0 ? String(row[idx.operacion] || '').trim() : '';
     if(!operacion) continue;
+
+    let intervalo = '';
+    if(idx.intervalo >= 0){
+      intervalo = String(row[idx.intervalo] || '').trim();
+    }
+    // Si no hay columna "Intervalo" pero sí "Kilómetros"/"Meses", se combinan
+    if(!intervalo && (idx.kilometros >= 0 || idx.meses >= 0)){
+      const km    = idx.kilometros >= 0 ? String(row[idx.kilometros] || '').trim() : '';
+      const meses = idx.meses      >= 0 ? String(row[idx.meses]      || '').trim() : '';
+      const partes = [];
+      if(km)    partes.push(km + ' km');
+      if(meses) partes.push(meses + (meses === '1' ? ' mes' : ' meses'));
+      intervalo = partes.join(' / ');
+    }
+
     out.push({
-      sistema:   String(obj.sistema || obj.zona || obj.grupo || '').trim(),
+      sistema:   idx.sistema >= 0 ? String(row[idx.sistema] || '').trim() : '',
       operacion,
-      intervalo: String(obj.intervalo || obj.periodicidad || obj.cada || obj.frecuencia || '').trim(),
-      notas:     String(obj.notas || obj.nota || obj.observaciones || obj.comentarios || '').trim()
+      intervalo,
+      notas:     idx.notas   >= 0 ? String(row[idx.notas]   || '').trim() : ''
     });
   }
   return out;
@@ -829,7 +878,7 @@ function renderContent(){
       <div class="section-head">
         <h2>Mantenimiento programado</h2>
         <div class="spacer"></div>
-        <button class="btn ghost sm" id="btn-import-json">📥 Importar JSON</button>
+        <button class="btn ghost sm" id="btn-import-xml">📥 Importar XML</button>
         <button class="btn primary sm" id="btn-add-mant-prog">＋ Añadir registro</button>
       </div>
       <div class="card table-wrap">
@@ -857,7 +906,7 @@ function renderContent(){
         </table>` : `
         <div class="empty" style="padding:44px 20px">
           <div class="emoji">📋</div>
-          <p style="margin-bottom:0">Aún no has cargado el plan de mantenimiento.<br>Puedes importar un JSON o añadir registros manualmente.</p>
+          <p style="margin-bottom:0">Aún no has cargado el plan de mantenimiento.<br>Puedes importar un XML o añadir registros manualmente.</p>
         </div>`}
       </div>
     </div>
@@ -914,7 +963,7 @@ function renderContent(){
   document.getElementById('btn-km').onclick           = () => openKmForm(v.id);
   document.getElementById('btn-add-mant').onclick     = () => openMantForm(v.id);
   document.getElementById('btn-add-mant-prog').onclick= () => openMantProgForm(v.id);
-  document.getElementById('btn-import-json').onclick  = () => openImportJSONModal(v.id);
+  document.getElementById('btn-import-xml').onclick   = () => openImportXMLModal(v.id);
 
   el.querySelectorAll('[data-edit-mant]').forEach(b => b.onclick = () => openMantForm(v.id, b.dataset.editMant));
   el.querySelectorAll('[data-del-mant]').forEach(b => b.onclick = () => deleteMant(v.id, b.dataset.delMant));
@@ -1178,25 +1227,26 @@ function openVehicleForm(id){
     </div>
     <div class="hint">Si rellenas estos campos, recibirás un aviso visual y por email cuando estés a menos de 1.000 km de la próxima revisión.</div>
 
-    <h4>Mantenimiento programado (JSON)</h4>
-    <label>Archivo JSON con el plan de mantenimiento
-      <input type="file" name="mant_prog_file" id="mant-prog-file" accept=".json,application/json">
+    <h4>Mantenimiento programado (XML)</h4>
+    <label>Archivo XML de Excel con el plan de mantenimiento
+      <input type="file" name="mant_prog_file" id="mant-prog-file" accept=".xml,application/xml,text/xml">
     </label>
     <div class="hint">
-      Formato: array de objetos con <code>{ "sistema", "operacion", "intervalo", "notas" }</code>.
-      Solo <code>operacion</code> es obligatorio. ${esNuevo
-        ? 'Al guardar se cargarán los registros del JSON.'
+      Columnas esperadas: <code>Kilómetros</code> · <code>Meses</code> · <code>Revisión</code>
+      (también acepta <code>Sistema</code> · <code>Operación</code> · <code>Intervalo</code> · <code>Notas</code>).
+      ${esNuevo
+        ? 'Al guardar se cargarán los registros del XML.'
         : `Este vehículo ya tiene <b>${mantProg.length}</b> registro${mantProg.length===1?'':'s'} de plan de mantenimiento.`}
     </div>
     ${!esNuevo ? `
       <div class="hint" style="padding-bottom:8px">
         <label style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-weight:600;font-size:.85rem">
           <input type="checkbox" name="reemplazar_mant_prog" checked>
-          Reemplazar el plan de mantenimiento actual con el JSON
+          Reemplazar el plan de mantenimiento actual con el XML
         </label>
       </div>
     ` : ''}
-    <div id="json-preview-container"></div>
+    <div id="xml-preview-container"></div>
 
     <h4>Permiso de circulación</h4>
     <label>Documento (PDF o imagen)
@@ -1221,7 +1271,7 @@ function openVehicleForm(id){
     <label>Notas<textarea name="notas" rows="2" placeholder="Taller habitual, observaciones…">${esc(v.notas)}</textarea></label>
   `;
 
-  let jsonParsed = null;
+  let xmlParsed = null;
 
   openModal(esNuevo ? 'Nuevo vehículo' : 'Editar vehículo', body, async fd => {
     const data = {
@@ -1267,13 +1317,13 @@ function openVehicleForm(id){
       }
     }
 
-    if(jsonParsed && jsonParsed.length){
+    if(xmlParsed && xmlParsed.length){
       const reemplazar = esNuevo || !!fd.get('reemplazar_mant_prog');
       if(reemplazar){
         const { error: eDel } = await sb.from('mantenimiento_programado').delete().eq('vehicle_id', vehicleId);
         if(eDel) throw eDel;
       }
-      const registros = jsonParsed.map((r, i) => ({
+      const registros = xmlParsed.map((r, i) => ({
         vehicle_id: vehicleId,
         sistema:    r.sistema || null,
         operacion:  r.operacion,
@@ -1295,21 +1345,21 @@ function openVehicleForm(id){
 
   setTimeout(() => {
     const fileInput = document.getElementById('mant-prog-file');
-    const previewCont = document.getElementById('json-preview-container');
+    const previewCont = document.getElementById('xml-preview-container');
     if(!fileInput || !previewCont) return;
 
     fileInput.addEventListener('change', e => {
       const file = e.target.files[0];
-      if(!file){ jsonParsed = null; previewCont.innerHTML = ''; return; }
+      if(!file){ xmlParsed = null; previewCont.innerHTML = ''; return; }
 
       const reader = new FileReader();
       reader.onload = ev => {
         try{
-          const objs = parseMantProgJSON(ev.target.result);
-          jsonParsed = objs;
+          const objs = parseMantProgXML(ev.target.result);
+          xmlParsed = objs;
 
           if(!objs.length){
-            previewCont.innerHTML = '<div class="json-preview">⚠️ No se han detectado registros válidos en el JSON.</div>';
+            previewCont.innerHTML = '<div class="xml-preview">⚠️ No se han detectado filas válidas en el XML.</div>';
             return;
           }
 
@@ -1322,8 +1372,8 @@ function openVehicleForm(id){
             </tr>`).join('');
 
           previewCont.innerHTML = `
-            <div class="json-preview">
-              <div class="ok">✓ ${objs.length} registro${objs.length===1?'':'s'} detectado${objs.length===1?'':'s'} en el JSON</div>
+            <div class="xml-preview">
+              <div class="ok">✓ ${objs.length} registro${objs.length===1?'':'s'} detectado${objs.length===1?'':'s'} en el XML</div>
               <table style="margin-top:8px">
                 <thead><tr><th>Sistema</th><th>Operación</th><th>Intervalo</th><th>Notas</th></tr></thead>
                 <tbody>${preview}</tbody>
@@ -1332,8 +1382,8 @@ function openVehicleForm(id){
             </div>`;
         }catch(err){
           console.error(err);
-          jsonParsed = null;
-          previewCont.innerHTML = '<div class="json-preview">❌ Error al procesar el JSON: ' + esc(err.message) + '</div>';
+          xmlParsed = null;
+          previewCont.innerHTML = '<div class="xml-preview">❌ Error al procesar el XML: ' + esc(err.message) + '</div>';
         }
       };
       reader.readAsText(file, 'UTF-8');
@@ -1382,7 +1432,7 @@ function openMantProgForm(vehicleId, registroId){
         <input name="sistema" value="${esc(reg?.sistema)}" placeholder="Motor, Frenos, Transmisión…">
       </label>
       <label>Intervalo
-        <input name="intervalo" value="${esc(reg?.intervalo)}" placeholder="Ej. 15.000 km o 12 meses">
+        <input name="intervalo" value="${esc(reg?.intervalo)}" placeholder="Ej. 15.000 km / 12 meses">
       </label>
     </div>
     <label>Operación <span style="text-transform:none;color:var(--danger)">*</span>
@@ -1434,35 +1484,36 @@ async function deleteMantProg(vehicleId, registroId){
   toast('Registro eliminado', 'ok');
 }
 
-function openImportJSONModal(vehicleId){
+function openImportXMLModal(vehicleId){
   const v = vehicles.find(x => x.id === vehicleId);
   if(!v) return;
   const actuales = registrosMantProg(vehicleId).length;
 
   const body = `
     <div class="hint" style="margin-bottom:6px">
-      Puedes importar un JSON con el plan de mantenimiento completo.
-      Formato: array de objetos con <code>{ "sistema", "operacion", "intervalo", "notas" }</code>.
+      Puedes importar un XML de Excel con el plan de mantenimiento completo.
+      Columnas esperadas: <code>Kilómetros</code> · <code>Meses</code> · <code>Revisión</code>
+      (también acepta <code>Sistema</code> · <code>Operación</code> · <code>Intervalo</code> · <code>Notas</code>).
       Este vehículo tiene actualmente <b>${actuales}</b> registro${actuales===1?'':'s'}.
     </div>
-    <label>Archivo JSON
-      <input type="file" name="json" id="import-json-file" accept=".json,application/json" required>
+    <label>Archivo XML
+      <input type="file" name="xml" id="import-xml-file" accept=".xml,application/xml,text/xml" required>
     </label>
     <div style="padding-top:6px">
       <label style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-weight:600;font-size:.85rem">
         <input type="checkbox" name="reemplazar" checked>
-        Reemplazar el plan actual con el contenido del JSON
+        Reemplazar el plan actual con el contenido del XML
       </label>
     </div>
-    <div class="hint">Si desmarcas esta opción, los registros del JSON se añadirán al final del plan existente.</div>
-    <div id="import-json-preview"></div>
+    <div class="hint">Si desmarcas esta opción, los registros del XML se añadirán al final del plan existente.</div>
+    <div id="import-xml-preview"></div>
   `;
 
-  let jsonParsed = null;
+  let xmlParsed = null;
 
-  openModal('Importar plan de mantenimiento desde JSON', body, async fd => {
-    if(!jsonParsed || !jsonParsed.length){
-      throw new Error('Selecciona un archivo JSON válido con al menos un registro.');
+  openModal('Importar plan de mantenimiento desde XML', body, async fd => {
+    if(!xmlParsed || !xmlParsed.length){
+      throw new Error('Selecciona un archivo XML válido con al menos una fila.');
     }
     const reemplazar = !!fd.get('reemplazar');
 
@@ -1472,7 +1523,7 @@ function openImportJSONModal(vehicleId){
     }
 
     const baseOrden = reemplazar ? 0 : registrosMantProg(vehicleId).length;
-    const registros = jsonParsed.map((r, i) => ({
+    const registros = xmlParsed.map((r, i) => ({
       vehicle_id: vehicleId,
       sistema:    r.sistema || null,
       operacion:  r.operacion,
@@ -1493,20 +1544,20 @@ function openImportJSONModal(vehicleId){
   }, 'Importar');
 
   setTimeout(() => {
-    const input = document.getElementById('import-json-file');
-    const preview = document.getElementById('import-json-preview');
+    const input = document.getElementById('import-xml-file');
+    const preview = document.getElementById('import-xml-preview');
     if(!input || !preview) return;
 
     input.addEventListener('change', e => {
       const file = e.target.files[0];
-      if(!file){ jsonParsed = null; preview.innerHTML = ''; return; }
+      if(!file){ xmlParsed = null; preview.innerHTML = ''; return; }
       const reader = new FileReader();
       reader.onload = ev => {
         try{
-          const objs = parseMantProgJSON(ev.target.result);
-          jsonParsed = objs;
+          const objs = parseMantProgXML(ev.target.result);
+          xmlParsed = objs;
           if(!objs.length){
-            preview.innerHTML = '<div class="json-preview">⚠️ No se han detectado registros válidos.</div>';
+            preview.innerHTML = '<div class="xml-preview">⚠️ No se han detectado filas válidas.</div>';
             return;
           }
           const previewRows = objs.slice(0, 8).map(o => `
@@ -1516,7 +1567,7 @@ function openImportJSONModal(vehicleId){
               <td>${esc(o.intervalo || '—')}</td>
             </tr>`).join('');
           preview.innerHTML = `
-            <div class="json-preview">
+            <div class="xml-preview">
               <div class="ok">✓ ${objs.length} registro${objs.length===1?'':'s'} detectado${objs.length===1?'':'s'}</div>
               <table style="margin-top:8px">
                 <thead><tr><th>Sistema</th><th>Operación</th><th>Intervalo</th></tr></thead>
@@ -1526,8 +1577,8 @@ function openImportJSONModal(vehicleId){
             </div>`;
         }catch(err){
           console.error(err);
-          jsonParsed = null;
-          preview.innerHTML = '<div class="json-preview">❌ Error al procesar el JSON: ' + esc(err.message) + '</div>';
+          xmlParsed = null;
+          preview.innerHTML = '<div class="xml-preview">❌ Error al procesar el XML: ' + esc(err.message) + '</div>';
         }
       };
       reader.readAsText(file, 'UTF-8');
