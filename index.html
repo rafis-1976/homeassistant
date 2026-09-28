@@ -200,6 +200,7 @@ tbody tr:hover{background:var(--bg)}
 .badge.ok{background:var(--ok-bg);color:var(--ok)}
 .badge.warn{background:var(--warn-bg);color:var(--warn)}
 .badge.danger{background:var(--danger-bg);color:var(--danger)}
+.badge.muted{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
 .muted{color:var(--muted)}
 .row-actions{display:flex;gap:4px;justify-content:flex-end}
 
@@ -304,11 +305,24 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .mat-thumb-tag{display:grid;place-items:center;font-size:1.15rem;color:var(--muted)}
 .mat-thumb-tag:hover{border-color:var(--accent);color:var(--accent)}
 
-.mant-prog-sistema{
-  display:inline-block;padding:3px 9px;border-radius:999px;
-  font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;
-  background:var(--bg);border:1px solid var(--border);color:var(--text);
+/* Mantenimiento programado */
+.row-mp-overdue{background:color-mix(in srgb,var(--danger-bg) 45%,transparent)}
+.row-mp-overdue:hover{background:color-mix(in srgb,var(--danger-bg) 70%,transparent)}
+.row-mp-due{background:color-mix(in srgb,var(--warn-bg) 45%,transparent)}
+.row-mp-due:hover{background:color-mix(in srgb,var(--warn-bg) 70%,transparent)}
+.row-mp-soon{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+
+.mp-legend{
+  display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;
+  font-size:.78rem;color:var(--muted);
 }
+.mp-legend .lg{display:inline-flex;align-items:center;gap:5px}
+.mp-legend .dotc{width:9px;height:9px;border-radius:50%}
+.mp-legend .dotc.d{background:var(--danger)}
+.mp-legend .dotc.w{background:var(--warn)}
+.mp-legend .dotc.a{background:var(--accent)}
+.mp-legend .dotc.o{background:var(--ok)}
+
 .xml-preview{
   margin-top:8px;border:1px dashed var(--border);border-radius:10px;
   padding:10px;background:var(--bg);font-size:.78rem;max-height:220px;overflow:auto;
@@ -420,24 +434,98 @@ function normTipo(t){
 }
 
 /* =========================================================
-   Parser XML Spreadsheet 2003 para el plan de mantenimiento
+   Intervalo → km mínima / km máxima
+   ---------------------------------------------------------
+   Ejemplos soportados:
+     "15000 - 30000 km / 12 meses"  → { kmMin: 15000, kmMax: 30000 }
+     "60000 km / 48 meses"          → { kmMin: 60000, kmMax: null }
+     "200000 km"                    → { kmMin: 200000, kmMax: null }
+     "15000 - 30000"                → { kmMin: 15000, kmMax: 30000 }
+   ========================================================= */
+function parseIntervaloKm(intervalo){
+  if(!intervalo) return { kmMin: null, kmMax: null };
+
+  // Solo la parte de km: descartamos lo que va después del "/" (meses)
+  const soloKm = String(intervalo).split('/')[0];
+
+  // Extraer todos los números (admitiendo separadores de miles con punto o espacio)
+  const matches = soloKm.match(/\d[\d.,\s]*/g);
+  if(!matches) return { kmMin: null, kmMax: null };
+
+  const nums = matches
+    .map(s => Number(String(s).replace(/[.,\s]/g, '')))
+    .filter(n => Number.isFinite(n) && n > 0);
+
+  if(!nums.length) return { kmMin: null, kmMax: null };
+  if(nums.length === 1) return { kmMin: nums[0], kmMax: null };
+  return { kmMin: Math.min(nums[0], nums[1]), kmMax: Math.max(nums[0], nums[1]) };
+}
+
+/* =========================================================
+   Estado del mantenimiento según km actual del vehículo
+   ---------------------------------------------------------
+   - vencido:    km > kmMax (o km > kmMin + 10.000 si no hay max)
+   - toca:       dentro del rango [kmMin, kmMax]
+   - proximo:    kmMin - km <= 3000
+   - programado: aún queda mucho
+   ========================================================= */
+function estadoMantProg(intervalo, kmActual){
+  const { kmMin, kmMax } = parseIntervaloKm(intervalo);
+  if(kmMin == null) return { nivel:'muted', orden: 5, etiqueta:'Sin datos', detalle:'' };
+
+  const MARGEN_VENCIDO = 10000; // si no hay kmMax, el vencimiento se calcula kmMin + 10.000
+  const MARGEN_PROXIMO = 3000;  // a partir de aquí ya avisamos "Próximo"
+
+  const kMax = kmMax != null ? kmMax : kmMin + MARGEN_VENCIDO;
+
+  if(kmActual > kMax){
+    return {
+      nivel: 'danger',
+      orden: 0,
+      etiqueta: 'Vencido',
+      detalle: `Superado por ${num.format(kmActual - kMax)} km`
+    };
+  }
+  if(kmActual >= kmMin){
+    return {
+      nivel: 'warn',
+      orden: 1,
+      etiqueta: 'Toca',
+      detalle: `En rango (${num.format(kmMin)}${kmMax ? ' - ' + num.format(kmMax) : ''} km)`
+    };
+  }
+  if(kmMin - kmActual <= MARGEN_PROXIMO){
+    return {
+      nivel: 'accent',
+      orden: 2,
+      etiqueta: 'Próximo',
+      detalle: `Faltan ${num.format(kmMin - kmActual)} km`
+    };
+  }
+  return {
+    nivel: 'ok',
+    orden: 3,
+    etiqueta: 'Programado',
+    detalle: `Faltan ${num.format(kmMin - kmActual)} km`
+  };
+}
+
+/* =========================================================
+   Parser XML Spreadsheet 2003
    ---------------------------------------------------------
    Formatos soportados:
      · Nuevo:  Kilómetros | Meses | Revisión
-     · Antiguo: Sistema | Operación | Intervalo | Notas
-   Se combinan Kilómetros y Meses en un campo "intervalo".
+     · Antiguo: Operación | Intervalo | Notas  (Sistema ignorado)
    ========================================================= */
 function parseMantProgXML(xmlText){
   const NS = 'urn:schemas-microsoft-com:office:spreadsheet';
 
-  // Limpiar BOM
   if(xmlText.charCodeAt(0) === 0xFEFF) xmlText = xmlText.slice(1);
 
   const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
   const parserError = doc.querySelector('parsererror');
   if(parserError) throw new Error('El archivo no es un XML válido.');
 
-  // Helper: encontrar elementos teniendo en cuenta si hay namespace o no
   function findElems(parent, tag){
     let els = parent.getElementsByTagNameNS(NS, tag);
     if(els.length === 0) els = parent.getElementsByTagName(tag);
@@ -480,8 +568,6 @@ function parseMantProgXML(xmlText){
       ['revision','operacion','tarea','mantenimiento','nombre','descripcion'].includes(h)),
     intervalo: headers.findIndex(h =>
       ['intervalo','periodicidad','cada','frecuencia'].includes(h)),
-    sistema:   headers.findIndex(h =>
-      ['sistema','zona','grupo'].includes(h)),
     notas:     headers.findIndex(h =>
       ['notas','nota','observaciones','comentarios'].includes(h)),
     kilometros:headers.findIndex(h =>
@@ -500,7 +586,6 @@ function parseMantProgXML(xmlText){
     if(idx.intervalo >= 0){
       intervalo = String(row[idx.intervalo] || '').trim();
     }
-    // Si no hay columna "Intervalo" pero sí "Kilómetros"/"Meses", se combinan
     if(!intervalo && (idx.kilometros >= 0 || idx.meses >= 0)){
       const km    = idx.kilometros >= 0 ? String(row[idx.kilometros] || '').trim() : '';
       const meses = idx.meses      >= 0 ? String(row[idx.meses]      || '').trim() : '';
@@ -511,10 +596,9 @@ function parseMantProgXML(xmlText){
     }
 
     out.push({
-      sistema:   idx.sistema >= 0 ? String(row[idx.sistema] || '').trim() : '',
       operacion,
       intervalo,
-      notas:     idx.notas   >= 0 ? String(row[idx.notas]   || '').trim() : ''
+      notas: idx.notas >= 0 ? String(row[idx.notas] || '').trim() : ''
     });
   }
   return out;
@@ -757,7 +841,6 @@ function renderContent(){
 
   const alerts = getAlerts(v);
   const mants = [...v.mantenimientos].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
-  const mantProg = registrosMantProg(v.id);
   const year = new Date().getFullYear();
 
   const totalDeIntervencion = m =>
@@ -809,6 +892,34 @@ function renderContent(){
     else if(restantes <= 1000){ cls = 'warn'; txt = `Revisión próxima: faltan ${kmFmt(restantes)} (a los ${kmFmt(proxima)})`; }
     revisionHtml = `<div class="vehicle-meta" style="margin-top:6px"><span class="badge ${cls}">🔧 ${esc(txt)}</span></div>`;
   }
+
+  // ---- Mantenimiento programado con estado según km actual ----
+  const mantProg = registrosMantProg(v.id).map(p => {
+    const est = estadoMantProg(p.intervalo, v.km);
+    return { ...p, _est: est };
+  }).sort((a,b) => {
+    if(a._est.orden !== b._est.orden) return a._est.orden - b._est.orden;
+    return (a.orden||0) - (b.orden||0);
+  });
+
+  const nVencidos = mantProg.filter(p => p._est.nivel === 'danger').length;
+  const nToca     = mantProg.filter(p => p._est.nivel === 'warn').length;
+  const nProximos = mantProg.filter(p => p._est.nivel === 'accent').length;
+
+  const mpRowClass = p => {
+    if(p._est.nivel === 'danger') return 'row-mp-overdue';
+    if(p._est.nivel === 'warn')   return 'row-mp-due';
+    if(p._est.nivel === 'accent') return 'row-mp-soon';
+    return '';
+  };
+  const mpBadge = p => {
+    const n = p._est.nivel;
+    if(n === 'danger') return `<span class="badge danger">⛔ Vencido</span>`;
+    if(n === 'warn')   return `<span class="badge warn">⚠️ Toca</span>`;
+    if(n === 'accent') return `<span class="badge" style="background:var(--bg);color:var(--accent);border:1px solid var(--accent)">🔔 Próximo</span>`;
+    if(n === 'ok')     return `<span class="badge ok">✓ Programado</span>`;
+    return `<span class="badge muted">— Sin datos</span>`;
+  };
 
   el.innerHTML = `
     <div class="card section">
@@ -881,19 +992,28 @@ function renderContent(){
         <button class="btn ghost sm" id="btn-import-xml">📥 Importar XML</button>
         <button class="btn primary sm" id="btn-add-mant-prog">＋ Añadir registro</button>
       </div>
+      ${mantProg.length ? `
+        <div class="hint" style="margin-bottom:8px">
+          Estado calculado según los <b>${num.format(Number(v.km)||0)} km</b> actuales del vehículo.
+          ${nVencidos ? `<span style="color:var(--danger);font-weight:700">⛔ ${nVencidos} vencido${nVencidos===1?'':'s'}</span>` : ''}
+          ${nToca ? `· <span style="color:var(--warn);font-weight:700">⚠️ ${nToca} para hacer</span>` : ''}
+          ${nProximos ? `· <span style="color:var(--accent);font-weight:700">🔔 ${nProximos} próximo${nProximos===1?'':'s'}</span>` : ''}
+        </div>
+      ` : ''}
       <div class="card table-wrap">
         ${mantProg.length ? `
         <table>
           <thead><tr>
-            <th>Sistema</th><th>Operación</th><th>Intervalo</th><th>Notas</th><th></th>
+            <th>Estado</th><th>Operación</th><th>Intervalo</th><th>Detalle</th><th>Notas</th><th></th>
           </tr></thead>
           <tbody>
             ${mantProg.map(p => `
-              <tr>
-                <td>${p.sistema ? `<span class="mant-prog-sistema">${esc(p.sistema)}</span>` : '<span class="muted">—</span>'}</td>
+              <tr class="${mpRowClass(p)}">
+                <td>${mpBadge(p)}</td>
                 <td><strong>${esc(p.operacion)}</strong></td>
                 <td>${esc(p.intervalo || '—')}</td>
-                <td>${esc(p.notas || '—')}</td>
+                <td class="muted" style="font-size:.8rem">${esc(p._est.detalle || '—')}</td>
+                <td class="muted" style="font-size:.8rem">${esc(p.notas || '—')}</td>
                 <td>
                   <div class="row-actions">
                     <button class="icon-btn" title="Editar" data-edit-mp="${p.id}">✎</button>
@@ -1135,6 +1255,16 @@ function getAlerts(v){
     }
   });
 
+  // Avisos según el plan de mantenimiento programado (Vencidos y Toca)
+  registrosMantProg(v.id).forEach(p => {
+    const est = estadoMantProg(p.intervalo, v.km);
+    if(est.nivel === 'danger'){
+      out.push({ level:'danger', text:`Plan: "${p.operacion}" vencido (${est.detalle})` });
+    } else if(est.nivel === 'warn'){
+      out.push({ level:'warn', text:`Plan: "${p.operacion}" ${est.detalle.toLowerCase()}` });
+    }
+  });
+
   if(!out.length) out.push({ level:'info', text:'Todo en orden. No hay avisos próximos.' });
   return out.sort((a,b) => {
     const r = x => x === 'danger' ? 0 : x === 'warn' ? 1 : 2;
@@ -1233,7 +1363,7 @@ function openVehicleForm(id){
     </label>
     <div class="hint">
       Columnas esperadas: <code>Kilómetros</code> · <code>Meses</code> · <code>Revisión</code>
-      (también acepta <code>Sistema</code> · <code>Operación</code> · <code>Intervalo</code> · <code>Notas</code>).
+      (también acepta <code>Operación</code> · <code>Intervalo</code> · <code>Notas</code>).
       ${esNuevo
         ? 'Al guardar se cargarán los registros del XML.'
         : `Este vehículo ya tiene <b>${mantProg.length}</b> registro${mantProg.length===1?'':'s'} de plan de mantenimiento.`}
@@ -1325,7 +1455,6 @@ function openVehicleForm(id){
       }
       const registros = xmlParsed.map((r, i) => ({
         vehicle_id: vehicleId,
-        sistema:    r.sistema || null,
         operacion:  r.operacion,
         intervalo:  r.intervalo || null,
         notas:      r.notas || null,
@@ -1365,7 +1494,6 @@ function openVehicleForm(id){
 
           const preview = objs.slice(0, 8).map(o => `
             <tr>
-              <td>${esc(o.sistema || '—')}</td>
               <td>${esc(o.operacion)}</td>
               <td>${esc(o.intervalo || '—')}</td>
               <td>${esc((o.notas || '').slice(0, 60))}${(o.notas||'').length > 60 ? '…' : ''}</td>
@@ -1375,7 +1503,7 @@ function openVehicleForm(id){
             <div class="xml-preview">
               <div class="ok">✓ ${objs.length} registro${objs.length===1?'':'s'} detectado${objs.length===1?'':'s'} en el XML</div>
               <table style="margin-top:8px">
-                <thead><tr><th>Sistema</th><th>Operación</th><th>Intervalo</th><th>Notas</th></tr></thead>
+                <thead><tr><th>Operación</th><th>Intervalo</th><th>Notas</th></tr></thead>
                 <tbody>${preview}</tbody>
               </table>
               ${objs.length > 8 ? `<div class="hint" style="margin-top:6px">... y ${objs.length - 8} más.</div>` : ''}
@@ -1427,20 +1555,21 @@ function openMantProgForm(vehicleId, registroId){
   const esNuevo = !reg;
 
   const body = `
-    <div class="grid2">
-      <label>Sistema
-        <input name="sistema" value="${esc(reg?.sistema)}" placeholder="Motor, Frenos, Transmisión…">
-      </label>
-      <label>Intervalo
-        <input name="intervalo" value="${esc(reg?.intervalo)}" placeholder="Ej. 15.000 km / 12 meses">
-      </label>
-    </div>
     <label>Operación <span style="text-transform:none;color:var(--danger)">*</span>
       <input name="operacion" value="${esc(reg?.operacion)}" placeholder="Ej. Cambio de aceite y filtro" required>
     </label>
-    <label>Notas
-      <textarea name="notas" rows="2" placeholder="Observaciones, recomendaciones…">${esc(reg?.notas)}</textarea>
-    </label>
+    <div class="grid2">
+      <label>Intervalo
+        <input name="intervalo" value="${esc(reg?.intervalo)}" placeholder="Ej. 15.000 - 30.000 km / 12 meses">
+      </label>
+      <label>Notas
+        <input name="notas" value="${esc(reg?.notas)}" placeholder="Opcional">
+      </label>
+    </div>
+    <div class="hint">
+      El intervalo se usa para calcular el estado según los km actuales del vehículo.
+      Ejemplos válidos: <code>15000 - 30000 km / 12 meses</code>, <code>60000 km / 48 meses</code>, <code>200000 km</code>.
+    </div>
   `;
 
   openModal(
@@ -1449,7 +1578,6 @@ function openMantProgForm(vehicleId, registroId){
     async fd => {
       const data = {
         vehicle_id: vehicleId,
-        sistema:   (fd.get('sistema') || '').trim() || null,
         operacion: (fd.get('operacion') || '').trim(),
         intervalo: (fd.get('intervalo') || '').trim() || null,
         notas:     (fd.get('notas') || '').trim() || null
@@ -1493,7 +1621,7 @@ function openImportXMLModal(vehicleId){
     <div class="hint" style="margin-bottom:6px">
       Puedes importar un XML de Excel con el plan de mantenimiento completo.
       Columnas esperadas: <code>Kilómetros</code> · <code>Meses</code> · <code>Revisión</code>
-      (también acepta <code>Sistema</code> · <code>Operación</code> · <code>Intervalo</code> · <code>Notas</code>).
+      (también acepta <code>Operación</code> · <code>Intervalo</code> · <code>Notas</code>).
       Este vehículo tiene actualmente <b>${actuales}</b> registro${actuales===1?'':'s'}.
     </div>
     <label>Archivo XML
@@ -1525,7 +1653,6 @@ function openImportXMLModal(vehicleId){
     const baseOrden = reemplazar ? 0 : registrosMantProg(vehicleId).length;
     const registros = xmlParsed.map((r, i) => ({
       vehicle_id: vehicleId,
-      sistema:    r.sistema || null,
       operacion:  r.operacion,
       intervalo:  r.intervalo || null,
       notas:      r.notas || null,
@@ -1562,7 +1689,6 @@ function openImportXMLModal(vehicleId){
           }
           const previewRows = objs.slice(0, 8).map(o => `
             <tr>
-              <td>${esc(o.sistema || '—')}</td>
               <td>${esc(o.operacion)}</td>
               <td>${esc(o.intervalo || '—')}</td>
             </tr>`).join('');
@@ -1570,7 +1696,7 @@ function openImportXMLModal(vehicleId){
             <div class="xml-preview">
               <div class="ok">✓ ${objs.length} registro${objs.length===1?'':'s'} detectado${objs.length===1?'':'s'}</div>
               <table style="margin-top:8px">
-                <thead><tr><th>Sistema</th><th>Operación</th><th>Intervalo</th></tr></thead>
+                <thead><tr><th>Operación</th><th>Intervalo</th></tr></thead>
                 <tbody>${previewRows}</tbody>
               </table>
               ${objs.length > 8 ? `<div class="hint" style="margin-top:6px">... y ${objs.length - 8} más.</div>` : ''}
