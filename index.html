@@ -304,19 +304,22 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .mat-thumb-tag{display:grid;place-items:center;font-size:1.15rem;color:var(--muted)}
 .mat-thumb-tag:hover{border-color:var(--accent);color:var(--accent)}
 
-/* Mantenimiento programado */
 .mant-prog-sistema{
   display:inline-block;padding:3px 9px;border-radius:999px;
   font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;
   background:var(--bg);border:1px solid var(--border);color:var(--text);
 }
-.csv-preview{
+.json-preview{
   margin-top:8px;border:1px dashed var(--border);border-radius:10px;
   padding:10px;background:var(--bg);font-size:.78rem;max-height:220px;overflow:auto;
 }
-.csv-preview table{min-width:0;font-size:.78rem}
-.csv-preview td,.csv-preview th{padding:4px 8px}
-.csv-preview .ok{color:var(--ok);font-weight:700}
+.json-preview table{min-width:0;font-size:.78rem}
+.json-preview td,.json-preview th{padding:4px 8px}
+.json-preview .ok{color:var(--ok);font-weight:700}
+.json-preview code{
+  background:var(--card);padding:1px 5px;border-radius:4px;
+  border:1px solid var(--border);font-size:.74rem;
+}
 
 #app-view[hidden]{display:none}
 </style>
@@ -417,94 +420,53 @@ function normTipo(t){
 }
 
 /* =========================================================
-   Parser CSV robusto
+   Parser JSON para el plan de mantenimiento
+   ---------------------------------------------------------
+   Formato esperado: array de objetos con campos:
+     { sistema, operacion, intervalo, notas }
+   Solo "operacion" es obligatorio.
    ========================================================= */
-function parseCSV(text){
-  // Quitar BOM si existe
-  if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-
-  // Detectar separador (, o ;) en la primera línea
-  const firstLine = text.split(/\r?\n/)[0];
-  const semis = (firstLine.match(/;/g) || []).length;
-  const commas = (firstLine.match(/,/g) || []).length;
-  const sep = semis > commas ? ';' : ',';
-
-  const rows = [];
-  let field = '';
-  let current = [];
-  let inQuotes = false;
-  const len = text.length;
-
-  for(let i = 0; i < len; i++){
-    const c = text[i];
-
-    if(inQuotes){
-      if(c === '"'){
-        if(text[i+1] === '"'){ field += '"'; i++; }
-        else inQuotes = false;
-      } else {
-        field += c;
-      }
-    } else {
-      if(c === '"'){
-        inQuotes = true;
-      } else if(c === sep){
-        current.push(field);
-        field = '';
-      } else if(c === '\n' || c === '\r'){
-        if(c === '\r' && text[i+1] === '\n') i++;
-        current.push(field);
-        field = '';
-        if(current.some(x => String(x).trim() !== '')) rows.push(current);
-        current = [];
-      } else {
-        field += c;
-      }
-    }
-  }
-  // Último campo/fila
-  if(field !== '' || current.length){
-    current.push(field);
-    if(current.some(x => String(x).trim() !== '')) rows.push(current);
+function parseMantProgJSON(text){
+  let data;
+  try{
+    data = JSON.parse(text);
+  }catch(err){
+    throw new Error('El archivo no es un JSON válido: ' + err.message);
   }
 
-  return rows;
-}
+  // Acepta tanto array directo como { "mantenimiento": [...] } o { "items": [...] }
+  let arr = null;
+  if(Array.isArray(data)) arr = data;
+  else if(data && typeof data === 'object'){
+    arr = data.mantenimiento || data.items || data.plan || data.registros || null;
+  }
 
-function csvRowsToObjetos(rows){
-  if(rows.length < 2) return [];
-  // Normalizar cabeceras: quitar espacios, tildes comunes y pasar a minúsculas
+  if(!Array.isArray(arr)){
+    throw new Error('El JSON debe ser un array de registros (o un objeto con la clave "mantenimiento").');
+  }
+
+  // Normalizar claves (acepta sistema/Sistema, operacion/operación/tarea/operacion, etc.)
   const norm = s => String(s || '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().trim();
 
-  const headers = rows[0].map(norm);
-  const idx = {
-    sistema:  headers.findIndex(h => h === 'sistema' || h === 'sistema / zona' || h === 'zona'),
-    operacion:headers.findIndex(h => h === 'operacion' || h === 'operación' || h === 'tarea' || h === 'mantenimiento'),
-    intervalo:headers.findIndex(h => h === 'intervalo' || h === 'periodicidad' || h === 'cada'),
-    notas:    headers.findIndex(h => h === 'notas' || h === 'nota' || h === 'observaciones')
-  };
-
-  // Si no encuentra "operacion", asumimos col 1 = operacion, col 2 = intervalo, col 3 = notas
-  if(idx.operacion === -1){
-    idx.sistema  = headers.length >= 4 ? 0 : -1;
-    idx.operacion= headers.length >= 4 ? 1 : 0;
-    idx.intervalo= headers.length >= 4 ? 2 : 1;
-    idx.notas    = headers.length >= 4 ? 3 : 2;
-  }
-
   const out = [];
-  for(let r = 1; r < rows.length; r++){
-    const row = rows[r];
-    const obj = {
-      sistema:   idx.sistema   >= 0 ? String(row[idx.sistema]   || '').trim() : '',
-      operacion: idx.operacion >= 0 ? String(row[idx.operacion] || '').trim() : '',
-      intervalo: idx.intervalo >= 0 ? String(row[idx.intervalo] || '').trim() : '',
-      notas:     idx.notas     >= 0 ? String(row[idx.notas]     || '').trim() : ''
-    };
-    if(!obj.operacion) continue; // ignoramos filas sin operación
-    out.push(obj);
+  for(const raw of arr){
+    if(!raw || typeof raw !== 'object') continue;
+    const obj = {};
+    for(const k of Object.keys(raw)){
+      obj[norm(k)] = raw[k];
+    }
+    const operacion = String(
+      obj.operacion || obj.tarea || obj.mantenimiento || obj['nombre'] || ''
+    ).trim();
+    if(!operacion) continue;
+    out.push({
+      sistema:   String(obj.sistema || obj.zona || obj.grupo || '').trim(),
+      operacion,
+      intervalo: String(obj.intervalo || obj.periodicidad || obj.cada || obj.frecuencia || '').trim(),
+      notas:     String(obj.notas || obj.nota || obj.observaciones || obj.comentarios || '').trim()
+    });
   }
   return out;
 }
@@ -565,7 +527,7 @@ let currentUser = null;
 let vehicles = [];
 let selected = null;
 let allHistorialRaw = [];
-let allMantProg = [];         // registros de mantenimiento_programado (todos)
+let allMantProg = [];
 
 const appView   = document.getElementById('app-view');
 const modalRoot = document.getElementById('modal');
@@ -867,7 +829,7 @@ function renderContent(){
       <div class="section-head">
         <h2>Mantenimiento programado</h2>
         <div class="spacer"></div>
-        <button class="btn ghost sm" id="btn-import-csv">📥 Importar CSV</button>
+        <button class="btn ghost sm" id="btn-import-json">📥 Importar JSON</button>
         <button class="btn primary sm" id="btn-add-mant-prog">＋ Añadir registro</button>
       </div>
       <div class="card table-wrap">
@@ -895,7 +857,7 @@ function renderContent(){
         </table>` : `
         <div class="empty" style="padding:44px 20px">
           <div class="emoji">📋</div>
-          <p style="margin-bottom:0">Aún no has cargado el plan de mantenimiento.<br>Puedes importar un CSV o añadir registros manualmente.</p>
+          <p style="margin-bottom:0">Aún no has cargado el plan de mantenimiento.<br>Puedes importar un JSON o añadir registros manualmente.</p>
         </div>`}
       </div>
     </div>
@@ -952,7 +914,7 @@ function renderContent(){
   document.getElementById('btn-km').onclick           = () => openKmForm(v.id);
   document.getElementById('btn-add-mant').onclick     = () => openMantForm(v.id);
   document.getElementById('btn-add-mant-prog').onclick= () => openMantProgForm(v.id);
-  document.getElementById('btn-import-csv').onclick   = () => openImportCSVModal(v.id);
+  document.getElementById('btn-import-json').onclick  = () => openImportJSONModal(v.id);
 
   el.querySelectorAll('[data-edit-mant]').forEach(b => b.onclick = () => openMantForm(v.id, b.dataset.editMant));
   el.querySelectorAll('[data-del-mant]').forEach(b => b.onclick = () => deleteMant(v.id, b.dataset.delMant));
@@ -1216,25 +1178,25 @@ function openVehicleForm(id){
     </div>
     <div class="hint">Si rellenas estos campos, recibirás un aviso visual y por email cuando estés a menos de 1.000 km de la próxima revisión.</div>
 
-    <h4>Mantenimiento programado (CSV)</h4>
-    <label>Archivo CSV con el plan de mantenimiento
-      <input type="file" name="mant_prog_file" id="mant-prog-file" accept=".csv,text/csv">
+    <h4>Mantenimiento programado (JSON)</h4>
+    <label>Archivo JSON con el plan de mantenimiento
+      <input type="file" name="mant_prog_file" id="mant-prog-file" accept=".json,application/json">
     </label>
     <div class="hint">
-      Formato: <code>Sistema, Operación, Intervalo, Notas</code>. La primera fila debe ser la cabecera.
-      Se aceptan separadores <code>,</code> o <code>;</code>. ${esNuevo
-        ? 'Al guardar se cargarán los registros del CSV.'
+      Formato: array de objetos con <code>{ "sistema", "operacion", "intervalo", "notas" }</code>.
+      Solo <code>operacion</code> es obligatorio. ${esNuevo
+        ? 'Al guardar se cargarán los registros del JSON.'
         : `Este vehículo ya tiene <b>${mantProg.length}</b> registro${mantProg.length===1?'':'s'} de plan de mantenimiento.`}
     </div>
     ${!esNuevo ? `
       <div class="hint" style="padding-bottom:8px">
         <label style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-weight:600;font-size:.85rem">
           <input type="checkbox" name="reemplazar_mant_prog" checked>
-          Reemplazar el plan de mantenimiento actual con el CSV
+          Reemplazar el plan de mantenimiento actual con el JSON
         </label>
       </div>
     ` : ''}
-    <div id="csv-preview-container"></div>
+    <div id="json-preview-container"></div>
 
     <h4>Permiso de circulación</h4>
     <label>Documento (PDF o imagen)
@@ -1259,8 +1221,7 @@ function openVehicleForm(id){
     <label>Notas<textarea name="notas" rows="2" placeholder="Taller habitual, observaciones…">${esc(v.notas)}</textarea></label>
   `;
 
-  // Estado local para el CSV parseado
-  let csvParsed = null;
+  let jsonParsed = null;
 
   openModal(esNuevo ? 'Nuevo vehículo' : 'Editar vehículo', body, async fd => {
     const data = {
@@ -1289,7 +1250,6 @@ function openVehicleForm(id){
       selected  = vehicleId;
     }
 
-    // Subir documentos
     const permisoFile = fd.get('permiso_file');
     if(permisoFile && permisoFile.size > 0){
       const path = await subirDocumento(permisoFile, vehicleId, 'permiso_circulacion');
@@ -1307,16 +1267,13 @@ function openVehicleForm(id){
       }
     }
 
-    // Procesar el CSV de mantenimiento programado
-    if(csvParsed && csvParsed.length){
+    if(jsonParsed && jsonParsed.length){
       const reemplazar = esNuevo || !!fd.get('reemplazar_mant_prog');
-
       if(reemplazar){
         const { error: eDel } = await sb.from('mantenimiento_programado').delete().eq('vehicle_id', vehicleId);
         if(eDel) throw eDel;
       }
-
-      const registros = csvParsed.map((r, i) => ({
+      const registros = jsonParsed.map((r, i) => ({
         vehicle_id: vehicleId,
         sistema:    r.sistema || null,
         operacion:  r.operacion,
@@ -1324,8 +1281,6 @@ function openVehicleForm(id){
         notas:      r.notas || null,
         orden:      i
       }));
-
-      // Insertar por lotes de 500 por seguridad
       for(let i = 0; i < registros.length; i += 500){
         const chunk = registros.slice(i, i + 500);
         const { error } = await sb.from('mantenimiento_programado').insert(chunk);
@@ -1338,25 +1293,23 @@ function openVehicleForm(id){
     toast(id ? 'Vehículo actualizado' : 'Vehículo añadido', 'ok');
   }, esNuevo ? 'Añadir vehículo' : 'Guardar cambios');
 
-  // Listener para el input CSV + preview
   setTimeout(() => {
     const fileInput = document.getElementById('mant-prog-file');
-    const previewCont = document.getElementById('csv-preview-container');
+    const previewCont = document.getElementById('json-preview-container');
     if(!fileInput || !previewCont) return;
 
     fileInput.addEventListener('change', e => {
       const file = e.target.files[0];
-      if(!file){ csvParsed = null; previewCont.innerHTML = ''; return; }
+      if(!file){ jsonParsed = null; previewCont.innerHTML = ''; return; }
 
       const reader = new FileReader();
       reader.onload = ev => {
         try{
-          const rows = parseCSV(ev.target.result);
-          const objs = csvRowsToObjetos(rows);
-          csvParsed = objs;
+          const objs = parseMantProgJSON(ev.target.result);
+          jsonParsed = objs;
 
           if(!objs.length){
-            previewCont.innerHTML = '<div class="csv-preview">⚠️ No se han detectado filas válidas en el CSV.</div>';
+            previewCont.innerHTML = '<div class="json-preview">⚠️ No se han detectado registros válidos en el JSON.</div>';
             return;
           }
 
@@ -1369,8 +1322,8 @@ function openVehicleForm(id){
             </tr>`).join('');
 
           previewCont.innerHTML = `
-            <div class="csv-preview">
-              <div class="ok">✓ ${objs.length} registro${objs.length===1?'':'s'} detectado${objs.length===1?'':'s'} en el CSV</div>
+            <div class="json-preview">
+              <div class="ok">✓ ${objs.length} registro${objs.length===1?'':'s'} detectado${objs.length===1?'':'s'} en el JSON</div>
               <table style="margin-top:8px">
                 <thead><tr><th>Sistema</th><th>Operación</th><th>Intervalo</th><th>Notas</th></tr></thead>
                 <tbody>${preview}</tbody>
@@ -1379,8 +1332,8 @@ function openVehicleForm(id){
             </div>`;
         }catch(err){
           console.error(err);
-          csvParsed = null;
-          previewCont.innerHTML = '<div class="csv-preview">❌ Error al procesar el CSV: ' + esc(err.message) + '</div>';
+          jsonParsed = null;
+          previewCont.innerHTML = '<div class="json-preview">❌ Error al procesar el JSON: ' + esc(err.message) + '</div>';
         }
       };
       reader.readAsText(file, 'UTF-8');
@@ -1417,7 +1370,7 @@ function openKmForm(id){
 }
 
 /* =========================================================
-   MANTENIMIENTO PROGRAMADO (manual + CSV)
+   MANTENIMIENTO PROGRAMADO
    ========================================================= */
 function openMantProgForm(vehicleId, registroId){
   const reg = registroId ? allMantProg.find(p => p.id === registroId) : null;
@@ -1457,7 +1410,6 @@ function openMantProgForm(vehicleId, registroId){
         const { error } = await sb.from('mantenimiento_programado').update(data).eq('id', reg.id);
         if(error) throw error;
       } else {
-        // Asignar orden al final
         const existentes = registrosMantProg(vehicleId);
         data.orden = existentes.length;
         const { error } = await sb.from('mantenimiento_programado').insert(data);
@@ -1482,35 +1434,35 @@ async function deleteMantProg(vehicleId, registroId){
   toast('Registro eliminado', 'ok');
 }
 
-function openImportCSVModal(vehicleId){
+function openImportJSONModal(vehicleId){
   const v = vehicles.find(x => x.id === vehicleId);
   if(!v) return;
   const actuales = registrosMantProg(vehicleId).length;
 
   const body = `
     <div class="hint" style="margin-bottom:6px">
-      Puedes importar un CSV con el plan de mantenimiento completo.
-      Formato: <code>Sistema, Operación, Intervalo, Notas</code>.
+      Puedes importar un JSON con el plan de mantenimiento completo.
+      Formato: array de objetos con <code>{ "sistema", "operacion", "intervalo", "notas" }</code>.
       Este vehículo tiene actualmente <b>${actuales}</b> registro${actuales===1?'':'s'}.
     </div>
-    <label>Archivo CSV
-      <input type="file" name="csv" id="import-csv-file" accept=".csv,text/csv" required>
+    <label>Archivo JSON
+      <input type="file" name="json" id="import-json-file" accept=".json,application/json" required>
     </label>
     <div style="padding-top:6px">
       <label style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-weight:600;font-size:.85rem">
         <input type="checkbox" name="reemplazar" checked>
-        Reemplazar el plan actual con el contenido del CSV
+        Reemplazar el plan actual con el contenido del JSON
       </label>
     </div>
-    <div class="hint">Si desmarcas esta opción, los registros del CSV se añadirán al final del plan existente.</div>
-    <div id="import-csv-preview"></div>
+    <div class="hint">Si desmarcas esta opción, los registros del JSON se añadirán al final del plan existente.</div>
+    <div id="import-json-preview"></div>
   `;
 
-  let csvParsed = null;
+  let jsonParsed = null;
 
-  openModal('Importar plan de mantenimiento desde CSV', body, async fd => {
-    if(!csvParsed || !csvParsed.length){
-      throw new Error('Selecciona un archivo CSV válido con al menos una fila.');
+  openModal('Importar plan de mantenimiento desde JSON', body, async fd => {
+    if(!jsonParsed || !jsonParsed.length){
+      throw new Error('Selecciona un archivo JSON válido con al menos un registro.');
     }
     const reemplazar = !!fd.get('reemplazar');
 
@@ -1520,7 +1472,7 @@ function openImportCSVModal(vehicleId){
     }
 
     const baseOrden = reemplazar ? 0 : registrosMantProg(vehicleId).length;
-    const registros = csvParsed.map((r, i) => ({
+    const registros = jsonParsed.map((r, i) => ({
       vehicle_id: vehicleId,
       sistema:    r.sistema || null,
       operacion:  r.operacion,
@@ -1541,21 +1493,20 @@ function openImportCSVModal(vehicleId){
   }, 'Importar');
 
   setTimeout(() => {
-    const input = document.getElementById('import-csv-file');
-    const preview = document.getElementById('import-csv-preview');
+    const input = document.getElementById('import-json-file');
+    const preview = document.getElementById('import-json-preview');
     if(!input || !preview) return;
 
     input.addEventListener('change', e => {
       const file = e.target.files[0];
-      if(!file){ csvParsed = null; preview.innerHTML = ''; return; }
+      if(!file){ jsonParsed = null; preview.innerHTML = ''; return; }
       const reader = new FileReader();
       reader.onload = ev => {
         try{
-          const rows = parseCSV(ev.target.result);
-          const objs = csvRowsToObjetos(rows);
-          csvParsed = objs;
+          const objs = parseMantProgJSON(ev.target.result);
+          jsonParsed = objs;
           if(!objs.length){
-            preview.innerHTML = '<div class="csv-preview">⚠️ No se han detectado filas válidas.</div>';
+            preview.innerHTML = '<div class="json-preview">⚠️ No se han detectado registros válidos.</div>';
             return;
           }
           const previewRows = objs.slice(0, 8).map(o => `
@@ -1565,7 +1516,7 @@ function openImportCSVModal(vehicleId){
               <td>${esc(o.intervalo || '—')}</td>
             </tr>`).join('');
           preview.innerHTML = `
-            <div class="csv-preview">
+            <div class="json-preview">
               <div class="ok">✓ ${objs.length} registro${objs.length===1?'':'s'} detectado${objs.length===1?'':'s'}</div>
               <table style="margin-top:8px">
                 <thead><tr><th>Sistema</th><th>Operación</th><th>Intervalo</th></tr></thead>
@@ -1575,8 +1526,8 @@ function openImportCSVModal(vehicleId){
             </div>`;
         }catch(err){
           console.error(err);
-          csvParsed = null;
-          preview.innerHTML = '<div class="csv-preview">❌ Error al procesar el CSV: ' + esc(err.message) + '</div>';
+          jsonParsed = null;
+          preview.innerHTML = '<div class="json-preview">❌ Error al procesar el JSON: ' + esc(err.message) + '</div>';
         }
       };
       reader.readAsText(file, 'UTF-8');
