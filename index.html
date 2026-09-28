@@ -1012,7 +1012,7 @@ function closeModal(){ modalRoot.innerHTML = ''; }
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
 
 /* =========================================================
-   CRUD vehículos
+   CRUD vehículos (SOLO datos básicos + documentación)
    ========================================================= */
 function openVehicleForm(id){
   const v = id ? vehicles.find(x => x.id === id) : {};
@@ -1040,8 +1040,9 @@ function openVehicleForm(id){
         <input name="km" type="number" min="0" step="1" value="${esc(v.km)}" placeholder="125000">
       </label>
     </div>
+    <div class="hint">El VIN es el número de 17 caracteres que aparece en la ficha técnica y en el permiso de circulación.</div>
 
-    <h4>Revisión por kilometraje</h4>
+    <h4>Revisión por kilometraje (aviso automático)</h4>
     <div class="grid2">
       <label>Intervalo de revisión (km)
         <input name="intervalo_revision_km" type="number" min="0" step="500" value="${esc(v.intervalo_revision_km)}" placeholder="Ej. 15000">
@@ -1050,65 +1051,34 @@ function openVehicleForm(id){
         <input name="ultima_revision_km" type="number" min="0" step="1" value="${esc(v.ultima_revision_km)}" placeholder="Ej. 120000">
       </label>
     </div>
+    <div class="hint">Si rellenas estos campos, recibirás un aviso visual y por email cuando estés a menos de 1.000 km de la próxima revisión.</div>
 
     <h4>Permiso de circulación</h4>
     <label>Documento (PDF o imagen)
       <input type="file" name="permiso_file" accept="application/pdf,image/*">
     </label>
+    ${v.permiso_circulacion_path
+      ? `<div class="hint">📎 Ya hay un documento subido. Si eliges otro archivo, se reemplazará.</div>`
+      : `<div class="hint">Opcional: sube una foto o PDF del permiso de circulación.</div>`}
 
     <h4>Ficha técnica</h4>
     <label>Documento (PDF o imagen)
       <input type="file" name="ficha_file" accept="application/pdf,image/*">
     </label>
+    ${v.ficha_tecnica_path
+      ? `<div class="hint">📎 Ya hay un documento subido. Si eliges otro archivo, se reemplazará.</div>`
+      : `<div class="hint">Opcional: sube una foto o PDF de la ficha técnica.</div>`}
 
-    <h4>ITV</h4>
-    <div class="grid2">
-      <label>Fecha ITV pasada<input type="date" name="itv_fecha" value="${esc(v.itv_fecha)}"></label>
-      <label>Próxima ITV<input type="date" name="itv" value="${esc(v.itv)}"></label>
-    </div>
-    <div class="grid2">
-      <label>Precio (€)<input type="number" min="0" step="0.01" name="itv_precio" value="${esc(v.itv_precio)}" placeholder="0,00"></label>
-      <label>Dónde la hiciste<input name="itv_lugar" value="${esc(v.itv_lugar)}" placeholder="Ej. ITV Móstoles"></label>
+    <div class="hint" style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
+      ℹ️ Los datos de ITV, Seguro e IVTM se registran en cada tarjeta de la ficha del vehículo con el botón <b>＋ Registrar</b>.
     </div>
 
-    <h4>Seguro</h4>
-    <div class="grid2">
-      <label>Fecha del seguro<input type="date" name="seguro_fecha" value="${esc(v.seguro_fecha)}"></label>
-      <label>Vencimiento<input type="date" name="seguro" value="${esc(v.seguro)}"></label>
-    </div>
-    <div class="grid3">
-      <label>Tipo de seguro
-        <select name="seguro_tipo">
-          <option value="">— Selecciona —</option>
-          ${TIPOS_SEGURO.map(t => `<option ${v.seguro_tipo === t ? 'selected' : ''}>${t}</option>`).join('')}
-        </select>
-      </label>
-      <label>Plazos
-        <select name="seguro_plazos">
-          <option value="">— Selecciona —</option>
-          ${PLAZOS_SEGURO.map(p => `<option ${v.seguro_plazos === p ? 'selected' : ''}>${p}</option>`).join('')}
-        </select>
-      </label>
-      <label>Cantidad total (€)<input type="number" min="0" step="0.01" name="seguro_precio" value="${esc(v.seguro_precio)}" placeholder="0,00"></label>
-    </div>
-    <label>Compañía aseguradora
-      <input name="seguro_compania" value="${esc(v.seguro_compania)}" placeholder="Ej. Mapfre, Mutua Madrileña…">
-    </label>
-
-    <h4>Impuesto de circulación (IVTM)</h4>
-    <div class="grid2">
-      <label>Fecha de pago<input type="date" name="impuesto_fecha" value="${esc(v.impuesto_fecha)}"></label>
-      <label>Vencimiento<input type="date" name="impuesto" value="${esc(v.impuesto)}"></label>
-    </div>
-    <div class="grid2">
-      <label>Cantidad (€)<input type="number" min="0" step="0.01" name="impuesto_precio" value="${esc(v.impuesto_precio)}" placeholder="0,00"></label>
-      <label>Dónde<input name="impuesto_lugar" value="${esc(v.impuesto_lugar)}" placeholder="Ej. Ayuntamiento de Madrid"></label>
-    </div>
-
-    <label>Notas<textarea name="notas" rows="2">${esc(v.notas)}</textarea></label>
+    <label>Notas<textarea name="notas" rows="2" placeholder="Taller habitual, observaciones…">${esc(v.notas)}</textarea></label>
   `;
 
   openModal(esNuevo ? 'Nuevo vehículo' : 'Editar vehículo', body, async fd => {
+    // Solo actualizamos los campos de la pestaña "datos básicos".
+    // ITV / Seguro / IVTM se dejan intactos (no se envían).
     const data = {
       nombre:      (fd.get('nombre') || '').trim(),
       matricula:   (fd.get('matricula') || '').trim().toUpperCase(),
@@ -1120,20 +1090,6 @@ function openVehicleForm(id){
       km:          Number(fd.get('km')) || 0,
       intervalo_revision_km: fd.get('intervalo_revision_km') ? Number(fd.get('intervalo_revision_km')) : null,
       ultima_revision_km:    fd.get('ultima_revision_km')    ? Number(fd.get('ultima_revision_km'))    : null,
-      itv_fecha:      fd.get('itv_fecha') || null,
-      itv:            fd.get('itv') || null,
-      itv_precio:     fd.get('itv_precio') ? Number(fd.get('itv_precio')) : null,
-      itv_lugar:      (fd.get('itv_lugar') || '').trim(),
-      seguro_fecha:   fd.get('seguro_fecha') || null,
-      seguro:         fd.get('seguro') || null,
-      seguro_tipo:    fd.get('seguro_tipo') || '',
-      seguro_plazos:  fd.get('seguro_plazos') || '',
-      seguro_precio:  fd.get('seguro_precio') ? Number(fd.get('seguro_precio')) : null,
-      seguro_compania:(fd.get('seguro_compania') || '').trim(),
-      impuesto_fecha:  fd.get('impuesto_fecha') || null,
-      impuesto:        fd.get('impuesto') || null,
-      impuesto_precio: fd.get('impuesto_precio') ? Number(fd.get('impuesto_precio')) : null,
-      impuesto_lugar:  (fd.get('impuesto_lugar') || '').trim(),
       notas: (fd.get('notas') || '').trim()
     };
 
@@ -1486,15 +1442,12 @@ function openHistorialForm(vehicleId, tipo, registroId){
         notas: (fd.get('notas') || '').trim() || null
       };
 
-      console.log('Guardando registro:', data);
-
       if(registroId){
         const { error } = await sb.from('historial_obligaciones').update(data).eq('id', registroId);
-        if(error){ console.error('Error update:', error); throw new Error('Error al actualizar: ' + error.message); }
+        if(error) throw new Error('Error al actualizar: ' + error.message);
       } else {
-        const { data: inserted, error } = await sb.from('historial_obligaciones').insert(data).select();
-        if(error){ console.error('Error insert:', error); throw new Error('Error al guardar: ' + error.message); }
-        console.log('Insert OK:', inserted);
+        const { error } = await sb.from('historial_obligaciones').insert(data);
+        if(error) throw new Error('Error al guardar: ' + error.message);
       }
 
       if(fd.get('actualizar_vehiculo') && data.proxima_fecha){
