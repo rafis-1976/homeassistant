@@ -40,9 +40,7 @@ input,select,textarea{
   font:inherit;padding:10px 12px;border:1px solid var(--border);border-radius:10px;
   background:var(--card);color:var(--text);width:100%;
 }
-input[type=file]{
-  padding:8px 10px;font-size:.82rem;cursor:pointer;
-}
+input[type=file]{padding:8px 10px;font-size:.82rem;cursor:pointer}
 input[type=file]::file-selector-button{
   font:inherit;font-size:.8rem;font-weight:600;
   padding:6px 12px;margin-right:10px;
@@ -53,12 +51,8 @@ input[type=checkbox]{width:auto}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
 label{display:flex;flex-direction:column;gap:6px;font-size:.78rem;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase}
 
-header{
-  position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--border);
-}
-.header-in{
-  max-width:1180px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-}
+header{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--border)}
+.header-in{max-width:1180px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.15rem;letter-spacing:-.02em}
 .logo .mark{
   width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:1.1rem;
@@ -266,18 +260,9 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
   .material-row input[data-field="tienda"]{grid-column:2/-1}
   .material-row button[data-remove]{grid-column:3;justify-self:end}
 }
-.mat-img-cell{
-  display:flex;flex-direction:column;gap:4px;align-items:center;
-  padding-top:2px;
-}
-.mat-img{
-  width:78px;height:78px;border-radius:10px;object-fit:cover;
-  border:1px solid var(--border);background:var(--bg);display:block;
-}
-.mat-img-placeholder{
-  display:grid;place-items:center;cursor:pointer;
-  font-size:1.6rem;color:var(--muted);
-}
+.mat-img-cell{display:flex;flex-direction:column;gap:4px;align-items:center;padding-top:2px}
+.mat-img{width:78px;height:78px;border-radius:10px;object-fit:cover;border:1px solid var(--border);background:var(--bg);display:block}
+.mat-img-placeholder{display:grid;place-items:center;cursor:pointer;font-size:1.6rem;color:var(--muted)}
 .mat-img-placeholder:hover{border-color:var(--accent);color:var(--accent)}
 .mat-img-empty{
   width:78px;height:78px;border-radius:10px;border:1px dashed var(--border);
@@ -316,9 +301,7 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
   width:44px;height:44px;border-radius:8px;object-fit:cover;
   border:1px solid var(--border);background:var(--bg);display:block;cursor:pointer;
 }
-.mat-thumb-tag{
-  display:grid;place-items:center;font-size:1.15rem;color:var(--muted);
-}
+.mat-thumb-tag{display:grid;place-items:center;font-size:1.15rem;color:var(--muted)}
 .mat-thumb-tag:hover{border-color:var(--accent);color:var(--accent)}
 
 #app-view[hidden]{display:none}
@@ -415,8 +398,6 @@ function toast(msg, type='info'){
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3600);
 }
-
-// Normaliza el tipo para comparaciones robustas
 function normTipo(t){
   return String(t || '').toLowerCase().trim();
 }
@@ -432,12 +413,8 @@ const TIPOS_MANT = [
   'ITV','Escobillas limpiaparabrisas','Suspensión','Embrague','Diagnosis / electrónica','Otros'
 ];
 const TIPOS_SEGURO = [
-  'Terceros',
-  'Terceros ampliado',
-  'Terceros con lunas',
-  'Todo riesgo con franquicia',
-  'Todo riesgo sin franquicia',
-  'Otro'
+  'Terceros','Terceros ampliado','Terceros con lunas',
+  'Todo riesgo con franquicia','Todo riesgo sin franquicia','Otro'
 ];
 const PLAZOS_SEGURO = ['Anual','Semestral','Cuatrimestral','Trimestral','Mensual','Otro'];
 const TIPOS_HIST_LABEL = { itv: 'ITV', seguro: 'Seguro', ivtm: 'Impuesto (IVTM)' };
@@ -447,16 +424,10 @@ const TIPOS_HIST_LABEL = { itv: 'ITV', seguro: 'Seguro', ivtm: 'Impuesto (IVTM)'
    ========================================================= */
 function mantFromDB(row){
   return {
-    id: row.id,
-    tipo: row.tipo || '',
-    fecha: row.fecha || '',
-    km: row.km ?? '',
-    coste: row.coste ?? 0,
-    taller: row.taller || '',
-    proximaFecha: row.proxima_fecha || '',
-    proximoKm: row.proximo_km ?? '',
-    notas: row.notas || '',
-    materiales: Array.isArray(row.materiales) ? row.materiales : []
+    id: row.id, tipo: row.tipo || '', fecha: row.fecha || '',
+    km: row.km ?? '', coste: row.coste ?? 0, taller: row.taller || '',
+    proximaFecha: row.proxima_fecha || '', proximoKm: row.proximo_km ?? '',
+    notas: row.notas || '', materiales: Array.isArray(row.materiales) ? row.materiales : []
   };
 }
 function mantToDB(m, vehicleId){
@@ -549,7 +520,6 @@ async function loadData(){
 
   const histByVehicle = new Map();
   hRes.data.forEach(h => {
-    // Normalizamos el tipo al cargar para evitar problemas de mayúsculas/espacios
     h.tipo = normTipo(h.tipo);
     if(!histByVehicle.has(h.vehicle_id)) histByVehicle.set(h.vehicle_id, []);
     histByVehicle.get(h.vehicle_id).push(h);
@@ -565,6 +535,20 @@ async function loadData(){
   if(!selected || !vehicles.find(v => v.id === selected)){
     selected = vehicles[0]?.id || null;
   }
+
+  // Diagnóstico en consola
+  console.log('=== CARGA DE DATOS ===');
+  console.log('Total vehículos:', vehicles.length);
+  hRes.data.forEach(h => console.log('Registro historial:', { vehiculo: h.vehicle_id, tipo_original: h.tipo, tipo_norm: normTipo(h.tipo), fecha: h.fecha }));
+  vehicles.forEach(v => {
+    const hist = v.historial || [];
+    console.log(`Vehículo ${v.matricula}:`, {
+      total_historial: hist.length,
+      itv: hist.filter(h => normTipo(h.tipo) === 'itv').length,
+      seguro: hist.filter(h => normTipo(h.tipo) === 'seguro').length,
+      ivtm: hist.filter(h => normTipo(h.tipo) === 'ivtm').length
+    });
+  });
 }
 
 /* =========================================================
@@ -574,43 +558,35 @@ async function subirDocumento(file, vehicleId, tipo){
   if(!file || file.size === 0) return null;
   const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
   const path = `${currentUser.id}/${vehicleId}/${tipo}.${ext}`;
-
   const { error } = await sb.storage.from(BUCKET).upload(path, file, {
-    upsert: true,
-    cacheControl: '3600',
+    upsert: true, cacheControl: '3600',
     contentType: file.type || 'application/octet-stream'
   });
   if(error) throw error;
   return path;
 }
-
 async function subirMaterialImagen(file, vehicleId, materialId){
   if(!file || file.size === 0) return null;
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
   const path = `${currentUser.id}/${vehicleId}/material_${materialId}.${ext}`;
-
   const { error } = await sb.storage.from(BUCKET).upload(path, file, {
-    upsert: true,
-    cacheControl: '3600',
+    upsert: true, cacheControl: '3600',
     contentType: file.type || 'image/jpeg'
   });
   if(error) throw error;
   return path;
 }
-
 async function verDocumento(path){
   if(!path) return;
   const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(path, 3600);
   if(error) return toast('No se pudo abrir el archivo: ' + error.message, 'error');
   window.open(data.signedUrl, '_blank', 'noopener');
 }
-
 async function borrarDocumento(path){
   if(!path) return;
   const { error } = await sb.storage.from(BUCKET).remove([path]);
   if(error) console.warn('No se pudo borrar el archivo:', error.message);
 }
-
 async function borrarCarpetaVehiculo(vehicleId){
   const prefix = `${currentUser.id}/${vehicleId}`;
   const { data: files, error } = await sb.storage.from(BUCKET).list(prefix);
@@ -622,10 +598,7 @@ async function borrarCarpetaVehiculo(vehicleId){
 /* =========================================================
    Render
    ========================================================= */
-function render(){
-  renderTabs();
-  renderContent();
-}
+function render(){ renderTabs(); renderContent(); }
 
 function renderTabs(){
   const el = document.getElementById('tabs');
@@ -668,12 +641,8 @@ function renderContent(){
     (Array.isArray(m.materiales) ? m.materiales.reduce((s,x) => s + (Number(x.cantidad)||0)*(Number(x.precio)||0), 0) : 0);
 
   const mantTotal = v.mantenimientos.reduce((s,m) => s + totalDeIntervencion(m), 0);
-  const mantAnio  = v.mantenimientos
-      .filter(m => (m.fecha||'').startsWith(String(year)))
-      .reduce((s,m) => s + totalDeIntervencion(m), 0);
-  const mantUlt   = v.mantenimientos
-      .filter(m => { const d = daysUntil(m.fecha); return d !== null && d > -365 && d <= 0; })
-      .reduce((s,m) => s + totalDeIntervencion(m), 0);
+  const mantAnio  = v.mantenimientos.filter(m => (m.fecha||'').startsWith(String(year))).reduce((s,m) => s + totalDeIntervencion(m), 0);
+  const mantUlt   = v.mantenimientos.filter(m => { const d = daysUntil(m.fecha); return d !== null && d > -365 && d <= 0; }).reduce((s,m) => s + totalDeIntervencion(m), 0);
 
   const enAnio = h => (h.fecha||'').startsWith(String(year));
   const enUlt  = h => { const d = daysUntil(h.fecha); return d !== null && d > -365 && d <= 0; };
@@ -682,7 +651,6 @@ function renderContent(){
     .filter(filtro || (() => true))
     .reduce((s,h) => s + (Number(h.precio)||0), 0);
 
-  // Función común para obtener registros de un tipo
   const histPorTipo = tipo => (v.historial || []).filter(h => normTipo(h.tipo) === tipo);
 
   const itvHistTotal = sumHist('itv');
@@ -714,12 +682,9 @@ function renderContent(){
     let cls = 'ok', txt = `Faltan ${kmFmt(restantes)} para la próxima revisión (a los ${kmFmt(proxima)})`;
     if(restantes <= 0){ cls = 'danger'; txt = `Revisión superada por ${kmFmt(Math.abs(restantes))} (tocaba a los ${kmFmt(proxima)})`; }
     else if(restantes <= 1000){ cls = 'warn'; txt = `Revisión próxima: faltan ${kmFmt(restantes)} (a los ${kmFmt(proxima)})`; }
-    revisionHtml = `<div class="vehicle-meta" style="margin-top:6px">
-      <span class="badge ${cls}">🔧 ${esc(txt)}</span>
-    </div>`;
+    revisionHtml = `<div class="vehicle-meta" style="margin-top:6px"><span class="badge ${cls}">🔧 ${esc(txt)}</span></div>`;
   }
 
-  // Contadores por tipo (usando la función común)
   const histItv  = histPorTipo('itv');
   const histSeg  = histPorTipo('seguro');
   const histIvtm = histPorTipo('ivtm');
@@ -765,7 +730,7 @@ function renderContent(){
           v.itv_lugar ? `<div><span class="lbl">Lugar</span> ${esc(v.itv_lugar)}</div>` : ''
         ].filter(Boolean).join(''),
           `<button type="button" class="btn ghost tiny" data-add-hist="itv">＋ Registrar</button>
-           ${histItv.length > 0 ? `<button type="button" class="btn ghost tiny" data-ver-hist="itv">📋 Historial (${histItv.length})</button>` : ''}`
+           <button type="button" class="btn ghost tiny" data-ver-hist="itv">📋 Historial (${histItv.length})</button>`
         )}
         ${docCard('Seguro', v.seguro, 21, [
           v.seguro_fecha ? `<div><span class="lbl">Fecha seguro</span> ${fmtDate(v.seguro_fecha)}</div>` : '',
@@ -775,7 +740,7 @@ function renderContent(){
           v.seguro_precio != null && v.seguro_precio !== '' ? `<div><span class="lbl">Cantidad total</span> ${money(v.seguro_precio)}</div>` : ''
         ].filter(Boolean).join(''),
           `<button type="button" class="btn ghost tiny" data-add-hist="seguro">＋ Registrar</button>
-           ${histSeg.length > 0 ? `<button type="button" class="btn ghost tiny" data-ver-hist="seguro">📋 Historial (${histSeg.length})</button>` : ''}`
+           <button type="button" class="btn ghost tiny" data-ver-hist="seguro">📋 Historial (${histSeg.length})</button>`
         )}
         ${docCard('Impuesto (IVTM)', v.impuesto, 30, [
           v.impuesto_fecha ? `<div><span class="lbl">Fecha pago</span> ${fmtDate(v.impuesto_fecha)}</div>` : '',
@@ -783,7 +748,7 @@ function renderContent(){
           v.impuesto_precio != null && v.impuesto_precio !== '' ? `<div><span class="lbl">Cantidad</span> ${money(v.impuesto_precio)}</div>` : ''
         ].filter(Boolean).join(''),
           `<button type="button" class="btn ghost tiny" data-add-hist="ivtm">＋ Registrar</button>
-           ${histIvtm.length > 0 ? `<button type="button" class="btn ghost tiny" data-ver-hist="ivtm">📋 Historial (${histIvtm.length})</button>` : ''}`
+           <button type="button" class="btn ghost tiny" data-ver-hist="ivtm">📋 Historial (${histIvtm.length})</button>`
         )}
       </div>
     </div>
@@ -839,10 +804,8 @@ function renderContent(){
   document.getElementById('btn-del-vehicle').onclick  = () => deleteVehicle(v.id);
   document.getElementById('btn-km').onclick           = () => openKmForm(v.id);
   document.getElementById('btn-add-mant').onclick     = () => openMantForm(v.id);
-  el.querySelectorAll('[data-edit-mant]').forEach(b =>
-    b.onclick = () => openMantForm(v.id, b.dataset.editMant));
-  el.querySelectorAll('[data-del-mant]').forEach(b =>
-    b.onclick = () => deleteMant(v.id, b.dataset.delMant));
+  el.querySelectorAll('[data-edit-mant]').forEach(b => b.onclick = () => openMantForm(v.id, b.dataset.editMant));
+  el.querySelectorAll('[data-del-mant]').forEach(b => b.onclick = () => deleteMant(v.id, b.dataset.delMant));
   el.querySelectorAll('[data-toggle]').forEach(b =>
     b.addEventListener('click', () => {
       const row = document.getElementById(b.dataset.toggle);
@@ -944,11 +907,7 @@ function mantRow(m, v){
               ${mats.map(x => {
                 const sub = (Number(x.cantidad)||0) * (Number(x.precio)||0);
                 return `<tr>
-                  <td>
-                    ${x.imagen
-                      ? `<div class="mat-thumb mat-thumb-tag" data-ver-doc="${esc(x.imagen)}" title="Ver imagen">📷</div>`
-                      : '<span class="muted">—</span>'}
-                  </td>
+                  <td>${x.imagen ? `<div class="mat-thumb mat-thumb-tag" data-ver-doc="${esc(x.imagen)}" title="Ver imagen">📷</div>` : '<span class="muted">—</span>'}</td>
                   <td>${esc(x.nombre || '—')}</td>
                   <td>${x.cantidad ?? '—'}</td>
                   <td>${x.precio != null && x.precio !== '' ? money(x.precio) : '—'}</td>
@@ -987,8 +946,7 @@ function getAlerts(v){
 
   if(v.intervalo_revision_km && v.ultima_revision_km){
     const proxima = Number(v.ultima_revision_km) + Number(v.intervalo_revision_km);
-    const kmActual = Number(v.km) || 0;
-    const restantes = proxima - kmActual;
+    const restantes = proxima - (Number(v.km) || 0);
     if(restantes <= 1000){
       out.push({
         level: restantes <= 0 ? 'danger' : 'warn',
@@ -1097,15 +1055,12 @@ function openVehicleForm(id){
     <h4>Revisión por kilometraje (aviso automático)</h4>
     <div class="grid2">
       <label>Intervalo de revisión (km)
-        <input name="intervalo_revision_km" type="number" min="0" step="500"
-               value="${esc(v.intervalo_revision_km)}" placeholder="Ej. 15000">
+        <input name="intervalo_revision_km" type="number" min="0" step="500" value="${esc(v.intervalo_revision_km)}" placeholder="Ej. 15000">
       </label>
       <label>Km de la última revisión
-        <input name="ultima_revision_km" type="number" min="0" step="1"
-               value="${esc(v.ultima_revision_km)}" placeholder="Ej. 120000">
+        <input name="ultima_revision_km" type="number" min="0" step="1" value="${esc(v.ultima_revision_km)}" placeholder="Ej. 120000">
       </label>
     </div>
-    <div class="hint">Si rellenas estos campos, recibirás un aviso visual y por email cuando estés a menos de 1.000 km de la próxima revisión.</div>
 
     <h4>Permiso de circulación</h4>
     <label>Documento (PDF o imagen)
@@ -1140,7 +1095,6 @@ function openVehicleForm(id){
         <input name="itv_lugar" value="${esc(v.itv_lugar)}" placeholder="Ej. ITV Móstoles">
       </label>
     </div>
-    <div class="hint">Turismos: primera ITV a los 4 años, cada 2 años hasta los 10 y anual después.</div>
 
     <h4>Seguro</h4>
     <div class="grid2">
@@ -1189,7 +1143,6 @@ function openVehicleForm(id){
         <input name="impuesto_lugar" value="${esc(v.impuesto_lugar)}" placeholder="Ej. Ayuntamiento de Madrid">
       </label>
     </div>
-    <div class="hint">El IVTM se paga normalmente entre marzo y mayo en el ayuntamiento donde esté domiciliado el vehículo.</div>
 
     <label>Notas<textarea name="notas" rows="2" placeholder="Taller habitual, observaciones…">${esc(v.notas)}</textarea></label>
   `;
@@ -1204,39 +1157,32 @@ function openVehicleForm(id){
       combustible: fd.get('combustible') || '',
       bastidor:    (fd.get('bastidor') || '').trim().toUpperCase(),
       km:          Number(fd.get('km')) || 0,
-
       intervalo_revision_km: fd.get('intervalo_revision_km') ? Number(fd.get('intervalo_revision_km')) : null,
       ultima_revision_km:    fd.get('ultima_revision_km')    ? Number(fd.get('ultima_revision_km'))    : null,
-
       itv_fecha:      fd.get('itv_fecha') || null,
       itv:            fd.get('itv') || null,
       itv_precio:     fd.get('itv_precio') ? Number(fd.get('itv_precio')) : null,
       itv_lugar:      (fd.get('itv_lugar') || '').trim(),
-
       seguro_fecha:   fd.get('seguro_fecha') || null,
       seguro:         fd.get('seguro') || null,
       seguro_tipo:    fd.get('seguro_tipo') || '',
       seguro_plazos:  fd.get('seguro_plazos') || '',
       seguro_precio:  fd.get('seguro_precio') ? Number(fd.get('seguro_precio')) : null,
       seguro_compania:(fd.get('seguro_compania') || '').trim(),
-
       impuesto_fecha:  fd.get('impuesto_fecha') || null,
       impuesto:        fd.get('impuesto') || null,
       impuesto_precio: fd.get('impuesto_precio') ? Number(fd.get('impuesto_precio')) : null,
       impuesto_lugar:  (fd.get('impuesto_lugar') || '').trim(),
-
       notas: (fd.get('notas') || '').trim()
     };
 
     let vehicleId = id;
-
     if(id){
       const { error } = await sb.from('vehicles').update(data).eq('id', id);
       if(error) throw error;
     } else {
       const { data: inserted, error } = await sb.from('vehicles')
-        .insert({ ...data, user_id: currentUser.id })
-        .select('id').single();
+        .insert({ ...data, user_id: currentUser.id }).select('id').single();
       if(error) throw error;
       vehicleId = inserted.id;
       selected  = vehicleId;
@@ -1246,18 +1192,15 @@ function openVehicleForm(id){
     if(permisoFile && permisoFile.size > 0){
       const path = await subirDocumento(permisoFile, vehicleId, 'permiso_circulacion');
       if(path){
-        const { error } = await sb.from('vehicles')
-          .update({ permiso_circulacion_path: path }).eq('id', vehicleId);
+        const { error } = await sb.from('vehicles').update({ permiso_circulacion_path: path }).eq('id', vehicleId);
         if(error) throw error;
       }
     }
-
     const fichaFile = fd.get('ficha_file');
     if(fichaFile && fichaFile.size > 0){
       const path = await subirDocumento(fichaFile, vehicleId, 'ficha_tecnica');
       if(path){
-        const { error } = await sb.from('vehicles')
-          .update({ ficha_tecnica_path: path }).eq('id', vehicleId);
+        const { error } = await sb.from('vehicles').update({ ficha_tecnica_path: path }).eq('id', vehicleId);
         if(error) throw error;
       }
     }
@@ -1272,9 +1215,7 @@ async function deleteVehicle(id){
   const v = vehicles.find(x => x.id === id);
   if(!v) return;
   if(!confirm(`¿Eliminar «${v.nombre || v.matricula}» y todo su historial?\n\nEsta acción no se puede deshacer.`)) return;
-
   await borrarCarpetaVehiculo(id);
-
   const { error } = await sb.from('vehicles').delete().eq('id', id);
   if(error) return toast('Error: ' + error.message, 'error');
   if(selected === id) selected = null;
@@ -1308,14 +1249,9 @@ function openMantForm(vehicleId, mantId){
   const esNuevo = !mantId;
 
   let mats = Array.isArray(m.materiales) ? m.materiales.map(x => ({
-    id: x.id || uid(),
-    nombre:   x.nombre   || '',
-    cantidad: x.cantidad ?? '',
-    precio:   x.precio   ?? '',
-    tienda:   x.tienda   || '',
-    imagen:   x.imagen   || '',
-    _file:    null,
-    _preview: null
+    id: x.id || uid(), nombre: x.nombre || '', cantidad: x.cantidad ?? '',
+    precio: x.precio ?? '', tienda: x.tienda || '', imagen: x.imagen || '',
+    _file: null, _preview: null
   })) : [];
 
   const body = `
@@ -1344,7 +1280,7 @@ function openMantForm(vehicleId, mantId){
       <label>Km próximos<input type="number" min="0" step="1" name="proximoKm" value="${esc(m.proximoKm)}" placeholder="Ej. 135000"></label>
     </div>
 
-    <label>Notas<textarea name="notas" rows="2" placeholder="Referencias, marca del aceite…">${esc(m.notas)}</textarea></label>
+    <label>Notas<textarea name="notas" rows="2">${esc(m.notas)}</textarea></label>
 
     <div class="total-box">
       <span>Total intervención</span>
@@ -1358,36 +1294,24 @@ function openMantForm(vehicleId, mantId){
         try{
           const path = await subirMaterialImagen(mat._file, vehicleId, mat.id);
           if(path) mat.imagen = path;
-        }catch(err){
-          console.warn('Error subiendo imagen de material:', err);
-          toast('No se pudo subir la imagen de «' + (mat.nombre || 'material') + '»', 'error');
-        }
+        }catch(err){ console.warn('Error subiendo imagen:', err); }
       }
     }
 
     const data = {
-      tipo:         fd.get('tipo') || 'Otros',
-      fecha:        fd.get('fecha') || '',
-      km:           fd.get('km') ? Number(fd.get('km')) : '',
-      coste:        fd.get('coste') ? Number(fd.get('coste')) : 0,
-      taller:       (fd.get('taller') || '').trim(),
+      tipo: fd.get('tipo') || 'Otros',
+      fecha: fd.get('fecha') || '',
+      km: fd.get('km') ? Number(fd.get('km')) : '',
+      coste: fd.get('coste') ? Number(fd.get('coste')) : 0,
+      taller: (fd.get('taller') || '').trim(),
       proximaFecha: fd.get('proximaFecha') || '',
-      proximoKm:    fd.get('proximoKm') ? Number(fd.get('proximoKm')) : '',
-      notas:        (fd.get('notas') || '').trim(),
-      materiales:   mats
-        .filter(x => (x.nombre||'').trim() || x.cantidad || x.precio || (x.tienda||'').trim() || x.imagen)
-        .map(x => ({
-          id: x.id,
-          nombre: x.nombre,
-          cantidad: x.cantidad,
-          precio: x.precio,
-          tienda: x.tienda,
-          imagen: x.imagen
-        }))
+      proximoKm: fd.get('proximoKm') ? Number(fd.get('proximoKm')) : '',
+      notas: (fd.get('notas') || '').trim(),
+      materiales: mats.filter(x => (x.nombre||'').trim() || x.cantidad || x.precio || (x.tienda||'').trim() || x.imagen)
+        .map(x => ({ id: x.id, nombre: x.nombre, cantidad: x.cantidad, precio: x.precio, tienda: x.tienda, imagen: x.imagen }))
     };
 
     const payload = mantToDB(data, vehicleId);
-
     if(mantId){
       const { error } = await sb.from('mantenimientos').update(payload).eq('id', mantId);
       if(error) throw error;
@@ -1395,11 +1319,9 @@ function openMantForm(vehicleId, mantId){
       const { error } = await sb.from('mantenimientos').insert(payload);
       if(error) throw error;
     }
-
     if(data.km && Number(data.km) > (Number(v.km) || 0)){
       await sb.from('vehicles').update({ km: Number(data.km) }).eq('id', vehicleId);
     }
-
     await loadData();
     closeModal(); render();
     toast(esNuevo ? 'Intervención añadida' : 'Intervención actualizada', 'ok');
@@ -1416,26 +1338,16 @@ function openMantForm(vehicleId, mantId){
     matTotalEl.textContent = money(t);
     totalEl.textContent    = money((Number(costeInput.value)||0) + t);
   }
-
   function imagenCell(x, i){
     let inner;
-    if(x._preview){
-      inner = `<img class="mat-img" src="${x._preview}" alt="Material">`;
-    } else if(x.imagen){
-      inner = `<div class="mat-img mat-img-placeholder" data-ver-doc="${esc(x.imagen)}" title="Ver imagen guardada">📷</div>`;
-    } else {
-      inner = `<div class="mat-img-empty">Sin foto</div>`;
-    }
-    return `
-      <div class="mat-img-cell">
-        ${inner}
-        <button type="button" class="mat-img-btn" data-img-trigger="${i}">
-          ${x._preview || x.imagen ? 'Cambiar' : 'Subir foto'}
-        </button>
-        <input type="file" accept="image/*" class="mat-img-input" data-idx="${i}" hidden>
-      </div>`;
+    if(x._preview) inner = `<img class="mat-img" src="${x._preview}" alt="Material">`;
+    else if(x.imagen) inner = `<div class="mat-img mat-img-placeholder" data-ver-doc="${esc(x.imagen)}" title="Ver imagen">📷</div>`;
+    else inner = `<div class="mat-img-empty">Sin foto</div>`;
+    return `<div class="mat-img-cell">${inner}
+      <button type="button" class="mat-img-btn" data-img-trigger="${i}">${x._preview || x.imagen ? 'Cambiar' : 'Subir foto'}</button>
+      <input type="file" accept="image/*" class="mat-img-input" data-idx="${i}" hidden>
+    </div>`;
   }
-
   function renderMats(){
     if(!mats.length){
       listEl.innerHTML = '<div class="hint" style="padding:4px 0">Sin materiales añadidos.</div>';
@@ -1443,14 +1355,13 @@ function openMantForm(vehicleId, mantId){
       listEl.innerHTML = mats.map((x,i) => `
         <div class="material-row" data-idx="${i}">
           ${imagenCell(x, i)}
-          <input data-field="nombre"   placeholder="Material (ej. Aceite 5W30)" value="${esc(x.nombre)}">
+          <input data-field="nombre"   placeholder="Material" value="${esc(x.nombre)}">
           <input data-field="cantidad" type="number" step="0.01" min="0" placeholder="Cant." value="${esc(x.cantidad)}">
           <input data-field="precio"   type="number" step="0.01" min="0" placeholder="€ / ud." value="${esc(x.precio)}">
           <input data-field="tienda"   placeholder="Dónde lo compraste" value="${esc(x.tienda)}">
           <button type="button" class="icon-btn" data-remove="${i}" title="Quitar">✕</button>
         </div>
       `).join('');
-
       listEl.querySelectorAll('input[data-field]').forEach(inp => {
         inp.addEventListener('input', e => {
           const i = Number(e.target.closest('.material-row').dataset.idx);
@@ -1458,19 +1369,13 @@ function openMantForm(vehicleId, mantId){
           refreshTotals();
         });
       });
-
-      listEl.querySelectorAll('[data-ver-doc]').forEach(el => {
-        el.addEventListener('click', () => verDocumento(el.dataset.verDoc));
-      });
-
+      listEl.querySelectorAll('[data-ver-doc]').forEach(el => el.addEventListener('click', () => verDocumento(el.dataset.verDoc)));
       listEl.querySelectorAll('[data-img-trigger]').forEach(b => {
         b.addEventListener('click', () => {
-          const i = Number(b.dataset.imgTrigger);
-          const input = listEl.querySelector(`.mat-img-input[data-idx="${i}"]`);
+          const input = listEl.querySelector(`.mat-img-input[data-idx="${b.dataset.imgTrigger}"]`);
           if(input) input.click();
         });
       });
-
       listEl.querySelectorAll('.mat-img-input').forEach(inp => {
         inp.addEventListener('change', e => {
           const i = Number(e.target.dataset.idx);
@@ -1481,14 +1386,11 @@ function openMantForm(vehicleId, mantId){
           renderMats();
         });
       });
-
       listEl.querySelectorAll('[data-remove]').forEach(b => {
         b.addEventListener('click', () => {
           const i = Number(b.dataset.remove);
           const mat = mats[i];
-          if(mat.imagen && !mat._file){
-            borrarDocumento(mat.imagen);
-          }
+          if(mat.imagen && !mat._file) borrarDocumento(mat.imagen);
           mats.splice(i, 1);
           renderMats();
         });
@@ -1496,18 +1398,13 @@ function openMantForm(vehicleId, mantId){
     }
     refreshTotals();
   }
-
   document.getElementById('add-material').addEventListener('click', () => {
-    mats.push({
-      id: uid(), nombre:'', cantidad:'', precio:'', tienda:'',
-      imagen:'', _file:null, _preview:null
-    });
+    mats.push({ id: uid(), nombre:'', cantidad:'', precio:'', tienda:'', imagen:'', _file:null, _preview:null });
     renderMats();
     const rows = listEl.querySelectorAll('.material-row');
     const last = rows[rows.length-1];
     if(last) last.querySelector('input[data-field="nombre"]').focus();
   });
-
   costeInput.addEventListener('input', refreshTotals);
   renderMats();
 }
@@ -1518,10 +1415,8 @@ async function deleteMant(vehicleId, mantId){
   const m = v.mantenimientos.find(x => x.id === mantId);
   if(!m) return;
   if(!confirm(`¿Eliminar la intervención «${m.tipo}» del ${fmtDate(m.fecha)}?`)) return;
-
   const imgs = (m.materiales || []).map(x => x.imagen).filter(Boolean);
   if(imgs.length) await sb.storage.from(BUCKET).remove(imgs);
-
   const { error } = await sb.from('mantenimientos').delete().eq('id', mantId);
   if(error) return toast('Error: ' + error.message, 'error');
   await loadData();
@@ -1536,11 +1431,9 @@ function _proximaPorDefecto(fechaISO, tipo, v){
   if(!fechaISO) return '';
   const f = new Date(fechaISO + 'T00:00:00');
   if(isNaN(f)) return '';
-  if(tipo === 'ivtm'){
-    f.setFullYear(f.getFullYear() + 1);
-  } else if(tipo === 'seguro'){
-    f.setFullYear(f.getFullYear() + 1);
-  } else if(tipo === 'itv'){
+  if(tipo === 'ivtm') f.setFullYear(f.getFullYear() + 1);
+  else if(tipo === 'seguro') f.setFullYear(f.getFullYear() + 1);
+  else if(tipo === 'itv'){
     const edad = v?.anio ? (new Date().getFullYear() - Number(v.anio)) : 0;
     f.setFullYear(f.getFullYear() + (edad >= 10 ? 1 : 2));
   }
@@ -1551,9 +1444,7 @@ function openHistorialForm(vehicleId, tipo, registroId){
   tipo = normTipo(tipo);
   const v = vehicles.find(x => x.id === vehicleId);
   if(!v) return;
-  const registro = registroId
-    ? (v.historial || []).find(h => h.id === registroId)
-    : null;
+  const registro = registroId ? (v.historial || []).find(h => h.id === registroId) : null;
   const esNuevo = !registro;
   const tipoLabel = TIPOS_HIST_LABEL[tipo] || tipo;
 
@@ -1563,10 +1454,9 @@ function openHistorialForm(vehicleId, tipo, registroId){
 
   let camposEspecificos = '';
   if(tipo === 'itv'){
-    camposEspecificos = `
-      <label>Lugar donde la hiciste
-        <input name="lugar" value="${esc(registro?.lugar)}" placeholder="Ej. ITV Móstoles, ITV Norte…">
-      </label>`;
+    camposEspecificos = `<label>Lugar donde la hiciste
+      <input name="lugar" value="${esc(registro?.lugar)}" placeholder="Ej. ITV Móstoles, ITV Norte…">
+    </label>`;
   } else if(tipo === 'seguro'){
     camposEspecificos = `
       <label>Compañía aseguradora
@@ -1587,10 +1477,9 @@ function openHistorialForm(vehicleId, tipo, registroId){
         </label>
       </div>`;
   } else if(tipo === 'ivtm'){
-    camposEspecificos = `
-      <label>Ayuntamiento / Lugar
-        <input name="lugar" value="${esc(registro?.lugar)}" placeholder="Ej. Ayuntamiento de Madrid">
-      </label>`;
+    camposEspecificos = `<label>Ayuntamiento / Lugar
+      <input name="lugar" value="${esc(registro?.lugar)}" placeholder="Ej. Ayuntamiento de Madrid">
+    </label>`;
   }
 
   const body = `
@@ -1610,21 +1499,18 @@ function openHistorialForm(vehicleId, tipo, registroId){
       <div class="hint" style="align-self:end;padding-bottom:10px">
         <label style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-weight:600;font-size:.85rem">
           <input type="checkbox" name="actualizar_vehiculo" checked>
-          Actualizar el vencimiento del vehículo con esta fecha
+          Actualizar el vencimiento del vehículo
         </label>
       </div>
     </div>
     ${camposEspecificos}
-    <label>Notas
-      <textarea name="notas" rows="2" placeholder="Observaciones, número de póliza, referencia…">${esc(registro?.notas)}</textarea>
-    </label>
+    <label>Notas<textarea name="notas" rows="2">${esc(registro?.notas)}</textarea></label>
   `;
 
   openModal(
     esNuevo ? `Registrar ${tipoLabel.toLowerCase()}` : `Editar registro de ${tipoLabel.toLowerCase()}`,
     body,
     async fd => {
-      // Normalizamos el tipo antes de enviar
       const data = {
         vehicle_id: vehicleId,
         tipo: normTipo(tipo),
@@ -1638,18 +1524,14 @@ function openHistorialForm(vehicleId, tipo, registroId){
         notas: (fd.get('notas') || '').trim() || null
       };
 
+      console.log('Guardando registro historial:', data);
+
       if(registroId){
         const { error } = await sb.from('historial_obligaciones').update(data).eq('id', registroId);
-        if(error){
-          console.error('Error actualizando historial:', error);
-          throw new Error('Error al actualizar: ' + error.message);
-        }
+        if(error){ console.error('Error actualizando:', error); throw new Error('Error al actualizar: ' + error.message); }
       } else {
         const { error } = await sb.from('historial_obligaciones').insert(data);
-        if(error){
-          console.error('Error insertando historial:', error);
-          throw new Error('Error al guardar: ' + error.message);
-        }
+        if(error){ console.error('Error insertando:', error); throw new Error('Error al guardar: ' + error.message); }
       }
 
       if(fd.get('actualizar_vehiculo') && data.proxima_fecha){
@@ -1670,14 +1552,8 @@ function openHistorialForm(vehicleId, tipo, registroId){
           if(data.lugar) camposExtra.impuesto_lugar = data.lugar;
           if(data.fecha) camposExtra.impuesto_fecha = data.fecha;
         }
-        const { error } = await sb.from('vehicles').update({
-          [campoVenc]: data.proxima_fecha,
-          ...camposExtra
-        }).eq('id', vehicleId);
-        if(error){
-          console.warn('Aviso: no se pudo actualizar el vehículo:', error.message);
-          // No lanzamos porque el registro del historial ya se guardó
-        }
+        const { error } = await sb.from('vehicles').update({ [campoVenc]: data.proxima_fecha, ...camposExtra }).eq('id', vehicleId);
+        if(error) console.warn('Aviso: no se pudo actualizar el vehículo:', error.message);
       }
 
       await loadData();
@@ -1724,17 +1600,16 @@ function openHistorialList(vehicleId, tipo){
       if(h.plazos) extras.push(`📅 ${esc(h.plazos)}`);
       if(h.proxima_fecha) extras.push(`→ vence ${fmtDate(h.proxima_fecha)}`);
       if(h.notas) extras.push(`📝 ${esc(h.notas)}`);
-      return `
-        <div class="hist-item">
-          <div class="hist-info">
-            <div><strong>${fmtDate(h.fecha)}</strong>${h.precio != null ? ` · <strong>${money(h.precio)}</strong>` : ''}</div>
-            ${extras.length ? `<div class="hist-line">${extras.join(' · ')}</div>` : ''}
-          </div>
-          <div class="hist-actions">
-            <button type="button" class="icon-btn" title="Editar" data-hist-edit="${h.id}">✎</button>
-            <button type="button" class="icon-btn" title="Eliminar" data-hist-del="${h.id}">🗑</button>
-          </div>
-        </div>`;
+      return `<div class="hist-item">
+        <div class="hist-info">
+          <div><strong>${fmtDate(h.fecha)}</strong>${h.precio != null ? ` · <strong>${money(h.precio)}</strong>` : ''}</div>
+          ${extras.length ? `<div class="hist-line">${extras.join(' · ')}</div>` : ''}
+        </div>
+        <div class="hist-actions">
+          <button type="button" class="icon-btn" title="Editar" data-hist-edit="${h.id}">✎</button>
+          <button type="button" class="icon-btn" title="Eliminar" data-hist-del="${h.id}">🗑</button>
+        </div>
+      </div>`;
     }).join('');
   }
 
@@ -1744,20 +1619,14 @@ function openHistorialList(vehicleId, tipo){
       <button type="button" class="btn primary sm" id="hist-add">＋ Nuevo registro</button>
     </div>
     <div>${html}</div>
-    ${items.length ? `
-      <div class="hist-total">Total pagado en ${tipoLabel.toLowerCase()}: <strong>${money(total)}</strong></div>
-    ` : ''}
+    ${items.length ? `<div class="hist-total">Total pagado en ${tipoLabel.toLowerCase()}: <strong>${money(total)}</strong></div>` : ''}
   `;
 
-  openModal(`Historial — ${tipoLabel} · ${v.matricula || v.nombre}`, body, async () => {
-    closeModal();
-  }, 'Cerrar');
+  openModal(`Historial — ${tipoLabel} · ${v.matricula || v.nombre}`, body, async () => { closeModal(); }, 'Cerrar');
 
   setTimeout(() => {
     const submitBtn = document.getElementById('modal-submit');
-    if(submitBtn){
-      submitBtn.style.display = 'none';
-    }
+    if(submitBtn) submitBtn.style.display = 'none';
     modalRoot.querySelectorAll('[data-close]').forEach(b => {
       if(b.classList.contains('btn')){
         b.textContent = 'Cerrar';
@@ -1765,29 +1634,17 @@ function openHistorialList(vehicleId, tipo){
         b.classList.add('primary');
       }
     });
-
     const addBtn = document.getElementById('hist-add');
-    if(addBtn){
-      addBtn.addEventListener('click', () => {
-        closeModal();
-        openHistorialForm(vehicleId, tipo);
-      });
-    }
-
+    if(addBtn) addBtn.addEventListener('click', () => { closeModal(); openHistorialForm(vehicleId, tipo); });
     modalRoot.querySelectorAll('[data-hist-edit]').forEach(b =>
-      b.addEventListener('click', () => {
-        closeModal();
-        openHistorialForm(vehicleId, tipo, b.dataset.histEdit);
-      })
+      b.addEventListener('click', () => { closeModal(); openHistorialForm(vehicleId, tipo, b.dataset.histEdit); })
     );
-
     modalRoot.querySelectorAll('[data-hist-del]').forEach(b =>
       b.addEventListener('click', async () => {
         if(!confirm('¿Eliminar este registro del historial?\n\nNo se puede deshacer.')) return;
         const { error } = await sb.from('historial_obligaciones').delete().eq('id', b.dataset.histDel);
         if(error) return toast('Error: ' + error.message, 'error');
-        await loadData();
-        closeModal(); render();
+        await loadData(); closeModal(); render();
         toast('Registro eliminado', 'ok');
       })
     );
@@ -1800,110 +1657,60 @@ function openHistorialList(vehicleId, tipo){
 document.getElementById('btn-test-email').addEventListener('click', async () => {
   const btn = document.getElementById('btn-test-email');
   const original = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '⏳ Enviando…';
-
+  btn.disabled = true; btn.textContent = '⏳ Enviando…';
   try{
     const { data: { session } } = await sb.auth.getSession();
-    if(!session){
-      toast('No hay sesión activa.', 'error');
-      return;
-    }
-
+    if(!session){ toast('No hay sesión activa.', 'error'); return; }
     const url = `${CFG.SUPABASE_URL}/functions/v1/enviar-avisos`;
     const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
       body: JSON.stringify({ ping: true }),
     });
-
     let json = null;
     try { json = await res.json(); } catch(_) { json = { error: 'Respuesta no válida' }; }
-
-    if(!res.ok || !json.ok){
-      console.error('Error test email:', json);
-      toast('❌ Error: ' + (json.error || res.statusText), 'error');
-      return;
-    }
-
+    if(!res.ok || !json.ok){ console.error('Error test email:', json); toast('❌ Error: ' + (json.error || res.statusText), 'error'); return; }
     toast(`✅ Email de prueba enviado a ${json.email}. Revisa tu bandeja (y spam).`, 'ok');
-    console.log('Test email OK:', json);
-
   }catch(err){
     console.error(err);
     toast('Error de red: ' + err.message, 'error');
   }finally{
-    btn.disabled = false;
-    btn.textContent = original;
+    btn.disabled = false; btn.textContent = original;
   }
 });
 
 document.getElementById('btn-test-avisos').addEventListener('click', async () => {
   const btn = document.getElementById('btn-test-avisos');
   const original = btn.textContent;
-
-  if(vehicles.length === 0){
-    toast('Añade primero algún vehículo.', 'error');
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = '⏳ Enviando…';
-
+  if(vehicles.length === 0){ toast('Añade primero algún vehículo.', 'error'); return; }
+  btn.disabled = true; btn.textContent = '⏳ Enviando…';
   try{
     const { data: { session } } = await sb.auth.getSession();
-    if(!session){
-      toast('No hay sesión activa.', 'error');
-      return;
-    }
-
+    if(!session){ toast('No hay sesión activa.', 'error'); return; }
     const url = `${CFG.SUPABASE_URL}/functions/v1/enviar-avisos`;
     const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
       body: JSON.stringify({ test: true }),
     });
-
     let json = null;
     try { json = await res.json(); } catch(_) { json = { error: 'Respuesta no válida' }; }
-
-    if(!res.ok || json.error){
-      console.error('Error al probar avisos:', json);
-      toast('Error: ' + (json.error || res.statusText), 'error');
-      return;
-    }
-
+    if(!res.ok || json.error){ console.error('Error al probar avisos:', json); toast('Error: ' + (json.error || res.statusText), 'error'); return; }
     const resultados = json.resultados || [];
     const totalAvisos = resultados.reduce((s,r) => s + (r.enviados || 0), 0);
     const totalVehiculos = resultados.length;
     const errores = resultados.filter(r => r.error);
-
-    if(errores.length && totalAvisos === 0){
-      console.error('Errores en la prueba:', errores);
-      toast('No se pudo enviar: ' + errores[0].error, 'error');
-      return;
-    }
-
+    if(errores.length && totalAvisos === 0){ console.error('Errores:', errores); toast('No se pudo enviar: ' + errores[0].error, 'error'); return; }
     if(totalAvisos === 0){
-      toast(`Prueba completada. No hay avisos pendientes en ${totalVehiculos} vehículo${totalVehiculos===1?'':'s'}. Usa "Test email" si solo quieres comprobar la conexión.`, 'info');
+      toast(`Prueba completada. No hay avisos pendientes en ${totalVehiculos} vehículo${totalVehiculos===1?'':'s'}.`, 'info');
     } else {
-      toast(`✅ Email enviado: ${totalAvisos} aviso${totalAvisos===1?'':'s'} de ${totalVehiculos} vehículo${totalVehiculos===1?'':'s'}. Revisa tu correo.`, 'ok');
+      toast(`✅ Email enviado: ${totalAvisos} aviso${totalAvisos===1?'':'s'} de ${totalVehiculos} vehículo${totalVehiculos===1?'':'s'}.`, 'ok');
     }
-
-    console.log('Resultado prueba de avisos:', json);
-
   }catch(err){
     console.error(err);
     toast('Error de red: ' + err.message, 'error');
   }finally{
-    btn.disabled = false;
-    btn.textContent = original;
+    btn.disabled = false; btn.textContent = original;
   }
 });
 
