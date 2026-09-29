@@ -159,6 +159,7 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .rec-thumb-tag:hover{border-color:var(--accent);color:var(--accent)}
 .rec-pn{font-family:ui-monospace,monospace;background:var(--bg);padding:2px 8px;border-radius:6px;border:1px solid var(--border);font-size:.82rem;font-weight:700}
 .rec-alt{font-family:ui-monospace,monospace;font-size:.78rem;color:var(--muted)}
+.rec-desc{font-weight:600}
 .rec-img-preview{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-top:6px}
 .rec-img-preview .mat-img{width:96px;height:96px}
 .rec-img-preview .rec-thumb-tag{width:96px;height:96px;font-size:2rem}
@@ -754,12 +755,13 @@ function renderContent(){
         <div class="card table-wrap">
           ${recambios.length?`
             <table>
-              <thead><tr><th>Imagen</th><th>P/N</th><th>Marca</th><th>Cantidad</th><th>P/N alternativos</th><th></th></tr></thead>
+              <thead><tr><th>Imagen</th><th>P/N</th><th>Marca</th><th>Descripción</th><th>Cantidad</th><th>P/N alternativos</th><th></th></tr></thead>
               <tbody>${recambios.map(r=>`
                 <tr>
                   <td>${r.imagen?`<div class="rec-thumb rec-thumb-tag" data-ver-doc="${esc(r.imagen)}" title="Ver imagen">📷</div>`:`<div class="rec-thumb-tag">🔩</div>`}</td>
                   <td><span class="rec-pn">${esc(r.pn||'—')}</span></td>
                   <td>${r.marca?esc(r.marca):'<span class="muted">—</span>'}</td>
+                  <td>${r.descripcion?`<span class="rec-desc">${esc(r.descripcion)}</span>`:'<span class="muted">—</span>'}${r.notas?`<div class="hint" style="margin-top:2px">📝 ${esc(r.notas)}</div>`:''}</td>
                   <td>${r.cantidad??1}</td>
                   <td>${r.pn_alternativos?`<span class="rec-alt">${esc(r.pn_alternativos)}</span>`:'<span class="muted">—</span>'}</td>
                   <td><div class="row-actions"><button class="icon-btn" data-edit-rec="${r.id}">✎</button><button class="icon-btn" data-del-rec="${r.id}">🗑</button></div></td>
@@ -1082,10 +1084,12 @@ function openRecambioForm(vid,rid){
       <label>P/N <span style="color:var(--danger)">*</span><input name="pn" value="${esc(reg?.pn)}" required></label>
       <label>Marca<input name="marca" value="${esc(reg?.marca)}"></label>
     </div>
+    <label>Descripción<input name="descripcion" value="${esc(reg?.descripcion)}" placeholder="Ej. Pastillas de freno delanteras"></label>
     <div class="grid2">
       <label>Cantidad<input name="cantidad" type="number" min="0" step="1" value="${esc(reg?.cantidad??1)}"></label>
       <label>P/N alternativos<input name="pn_alternativos" value="${esc(reg?.pn_alternativos)}"></label>
     </div>
+    <label>Notas<textarea name="notas" rows="2">${esc(reg?.notas)}</textarea></label>
     <h4>Imagen (opcional)</h4>
     <div class="rec-img-btns">
       <button type="button" class="mat-img-btn" id="rec-cam">📷 Hacer foto</button>
@@ -1101,8 +1105,10 @@ function openRecambioForm(vid,rid){
       vehicle_id: vid,
       pn: (fd.get('pn')||'').trim(),
       marca: (fd.get('marca')||'').trim()||null,
+      descripcion: (fd.get('descripcion')||'').trim()||null,
       cantidad: fd.get('cantidad')?Number(fd.get('cantidad')):1,
-      pn_alternativos: (fd.get('pn_alternativos')||'').trim()||null
+      pn_alternativos: (fd.get('pn_alternativos')||'').trim()||null,
+      notas: (fd.get('notas')||'').trim()||null
     };
     if(!data.pn) throw new Error('P/N obligatorio.');
     let ridF = reg?.id;
