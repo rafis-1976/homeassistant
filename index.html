@@ -181,6 +181,13 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .rep-chart-tab:hover{border-color:var(--accent);color:var(--accent)}
 .rep-chart-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .rep-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:12px}
+.pagination{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding:10px 14px;border-radius:10px;background:var(--bg);border:1px solid var(--border);font-size:.85rem}
+.pg-btn{border:1px solid var(--border);background:var(--card);color:var(--text);padding:6px 12px;border-radius:8px;font-weight:600;font-size:.82rem;cursor:pointer}
+.pg-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.pg-btn:disabled{opacity:.45;cursor:not-allowed}
+.pg-info{margin-left:auto;color:var(--muted);font-weight:600}
+.pg-info strong{color:var(--text)}
+@media(max-width:560px){.pg-info{margin-left:0;width:100%;text-align:center}}
 #app-view[hidden]{display:none}
 </style>
 </head>
@@ -328,6 +335,7 @@ let mostrarRepostajes=true;
 let mostrarRecambios=true;
 let mostrarHistorial=true;
 let repVista='mensual';
+let repPagina=1;
 let repChart=null;
 const appView=document.getElementById('app-view');
 const modalRoot=document.getElementById('modal');
@@ -432,7 +440,7 @@ function renderTabs(){
       <span class="tab-name">${esc(v.nombre||(v.marca+' '+v.modelo))}</span>
       <span class="tab-sub">${esc(v.matricula||'—')}</span>
     </button>`).join('');
-  el.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{ selected=b.dataset.id; render(); }));
+  el.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{ selected=b.dataset.id; repPagina=1; render(); }));
 }
 
 function renderContent(){
@@ -506,6 +514,12 @@ function renderContent(){
 
   const recambios = registrosRecambios(v.id);
   const repostajes = [...reps].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const REP_POR_PAGINA = 10;
+  const totalRepPaginas = Math.max(1, Math.ceil(repostajes.length / REP_POR_PAGINA));
+  if(repPagina > totalRepPaginas) repPagina = totalRepPaginas;
+  if(repPagina < 1) repPagina = 1;
+  const repIni = (repPagina - 1) * REP_POR_PAGINA;
+  const repostajesPag = repostajes.slice(repIni, repIni + REP_POR_PAGINA);
 
   el.innerHTML = `
     <div class="card section">
@@ -679,7 +693,7 @@ function renderContent(){
           ${repostajes.length?`
             <table>
               <thead><tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Precio unit.</th><th>Total</th><th>Km</th><th>Estación</th><th></th></tr></thead>
-              <tbody>${repostajes.map(r=>{
+              <tbody>${repostajesPag.map(r=>{
                 const esE = normTipo(r.tipo).includes('eléctric')||normTipo(r.tipo).includes('electric');
                 const u = esE?'kWh':'L';
                 return `<tr>
@@ -701,6 +715,15 @@ function renderContent(){
             </div>
           `}
         </div>
+        ${repostajes.length > REP_POR_PAGINA ? `
+          <div class="pagination">
+            <button type="button" class="pg-btn" data-rep-pg="first" ${repPagina===1?'disabled':''} title="Primera">«</button>
+            <button type="button" class="pg-btn" data-rep-pg="prev" ${repPagina===1?'disabled':''}>‹ Anterior</button>
+            <span class="pg-info">Página <strong>${repPagina}</strong> de <strong>${totalRepPaginas}</strong> · ${repostajes.length} repostajes</span>
+            <button type="button" class="pg-btn" data-rep-pg="next" ${repPagina===totalRepPaginas?'disabled':''}>Siguiente ›</button>
+            <button type="button" class="pg-btn" data-rep-pg="last" ${repPagina===totalRepPaginas?'disabled':''} title="Última">»</button>
+          </div>
+        `:''}
       </div>
     </div>
 
@@ -801,7 +824,17 @@ function renderContent(){
   el.querySelectorAll('[data-ver-doc]').forEach(b=>b.addEventListener('click',()=>verDocumento(b.dataset.verDoc)));
   el.querySelectorAll('[data-add-hist]').forEach(b=>b.addEventListener('click',()=>openHistorialForm(v.id,normTipo(b.dataset.addHist))));
   el.querySelectorAll('[data-ver-hist]').forEach(b=>b.addEventListener('click',()=>openHistorialList(v.id,normTipo(b.dataset.verHist))));
-  el.querySelectorAll('[data-rep-vista]').forEach(b=>b.addEventListener('click',()=>{repVista=b.dataset.repVista;render();}));
+  el.querySelectorAll('[data-rep-vista]').forEach(b=>b.addEventListener('click',()=>{repVista=b.dataset.repVista;repPagina=1;render();}));
+  el.querySelectorAll('[data-rep-pg]').forEach(b=>b.addEventListener('click',()=>{
+    const accion = b.dataset.repPg;
+    if(accion==='first') repPagina = 1;
+    else if(accion==='prev') repPagina = Math.max(1, repPagina-1);
+    else if(accion==='next') repPagina = Math.min(totalRepPaginas, repPagina+1);
+    else if(accion==='last') repPagina = totalRepPaginas;
+    render();
+    const panel = document.getElementById('rep-panel');
+    if(panel) panel.scrollIntoView({behavior:'smooth',block:'start'});
+  }));
 
   if(repostajes.length && document.getElementById('rep-chart')) setTimeout(()=>dibujarGrafica(repostajes),40);
 }
