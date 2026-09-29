@@ -157,6 +157,9 @@ footer.site{text-align:center;color:var(--muted);font-size:.78rem;padding:0 20px
 .rec-thumb{width:56px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--border);background:var(--bg);display:block;cursor:pointer}
 .rec-thumb-tag{display:grid;place-items:center;font-size:1.4rem;color:var(--muted);width:56px;height:56px;border-radius:8px;border:1px solid var(--border);background:var(--bg);cursor:pointer}
 .rec-thumb-tag:hover{border-color:var(--accent);color:var(--accent)}
+.rec-thumb-bg{background-size:cover;background-position:center;background-repeat:no-repeat}
+.rec-thumb-loading{position:relative;opacity:.5}
+.rec-thumb-loading::after{content:"📷";position:absolute;inset:0;display:grid;place-items:center;font-size:1.3rem;color:var(--muted)}
 .rec-pn{font-family:ui-monospace,monospace;background:var(--bg);padding:2px 8px;border-radius:6px;border:1px solid var(--border);font-size:.82rem;font-weight:700}
 .rec-alt{font-family:ui-monospace,monospace;font-size:.78rem;color:var(--muted)}
 .rec-desc{font-weight:600}
@@ -341,6 +344,47 @@ let repChart=null;
 const appView=document.getElementById('app-view');
 const modalRoot=document.getElementById('modal');
 
+/* Cache de signed URLs para imágenes del bucket (evita pedirlas en cada render) */
+const signedUrlCache = new Map(); // path -> {url, expiresAt}
+const SIGNED_TTL = 3600;          // segundos
+
+function getCachedUrl(path){
+  if(!path) return null;
+  const e = signedUrlCache.get(path);
+  if(!e) return null;
+  if(e.expiresAt < Date.now()){ signedUrlCache.delete(path); return null; }
+  return e.url;
+}
+
+async function precargarImagenesRecambios(items){
+  // items: array de objetos con propiedad `.imagen`
+  const pendientes = [...new Set(
+    items.map(x => typeof x === 'string' ? x : x?.imagen).filter(p => p && !getCachedUrl(p))
+  )];
+  if(!pendientes.length){ pintarMiniaturas(); return; }
+  try {
+    const {data,error} = await sb.storage.from(BUCKET).createSignedUrls(pendientes, SIGNED_TTL);
+    if(error || !data) return;
+    data.forEach(item=>{
+      if(!item.error && item.signedUrl){
+        signedUrlCache.set(item.path, {url:item.signedUrl, expiresAt:Date.now() + (SIGNED_TTL-60)*1000});
+      }
+    });
+  } catch(e){
+    console.warn('No se pudieron firmar las imágenes:', e);
+  }
+  pintarMiniaturas();
+}
+
+function pintarMiniaturas(){
+  document.querySelectorAll('[data-img-path]').forEach(el=>{
+    const url = getCachedUrl(el.dataset.imgPath);
+    if(!url) return;
+    el.classList.remove('rec-thumb-loading');
+    el.style.backgroundImage = `url("${url}")`;
+  });
+}
+
 document.getElementById('btn-logout').addEventListener('click', async ()=>{
   if(!confirm('¿Cerrar sesión?')) return;
   await sb.auth.signOut();
@@ -421,12 +465,16 @@ async function subirRecambioImagen(file,vid,rid){
 }
 async function verDocumento(path){
   if(!path) return;
+  const cached = getCachedUrl(path);
+  if(cached){ window.open(cached,'_blank','noopener'); return; }
   const {data,error}=await sb.storage.from(BUCKET).createSignedUrl(path,3600);
   if(error) return toast('No se pudo abrir: '+error.message,'error');
+  signedUrlCache.set(path, {url:data.signedUrl, expiresAt:Date.now()+(3600-60)*1000});
   window.open(data.signedUrl,'_blank','noopener');
 }
 async function borrarDocumento(path){
   if(!path) return;
+  signedUrlCache.delete(path);
   const {error}=await sb.storage.from(BUCKET).remove([path]);
   if(error) console.warn('No se pudo borrar:',error.message);
 }
@@ -758,7 +806,7 @@ function renderContent(){
               <thead><tr><th>Imagen</th><th>P/N</th><th>Marca</th><th>Descripción</th><th>Cantidad</th><th>P/N alternativos</th><th></th></tr></thead>
               <tbody>${recambios.map(r=>`
                 <tr>
-                  <td>${r.imagen?`<div class="rec-thumb rec-thumb-tag" data-ver-doc="${esc(r.imagen)}" title="Ver imagen">📷</div>`:`<div class="rec-thumb-tag">🔩</div>`}</td>
+                  <td>${r.imagen?`<div class="rec-thumb rec-thumb-bg ${getCachedUrl(r.imagen)?'':'rec-thumb-loading'}" data-img-path="${esc(r.imagen)}" data-ver-doc="${esc(r.imagen)}" title="Ver imagen"></div>`:`<div class="rec-thumb-tag">🔩</div>`}</td>
                   <td><span class="rec-pn">${esc(r.pn||'—')}</span></td>
                   <td>${r.marca?esc(r.marca):'<span class="muted">—</span>'}</td>
                   <td>${r.descripcion?`<span class="rec-desc">${esc(r.descripcion)}</span>`:'<span class="muted">—</span>'}${r.notas?`<div class="hint" style="margin-top:2px">📝 ${esc(r.notas)}</div>`:''}</td>
@@ -803,6 +851,13 @@ function renderContent(){
       </div>
     </div>
   `;
+
+  /* Precargar miniaturas de recambios con imágenes */
+  if(recambios.some(r=>r.imagen)) precargarImagenesRecambios(recambios);
+
+  /* Precargar miniaturas de materiales de mantenimientos */
+  const imgsMats = v.mantenimientos.flatMap(m => (Array.isArray(m.materiales) ? m.materiales.map(x=>x.imagen).filter(Boolean) : []));
+  if(imgsMats.length) precargarImagenesRecambios(imgsMats);
 
   document.getElementById('btn-edit-vehicle').onclick = () => openVehicleForm(v.id);
   document.getElementById('btn-del-vehicle').onclick = () => deleteVehicle(v.id);
@@ -944,7 +999,7 @@ function mantRow(m,v){
     <tr id="${dId}" class="detail-row" hidden><td colspan="7"><div class="mats-wrap">
       <table class="mats-table"><thead><tr><th>Foto</th><th>Material</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th><th>Tienda</th></tr></thead>
       <tbody>${mats.map(x=>{const s=(Number(x.cantidad)||0)*(Number(x.precio)||0);return `<tr>
-        <td>${x.imagen?`<div class="mat-thumb mat-thumb-tag" data-ver-doc="${esc(x.imagen)}">📷</div>`:'<span class="muted">—</span>'}</td>
+        <td>${x.imagen?`<div class="mat-thumb rec-thumb-bg ${getCachedUrl(x.imagen)?'':'rec-thumb-loading'}" data-img-path="${esc(x.imagen)}" data-ver-doc="${esc(x.imagen)}" title="Ver imagen"></div>`:'<span class="muted">—</span>'}</td>
         <td>${esc(x.nombre||'—')}</td><td>${x.cantidad??'—'}</td>
         <td>${x.precio!=null&&x.precio!==''?money(x.precio):'—'}</td>
         <td><strong>${money(s)}</strong></td><td>${esc(x.tienda||'—')}</td>
