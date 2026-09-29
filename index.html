@@ -389,7 +389,7 @@ const registrosMantProg = vid => allMantProg.filter(p=>String(p.vehicle_id)===St
 const registrosRecambios = vid => allRecambios.filter(r=>String(r.vehicle_id)===String(vid));
 const registrosRepostajes = vid => allRepostajes.filter(r=>String(r.vehicle_id)===String(vid));
 
-/* Devuelve el registro más reciente (por fecha) del historial para un tipo dado. */
+/* Devuelve el registro más reciente (por fecha) del historial para un tipo dado */
 const getCurrentObl = (vid,tipo) => {
   const regs = registrosHist(vid,tipo);
   if(!regs.length) return null;
@@ -482,12 +482,12 @@ function renderContent(){
   const ivtmAnio=sumRegs(ivtmRegs,enAnio);
   const ivtmUlt=sumRegs(ivtmRegs,enUlt);
 
-  /* Registro "actual" de cada obligación (último por fecha) */
-  const curItv = getCurrentObl(v.id,'itv');
-  const curSeg = getCurrentObl(v.id,'seguro');
+  /* Registro "actual" (último por fecha) de cada obligación */
+  const curItv  = getCurrentObl(v.id,'itv');
+  const curSeg  = getCurrentObl(v.id,'seguro');
   const curIvtm = getCurrentObl(v.id,'ivtm');
-  const fechaItv  = curItv ?  (curItv.proxima_fecha  || curItv.fecha  || null) : null;
-  const fechaSeg  = curSeg ?  (curSeg.proxima_fecha  || curSeg.fecha  || null) : null;
+  const fechaItv  = curItv  ? (curItv.proxima_fecha  || curItv.fecha  || null) : null;
+  const fechaSeg  = curSeg  ? (curSeg.proxima_fecha  || curSeg.fecha  || null) : null;
   const fechaIvtm = curIvtm ? (curIvtm.proxima_fecha || curIvtm.fecha || null) : null;
 
   const reps = registrosRepostajes(v.id);
@@ -1226,4 +1226,264 @@ async function deleteVehicle(id){
   await loadData(); render(); toast('Eliminado','ok');
 }
 function openKmForm(id){
-  const v = vehicles.find(x=>x.id===id);
+  const v = vehicles.find(x=>x.id===id); if(!v) return;
+  openModal('Actualizar kilómetros',`<label>Kilómetros actuales<input name="km" type="number" min="0" step="1" value="${esc(v.km)}" required></label>`,
+    async fd=>{const km=Number(fd.get('km'))||0;const {error}=await sb.from('vehicles').update({km}).eq('id',id);if(error) throw error;await loadData();closeModal();render();toast('Actualizado','ok');},'Actualizar');
+}
+
+/* ============ MANT. PROGRAMADO ============ */
+function openMantProgForm(vid,rid){
+  const reg = rid ? allMantProg.find(p=>p.id===rid) : null;
+  const esNuevo = !reg;
+  const body = `
+    <label>Operación <span style="color:var(--danger)">*</span><input name="operacion" value="${esc(reg?.operacion)}" required></label>
+    <div class="grid2">
+      <label>Intervalo<input name="intervalo" value="${esc(reg?.intervalo)}" placeholder="Ej. 15.000 - 30.000 km / 12 meses"></label>
+      <label>Notas<input name="notas" value="${esc(reg?.notas)}"></label>
+    </div>`;
+  openModal(esNuevo?'Añadir registro al plan':'Editar registro',body,async fd=>{
+    const data = {vehicle_id:vid,operacion:(fd.get('operacion')||'').trim(),intervalo:(fd.get('intervalo')||'').trim()||null,notas:(fd.get('notas')||'').trim()||null};
+    if(!data.operacion) throw new Error('Operación obligatoria.');
+    if(reg){const {error}=await sb.from('mantenimiento_programado').update(data).eq('id',reg.id);if(error) throw error;}
+    else {data.orden=registrosMantProg(vid).length;const {error}=await sb.from('mantenimiento_programado').insert(data);if(error) throw error;}
+    await loadData(); closeModal(); render(); toast(reg?'Actualizado':'Añadido','ok');
+  }, esNuevo?'Añadir':'Guardar');
+}
+async function deleteMantProg(vid,rid){
+  const reg = allMantProg.find(p=>p.id===rid); if(!reg) return;
+  if(!confirm(`¿Eliminar «${reg.operacion}»?`)) return;
+  const {error}=await sb.from('mantenimiento_programado').delete().eq('id',rid);
+  if(error) return toast('Error: '+error.message,'error');
+  await loadData(); render(); toast('Eliminado','ok');
+}
+function openImportXMLModal(vid){
+  const actuales = registrosMantProg(vid).length;
+  const body = `
+    <div class="hint">Actuales: <b>${actuales}</b>.</div>
+    <label>Archivo XML<input type="file" name="xml" id="imp-xml" accept=".xml,application/xml,text/xml" required></label>
+    <div style="padding-top:6px"><label style="flex-direction:row;align-items:center;gap:8px;text-transform:none;font-weight:600;font-size:.85rem"><input type="checkbox" name="reemplazar" checked> Reemplazar plan actual</label></div>
+    <div id="imp-prev"></div>`;
+  let xmlP = null;
+  openModal('Importar plan desde XML',body,async fd=>{
+    if(!xmlP||!xmlP.length) throw new Error('Selecciona un XML válido.');
+    const re = !!fd.get('reemplazar');
+    if(re){const {error}=await sb.from('mantenimiento_programado').delete().eq('vehicle_id',vid);if(error) throw error;}
+    const base = re ? 0 : registrosMantProg(vid).length;
+    const regs = xmlP.map((r,i)=>({vehicle_id:vid,operacion:r.operacion,intervalo:r.intervalo||null,notas:r.notas||null,orden:base+i}));
+    for(let i=0;i<regs.length;i+=500){const {error}=await sb.from('mantenimiento_programado').insert(regs.slice(i,i+500));if(error) throw error;}
+    await loadData(); closeModal(); render(); toast(`Importados ${regs.length}`,'ok');
+  },'Importar');
+  setTimeout(()=>{
+    const inp=document.getElementById('imp-xml'),prev=document.getElementById('imp-prev');
+    if(!inp||!prev) return;
+    inp.addEventListener('change',e=>{
+      const f = e.target.files[0]; if(!f){xmlP=null;prev.innerHTML='';return;}
+      const r = new FileReader();
+      r.onload = ev => {
+        try{
+          const objs = parseMantProgXML(ev.target.result); xmlP = objs;
+          if(!objs.length){prev.innerHTML='<div class="xml-preview">⚠️ Sin filas.</div>';return;}
+          prev.innerHTML=`<div class="xml-preview"><div class="ok">✓ ${objs.length} registros</div></div>`;
+        }catch(err){xmlP=null;prev.innerHTML='<div class="xml-preview">❌ '+esc(err.message)+'</div>';}
+      };
+      r.readAsText(f,'UTF-8');
+    });
+  },60);
+}
+
+/* ============ MANTENIMIENTOS ============ */
+function openMantForm(vid,mantId){
+  const v = vehicles.find(x=>x.id===vid); if(!v) return;
+  const m = mantId ? v.mantenimientos.find(x=>x.id===mantId) : {};
+  const esNuevo = !mantId;
+  let mats = Array.isArray(m.materiales) ? m.materiales.map(x=>({id:x.id||uid(),nombre:x.nombre||'',cantidad:x.cantidad??'',precio:x.precio??'',tienda:x.tienda||'',imagen:x.imagen||'',_file:null,_preview:null})) : [];
+  const body = `
+    <div class="grid2">
+      <label>Tipo<select name="tipo" required>${TIPOS_MANT.map(t=>`<option ${m.tipo===t?'selected':''}>${t}</option>`).join('')}</select></label>
+      <label>Fecha<input type="date" name="fecha" value="${esc(m.fecha||todayISO())}" required></label>
+      <label>Kilómetros vehículo<input type="number" min="0" step="1" name="km" value="${esc(m.km??v.km)}"></label>
+      <label>Mano de obra (€)<input type="number" min="0" step="0.01" name="coste" value="${esc(m.coste)}"></label>
+    </div>
+    <label>Taller<input name="taller" value="${esc(m.taller)}"></label>
+    <h4>Materiales</h4>
+    <div id="mats-list"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px">
+      <button type="button" class="btn ghost sm" id="add-mat">＋ Añadir material</button>
+      <div class="hint">Materiales: <strong id="mats-total">0,00 €</strong></div>
+    </div>
+    <h4>Próximo aviso (opcional)</h4>
+    <div class="grid2">
+      <label>Fecha próxima<input type="date" name="proximaFecha" value="${esc(m.proximaFecha)}"></label>
+      <label>Km próximos<input type="number" min="0" step="1" name="proximoKm" value="${esc(m.proximoKm)}"></label>
+    </div>
+    <label>Notas<textarea name="notas" rows="2">${esc(m.notas)}</textarea></label>
+    <div class="total-box"><span>Total</span><strong id="tot-int">0,00 €</strong></div>`;
+  openModal(esNuevo?'Nueva intervención':'Editar intervención',body,async fd=>{
+    for(const mat of mats){
+      if(mat._file && mat._file.size>0){
+        try{const path=await subirMaterialImagen(mat._file,vid,mat.id);if(path) mat.imagen=path;}catch(e){console.warn(e);}
+      }
+    }
+    const data = {
+      tipo: fd.get('tipo')||'Otros', fecha: fd.get('fecha')||'',
+      km: fd.get('km')?Number(fd.get('km')):'',
+      coste: fd.get('coste')?Number(fd.get('coste')):0,
+      taller: (fd.get('taller')||'').trim(),
+      proximaFecha: fd.get('proximaFecha')||'',
+      proximoKm: fd.get('proximoKm')?Number(fd.get('proximoKm')):'',
+      notas: (fd.get('notas')||'').trim(),
+      materiales: mats.filter(x=>(x.nombre||'').trim()||x.cantidad||x.precio||(x.tienda||'').trim()||x.imagen).map(x=>({id:x.id,nombre:x.nombre,cantidad:x.cantidad,precio:x.precio,tienda:x.tienda,imagen:x.imagen}))
+    };
+    const payload = mantToDB(data,vid);
+    if(mantId){const {error}=await sb.from('mantenimientos').update(payload).eq('id',mantId);if(error) throw error;}
+    else {const {error}=await sb.from('mantenimientos').insert(payload);if(error) throw error;}
+    if(data.km && Number(data.km)>(Number(v.km)||0)) await sb.from('vehicles').update({km:Number(data.km)}).eq('id',vid);
+    await loadData(); closeModal(); render(); toast(esNuevo?'Añadido':'Actualizado','ok');
+  }, esNuevo?'Añadir':'Guardar');
+
+  const listEl=document.getElementById('mats-list'),mtEl=document.getElementById('mats-total'),tEl=document.getElementById('tot-int'),ci=document.querySelector('#modal-form [name="coste"]');
+  const sumM=()=>mats.reduce((s,x)=>s+(Number(x.cantidad)||0)*(Number(x.precio)||0),0);
+  const refresh=()=>{const t=sumM();mtEl.textContent=money(t);tEl.textContent=money((Number(ci.value)||0)+t);};
+  function imgCell(x,i){
+    let inner;
+    if(x._preview) inner=`<img class="mat-img" src="${x._preview}" alt="Material">`;
+    else if(x.imagen) inner=`<div class="mat-img mat-img-placeholder" data-ver-doc="${esc(x.imagen)}" title="Ver imagen">📷</div>`;
+    else inner=`<div class="mat-img-empty">Sin foto</div>`;
+    return `<div class="mat-img-cell">${inner}
+      <div class="mat-img-btns">
+        <button type="button" class="mat-img-btn" data-cam="${i}">📷 Foto</button>
+        <button type="button" class="mat-img-btn" data-gal="${i}">🖼 Galería</button>
+      </div>
+      <input type="file" accept="image/*" capture="environment" class="mat-cam" data-idx="${i}" hidden>
+      <input type="file" accept="image/*" class="mat-gal" data-idx="${i}" hidden>
+    </div>`;
+  }
+  function renderM(){
+    if(!mats.length) listEl.innerHTML='<div class="hint" style="padding:4px 0">Sin materiales.</div>';
+    else {
+      listEl.innerHTML = mats.map((x,i)=>`<div class="material-row" data-idx="${i}">${imgCell(x,i)}<input data-field="nombre" placeholder="Material" value="${esc(x.nombre)}"><input data-field="cantidad" type="number" step="0.01" min="0" placeholder="Cant." value="${esc(x.cantidad)}"><input data-field="precio" type="number" step="0.01" min="0" placeholder="€/ud." value="${esc(x.precio)}"><input data-field="tienda" placeholder="Dónde lo compraste" value="${esc(x.tienda)}"><button type="button" class="icon-btn" data-remove="${i}">✕</button></div>`).join('');
+      listEl.querySelectorAll('input[data-field]').forEach(inp=>inp.addEventListener('input',e=>{const i=Number(e.target.closest('.material-row').dataset.idx);mats[i][e.target.dataset.field]=e.target.value;refresh();}));
+      listEl.querySelectorAll('[data-ver-doc]').forEach(el=>el.addEventListener('click',()=>verDocumento(el.dataset.verDoc)));
+      listEl.querySelectorAll('[data-cam]').forEach(b=>b.addEventListener('click',()=>{const inp=listEl.querySelector(`.mat-cam[data-idx="${b.dataset.cam}"]`);if(inp)inp.click();}));
+      listEl.querySelectorAll('[data-gal]').forEach(b=>b.addEventListener('click',()=>{const inp=listEl.querySelector(`.mat-gal[data-idx="${b.dataset.gal}"]`);if(inp)inp.click();}));
+      const handle = (sel) => listEl.querySelectorAll(sel).forEach(inp=>inp.addEventListener('change',e=>{
+        const i=Number(e.target.dataset.idx);const f=e.target.files[0];if(!f)return;
+        mats[i]._file=f; mats[i]._preview=URL.createObjectURL(f); renderM();
+      }));
+      handle('.mat-cam'); handle('.mat-gal');
+      listEl.querySelectorAll('[data-remove]').forEach(b=>b.addEventListener('click',()=>{const i=Number(b.dataset.remove);const mat=mats[i];if(mat.imagen&&!mat._file)borrarDocumento(mat.imagen);mats.splice(i,1);renderM();}));
+    }
+    refresh();
+  }
+  document.getElementById('add-mat').addEventListener('click',()=>{mats.push({id:uid(),nombre:'',cantidad:'',precio:'',tienda:'',imagen:'',_file:null,_preview:null});renderM();const rows=listEl.querySelectorAll('.material-row');const last=rows[rows.length-1];if(last)last.querySelector('input[data-field="nombre"]').focus();});
+  ci.addEventListener('input',refresh);
+  renderM();
+}
+async function deleteMant(vid,mantId){
+  const v = vehicles.find(x=>x.id===vid); if(!v) return;
+  const m = v.mantenimientos.find(x=>x.id===mantId); if(!m) return;
+  if(!confirm(`¿Eliminar la intervención «${m.tipo}»?`)) return;
+  const imgs = (m.materiales||[]).map(x=>x.imagen).filter(Boolean);
+  if(imgs.length) await sb.storage.from(BUCKET).remove(imgs);
+  const {error}=await sb.from('mantenimientos').delete().eq('id',mantId);
+  if(error) return toast('Error: '+error.message,'error');
+  await loadData(); render(); toast('Eliminado','ok');
+}
+
+/* ============ HISTORIAL ============ */
+function _proxDef(fecha,tipo,v){
+  if(!fecha) return '';
+  const f = new Date(fecha+'T00:00:00'); if(isNaN(f)) return '';
+  if(tipo==='ivtm'||tipo==='seguro') f.setFullYear(f.getFullYear()+1);
+  else if(tipo==='itv'){const e=v?.anio?(new Date().getFullYear()-Number(v.anio)):0;f.setFullYear(f.getFullYear()+(e>=10?1:2));}
+  return f.toISOString().slice(0,10);
+}
+function openHistorialForm(vid,tipo,rid){
+  tipo = normTipo(tipo);
+  const v = vehicles.find(x=>x.id===vid); if(!v) return;
+  const regs = registrosHist(vid,tipo);
+  const reg = rid ? regs.find(h=>h.id===rid) : null;
+  const esNuevo = !reg;
+  const lbl = TIPOS_HIST_LABEL[tipo] || tipo;
+  const fv = reg?.fecha || todayISO();
+  const pv = reg?.proxima_fecha || _proxDef(fv,tipo,v);
+  let campos='';
+  if(tipo==='itv') campos=`<label>Lugar<input name="lugar" value="${esc(reg?.lugar)}"></label>`;
+  else if(tipo==='seguro') campos=`
+    <label>Compañía<input name="compania" value="${esc(reg?.compania)}"></label>
+    <div class="grid2">
+      <label>Tipo<select name="tipo_seguro"><option value="">—</option>${TIPOS_SEGURO.map(t=>`<option ${reg?.tipo_seguro===t?'selected':''}>${t}</option>`).join('')}</select></label>
+      <label>Plazos<select name="plazos"><option value="">—</option>${PLAZOS_SEGURO.map(p=>`<option ${reg?.plazos===p?'selected':''}>${p}</option>`).join('')}</select></label>
+    </div>`;
+  else if(tipo==='ivtm') campos=`<label>Lugar<input name="lugar" value="${esc(reg?.lugar)}"></label>`;
+  const body = `
+    <h4>${lbl}</h4>
+    <div class="grid2">
+      <label>Fecha<input type="date" name="fecha" id="hf" value="${esc(fv)}" required></label>
+      <label>Importe (€)<input type="number" min="0" step="0.01" name="precio" value="${esc(reg?.precio)}"></label>
+    </div>
+    <div class="grid2">
+      <label>Próximo vencimiento<input type="date" name="proxima_fecha" id="hp" value="${esc(pv)}"></label>
+    </div>
+    ${campos}
+    <label>Notas<textarea name="notas" rows="2">${esc(reg?.notas)}</textarea></label>`;
+  openModal(esNuevo?`Registrar ${lbl.toLowerCase()}`:`Editar ${lbl.toLowerCase()}`,body,async fd=>{
+    const data = {
+      vehicle_id: vid, tipo: normTipo(tipo),
+      fecha: fd.get('fecha')||null, proxima_fecha: fd.get('proxima_fecha')||null,
+      precio: fd.get('precio')?Number(fd.get('precio')):null,
+      lugar: (fd.get('lugar')||'').trim()||null,
+      compania: (fd.get('compania')||'').trim()||null,
+      tipo_seguro: (fd.get('tipo_seguro')||'').trim()||null,
+      plazos: (fd.get('plazos')||'').trim()||null,
+      notas: (fd.get('notas')||'').trim()||null
+    };
+    if(rid){const {error}=await sb.from('historial_obligaciones').update(data).eq('id',rid);if(error) throw new Error(error.message);}
+    else {const {error}=await sb.from('historial_obligaciones').insert(data);if(error) throw new Error(error.message);}
+    await loadData(); closeModal(); render(); toast(rid?'Actualizado':'Guardado','ok');
+  }, esNuevo?'Guardar':'Guardar cambios');
+  setTimeout(()=>{
+    const fF=document.getElementById('hf'),fP=document.getElementById('hp');
+    if(fF&&fP) fF.addEventListener('change',()=>{if(!fF.value)return;fP.value=_proxDef(fF.value,tipo,v);});
+  },30);
+}
+function openHistorialList(vid,tipo){
+  tipo = normTipo(tipo);
+  const v = vehicles.find(x=>x.id===vid); if(!v) return;
+  const lbl = TIPOS_HIST_LABEL[tipo]||tipo;
+  const items = registrosHist(vid,tipo).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const total = items.reduce((s,h)=>s+(Number(h.precio)||0),0);
+  const anios = items.length ? new Set(items.map(h=>(h.fecha||'').slice(0,4))).size : 0;
+  let html='';
+  if(!items.length) html='<div class="hist-empty">Sin registros.</div>';
+  else html = items.map(h=>{
+    const ex=[];
+    if(h.lugar) ex.push(`📍 ${esc(h.lugar)}`);
+    if(h.compania) ex.push(`🏢 ${esc(h.compania)}`);
+    if(h.tipo_seguro) ex.push(`🛡 ${esc(h.tipo_seguro)}`);
+    if(h.plazos) ex.push(`📅 ${esc(h.plazos)}`);
+    if(h.proxima_fecha) ex.push(`→ ${fmtDate(h.proxima_fecha)}`);
+    if(h.notas) ex.push(`📝 ${esc(h.notas)}`);
+    return `<div class="hist-item"><div class="hist-info"><div><strong>${fmtDate(h.fecha)}</strong>${h.precio!=null?` · <strong>${money(h.precio)}</strong>`:''}</div>${ex.length?`<div class="hist-line">${ex.join(' · ')}</div>`:''}</div><div class="hist-actions"><button type="button" class="icon-btn" data-hist-edit="${h.id}">✎</button><button type="button" class="icon-btn" data-hist-del="${h.id}">🗑</button></div></div>`;
+  }).join('');
+  const body = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px"><div class="hint">${items.length} registro${items.length===1?'':'s'} · ${anios} año${anios===1?'':'s'}</div><button type="button" class="btn primary sm" id="hist-add">＋ Nuevo</button></div><div>${html}</div>${items.length?`<div class="hist-total">Total: <strong>${money(total)}</strong></div>`:''}`;
+  openModal(`Historial — ${lbl}`,body,async()=>{closeModal();},'Cerrar');
+  setTimeout(()=>{
+    const sb2=document.getElementById('modal-submit'); if(sb2) sb2.style.display='none';
+    modalRoot.querySelectorAll('[data-close]').forEach(b=>{if(b.classList.contains('btn')){b.textContent='Cerrar';b.classList.remove('ghost');b.classList.add('primary');}});
+    const add=document.getElementById('hist-add'); if(add) add.addEventListener('click',()=>{closeModal();openHistorialForm(vid,tipo);});
+    modalRoot.querySelectorAll('[data-hist-edit]').forEach(b=>b.addEventListener('click',()=>{closeModal();openHistorialForm(vid,tipo,b.dataset.histEdit);}));
+    modalRoot.querySelectorAll('[data-hist-del]').forEach(b=>b.addEventListener('click',async()=>{
+      if(!confirm('¿Eliminar este registro?')) return;
+      const {error}=await sb.from('historial_obligaciones').delete().eq('id',b.dataset.histDel);
+      if(error) return toast('Error: '+error.message,'error');
+      await loadData(); closeModal(); render(); toast('Eliminado','ok');
+    }));
+  },30);
+}
+
+/* ============ INICIO ============ */
+document.getElementById('btn-add-vehicle').addEventListener('click',()=>openVehicleForm());
+</script>
+</body>
+</html>
