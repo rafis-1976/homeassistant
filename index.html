@@ -242,6 +242,23 @@ const uid = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(
 const normTipo = t => String(t||'').toLowerCase().trim();
 function toast(m,t='info'){ const e=document.createElement('div'); e.className='toast '+t; e.textContent=m; document.body.appendChild(e); setTimeout(()=>e.remove(),3600); }
 
+/* Traduce el combustible del vehículo al tipo de repostaje por defecto */
+function tipoRepostajePorDefecto(combustible){
+  const c = normTipo(combustible);
+  if(!c) return 'Otro';
+  if(c.includes('eléctric') || c.includes('electric')) return 'Recarga eléctrica';
+  if(c.includes('diésel') || c.includes('diesel')) return 'Diésel';
+  if(c.includes('gasolina')) return 'Gasolina 95';
+  if(c.includes('híbrido') || c.includes('hibrido')) return 'Gasolina 95';
+  if(c === 'glp') return 'GLP';
+  if(c === 'gnc') return 'GNC';
+  return 'Otro';
+}
+function esTipoElectrico(t){
+  const n = normTipo(t);
+  return n.includes('eléctric') || n.includes('electric') || n.includes('recarga');
+}
+
 function parseIntervaloKm(intervalo){
   if(!intervalo) return {kmMin:null,kmMax:null};
   const soloKm = String(intervalo).split('/')[0];
@@ -1070,13 +1087,22 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
 /* ============ REPOSTAJES ============ */
 function openRepostajeForm(vid,repId){
+  const v = vehicles.find(x=>x.id===vid);
   const reg = repId ? allRepostajes.find(r=>r.id===repId) : null;
   const esNuevo = !reg;
   const fecha = reg?.fecha || todayISO();
+
+  // Tipo preseleccionado: el del registro editado o el que corresponde al combustible del coche
+  const tipoDef = reg?.tipo || tipoRepostajePorDefecto(v?.combustible);
+  const esElecInicial = esTipoElectrico(tipoDef);
+  const estacionInicial = reg?.estacion || '';
+  const esCasaInicial = esElecInicial && estacionInicial.trim().toLowerCase() === 'casa';
+  const origenInicial = esElecInicial ? (esCasaInicial ? 'casa' : 'otro') : 'otro';
+
   const body = `
     <div class="grid2">
       <label>Fecha<input type="date" name="fecha" value="${esc(fecha)}" required></label>
-      <label>Tipo<select name="tipo" required>${TIPOS_REPOSTAJE.map(t=>`<option ${reg?.tipo===t?'selected':''}>${t}</option>`).join('')}</select></label>
+      <label>Tipo<select name="tipo" id="rep-tipo" required>${TIPOS_REPOSTAJE.map(t=>`<option ${tipoDef===t?'selected':''}>${t}</option>`).join('')}</select></label>
     </div>
     <div class="grid3">
       <label>Cantidad (L o kWh)<input name="cantidad" type="number" step="0.01" min="0" value="${esc(reg?.cantidad)}" placeholder="Ej. 45.20"></label>
@@ -1086,22 +1112,47 @@ function openRepostajeForm(vid,repId){
     <div class="hint">Si rellenas cantidad y precio unitario, el coste total se calcula automáticamente.</div>
     <div class="grid2">
       <label>Kilómetros (odómetro)<input name="km" type="number" min="0" step="1" value="${esc(reg?.km)}"></label>
-      <label>Estación / Lugar<input name="estacion" value="${esc(reg?.estacion)}" placeholder="Repsol, Iberdrola…"></label>
+      <div id="rep-estacion-wrap" ${esElecInicial && esCasaInicial ? 'hidden' : ''}>
+        <label><span id="rep-estacion-lbl">Estación / Lugar</span>
+          <input name="estacion" id="rep-estacion" value="${esc(esCasaInicial ? '' : estacionInicial)}" placeholder="Repsol, Iberdrola…">
+        </label>
+      </div>
+    </div>
+    <div id="rep-origen-wrap" ${esElecInicial ? '' : 'hidden'}>
+      <label style="text-transform:none;font-weight:600;font-size:.8rem;color:var(--muted)">¿Dónde has cargado?</label>
+      <div style="display:flex;gap:18px;margin-top:6px;flex-wrap:wrap">
+        <label style="flex-direction:row;align-items:center;gap:6px;text-transform:none;font-weight:600;font-size:.85rem;color:var(--text);flex-direction:row">
+          <input type="radio" name="origen_recarga" value="casa" ${origenInicial==='casa'?'checked':''}> 🏠 En casa
+        </label>
+        <label style="flex-direction:row;align-items:center;gap:6px;text-transform:none;font-weight:600;font-size:.85rem;color:var(--text);flex-direction:row">
+          <input type="radio" name="origen_recarga" value="otro" ${origenInicial==='otro'?'checked':''}> 📍 En otro sitio
+        </label>
+      </div>
     </div>
     <label>Notas<textarea name="notas" rows="2">${esc(reg?.notas)}</textarea></label>`;
+
   openModal(esNuevo?'Nuevo repostaje / recarga':'Editar repostaje',body,async fd=>{
     const cantidad = fd.get('cantidad')?Number(fd.get('cantidad')):null;
     const precio = fd.get('precio_unitario')?Number(fd.get('precio_unitario')):null;
     let coste = fd.get('coste_total')?Number(fd.get('coste_total')):0;
     if(!coste && cantidad != null && precio != null) coste = cantidad*precio;
+
+    const tipo = (fd.get('tipo')||'Otro').trim();
+    const esElec = esTipoElectrico(tipo);
+    let estacion = (fd.get('estacion')||'').trim()||null;
+    if(esElec){
+      const origen = fd.get('origen_recarga') || 'otro';
+      if(origen === 'casa') estacion = 'Casa';
+    }
+
     const data = {
       vehicle_id: vid,
       fecha: fd.get('fecha')||null,
-      tipo: (fd.get('tipo')||'Otro').trim(),
+      tipo,
       cantidad, precio_unitario: precio,
       coste_total: coste,
       km: fd.get('km')?Number(fd.get('km')):null,
-      estacion: (fd.get('estacion')||'').trim()||null,
+      estacion,
       notas: (fd.get('notas')||'').trim()||null
     };
     if(reg){ const {error}=await sb.from('repostajes').update(data).eq('id',reg.id); if(error) throw error; }
@@ -1112,13 +1163,40 @@ function openRepostajeForm(vid,repId){
     await loadData(); closeModal(); render();
     toast(reg?'Actualizado':'Añadido','ok');
   }, esNuevo?'Añadir':'Guardar');
+
   setTimeout(()=>{
+    // Cálculo automático del coste total
     const ci=document.querySelector('#modal-form [name="cantidad"]');
     const pi=document.querySelector('#modal-form [name="precio_unitario"]');
     const ti=document.getElementById('rep-coste');
-    if(!ci||!pi||!ti) return;
-    const rec=()=>{const c=Number(ci.value)||0;const p=Number(pi.value)||0;if(c>0&&p>0)ti.value=(c*p).toFixed(2);};
-    ci.addEventListener('input',rec); pi.addEventListener('input',rec);
+    if(ci&&pi&&ti){
+      const rec=()=>{const c=Number(ci.value)||0;const p=Number(pi.value)||0;if(c>0&&p>0)ti.value=(c*p).toFixed(2);};
+      ci.addEventListener('input',rec); pi.addEventListener('input',rec);
+    }
+    // Lógica eléctrico → mostrar origen "Casa / Otro sitio"
+    const tipoSel   = document.getElementById('rep-tipo');
+    const origenWrap= document.getElementById('rep-origen-wrap');
+    const estWrap   = document.getElementById('rep-estacion-wrap');
+    const estLbl    = document.getElementById('rep-estacion-lbl');
+    const estInput  = document.getElementById('rep-estacion');
+    if(!tipoSel||!origenWrap||!estWrap||!estLbl||!estInput) return;
+    const actualizar = () => {
+      const esElec = esTipoElectrico(tipoSel.value);
+      origenWrap.hidden = !esElec;
+      if(esElec){
+        const origen = document.querySelector('#modal-form [name="origen_recarga"]:checked')?.value || 'otro';
+        estWrap.hidden = (origen === 'casa');
+        estLbl.textContent = 'Lugar / Punto de recarga';
+        estInput.placeholder = 'Iberdrola, Repsol, Zunder…';
+      } else {
+        estWrap.hidden = false;
+        estLbl.textContent = 'Estación / Lugar';
+        estInput.placeholder = 'Repsol, Cepsa, BP…';
+      }
+    };
+    tipoSel.addEventListener('change', actualizar);
+    document.querySelectorAll('#modal-form [name="origen_recarga"]').forEach(r=>r.addEventListener('change', actualizar));
+    actualizar();
   },60);
 }
 async function deleteRepostaje(vid,repId){
@@ -1514,37 +1592,4 @@ function openHistorialList(vid,tipo){
   const lbl = TIPOS_HIST_LABEL[tipo]||tipo;
   const items = registrosHist(vid,tipo).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
   const total = items.reduce((s,h)=>s+(Number(h.precio)||0),0);
-  const anios = items.length ? new Set(items.map(h=>(h.fecha||'').slice(0,4))).size : 0;
-  let html='';
-  if(!items.length) html='<div class="hist-empty">Sin registros.</div>';
-  else html = items.map(h=>{
-    const ex=[];
-    if(h.lugar) ex.push(`📍 ${esc(h.lugar)}`);
-    if(h.compania) ex.push(`🏢 ${esc(h.compania)}`);
-    if(h.tipo_seguro) ex.push(`🛡 ${esc(h.tipo_seguro)}`);
-    if(h.plazos) ex.push(`📅 ${esc(h.plazos)}`);
-    if(h.proxima_fecha) ex.push(`→ ${fmtDate(h.proxima_fecha)}`);
-    if(h.notas) ex.push(`📝 ${esc(h.notas)}`);
-    return `<div class="hist-item"><div class="hist-info"><div><strong>${fmtDate(h.fecha)}</strong>${h.precio!=null?` · <strong>${money(h.precio)}</strong>`:''}</div>${ex.length?`<div class="hist-line">${ex.join(' · ')}</div>`:''}</div><div class="hist-actions"><button type="button" class="icon-btn" data-hist-edit="${h.id}">✎</button><button type="button" class="icon-btn" data-hist-del="${h.id}">🗑</button></div></div>`;
-  }).join('');
-  const body = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px"><div class="hint">${items.length} registro${items.length===1?'':'s'} · ${anios} año${anios===1?'':'s'}</div><button type="button" class="btn primary sm" id="hist-add">＋ Nuevo</button></div><div>${html}</div>${items.length?`<div class="hist-total">Total: <strong>${money(total)}</strong></div>`:''}`;
-  openModal(`Historial — ${lbl}`,body,async()=>{closeModal();},'Cerrar');
-  setTimeout(()=>{
-    const sb2=document.getElementById('modal-submit'); if(sb2) sb2.style.display='none';
-    modalRoot.querySelectorAll('[data-close]').forEach(b=>{if(b.classList.contains('btn')){b.textContent='Cerrar';b.classList.remove('ghost');b.classList.add('primary');}});
-    const add=document.getElementById('hist-add'); if(add) add.addEventListener('click',()=>{closeModal();openHistorialForm(vid,tipo);});
-    modalRoot.querySelectorAll('[data-hist-edit]').forEach(b=>b.addEventListener('click',()=>{closeModal();openHistorialForm(vid,tipo,b.dataset.histEdit);}));
-    modalRoot.querySelectorAll('[data-hist-del]').forEach(b=>b.addEventListener('click',async()=>{
-      if(!confirm('¿Eliminar este registro?')) return;
-      const {error}=await sb.from('historial_obligaciones').delete().eq('id',b.dataset.histDel);
-      if(error) return toast('Error: '+error.message,'error');
-      await loadData(); closeModal(); render(); toast('Eliminado','ok');
-    }));
-  },30);
-}
-
-/* ============ INICIO ============ */
-document.getElementById('btn-add-vehicle').addEventListener('click',()=>openVehicleForm());
-</script>
-</body>
-</html>
+  const anios = items.length
