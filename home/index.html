@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Mi Casa · Panel de Control</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<button class="burger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-icon">🏠</div>
+    <div><h1>Mi Casa</h1><span>Panel de control</span></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-item active"><span class="ico">⊞</span> Resumen</div>
+    <div class="nav-item"><span class="ico">💡</span> Iluminación</div>
+    <div class="nav-item"><span class="ico">🌡️</span> Climatización</div>
+    <div class="nav-item"><span class="ico">🔒</span> Seguridad</div>
+    <div class="nav-item"><span class="ico">🎬</span> Escenas</div>
+    <div class="nav-item"><span class="ico">📊</span> Energía</div>
+    <div class="nav-item"><span class="ico">⚙️</span> Ajustes</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user">
+      <div class="avatar">AD</div>
+      <div><div style="color:var(--t);font-size:13px;font-weight:600">Admin</div><div style="font-size:11px">Sistema en línea</div></div>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+  <header class="top">
+    <div class="greeting">
+      <h2 id="saludo">Buenos días 👋</h2>
+      <p id="resumen">5 dispositivos activos · 22.4 °C en salón · Todo en orden</p>
+    </div>
+    <div class="top-right">
+      <div class="clock">
+        <div class="time" id="reloj">--:--</div>
+        <div class="date" id="fecha">—</div>
+      </div>
+      <button class="icon-btn" title="Notificaciones">🔔</button>
+      <button class="icon-btn" title="Buscar">🔍</button>
+    </div>
+  </header>
+
+  <div class="section-title">Escenas rápidas</div>
+  <div class="scenes">
+    <div class="scene active" onclick="escena(this)"><span class="em">🌅</span><div class="nm">Buenos días</div><div class="ds">Luces suaves</div></div>
+    <div class="scene" onclick="escena(this)"><span class="em">🎬</span><div class="nm">Cine</div><div class="ds">Luz tenue</div></div>
+    <div class="scene" onclick="escena(this)"><span class="em">🌙</span><div class="nm">Noche</div><div class="ds">Todo apagado</div></div>
+    <div class="scene" onclick="escena(this)"><span class="em">🚪</span><div class="nm">Salir</div><div class="ds">Modo ausente</div></div>
+    <div class="scene" onclick="escena(this)"><span class="em">🎉</span><div class="nm">Fiesta</div><div class="ds">Luces color</div></div>
+  </div>
+
+  <div class="section-title">Iluminación</div>
+  <div class="grid">
+    <div class="card on" data-light>
+      <div class="card-head"><div class="card-icon">💡</div><div class="toggle on" onclick="tLuz(this)"></div></div>
+      <div class="card-name">Luz Salón</div>
+      <div class="card-sub">Encendida · 78%</div>
+      <div class="slider-wrap">
+        <input type="range" class="slider" min="0" max="100" value="78" oninput="brillo(this)">
+        <div class="slider-labels"><span>Brillo</span><span class="brillo-val">78%</span></div>
+      </div>
+    </div>
+    <div class="card on" data-light>
+      <div class="card-head"><div class="card-icon">💡</div><div class="toggle on" onclick="tLuz(this)"></div></div>
+      <div class="card-name">Luz Cocina</div>
+      <div class="card-sub">Encendida · 100%</div>
+      <div class="slider-wrap">
+        <input type="range" class="slider" min="0" max="100" value="100" style="--p:100%" oninput="brillo(this)">
+        <div class="slider-labels"><span>Brillo</span><span class="brillo-val">100%</span></div>
+      </div>
+    </div>
+    <div class="card" data-light>
+      <div class="card-head"><div class="card-icon">💡</div><div class="toggle" onclick="tLuz(this)"></div></div>
+      <div class="card-name">Luz Dormitorio</div>
+      <div class="card-sub">Apagada</div>
+      <div class="slider-wrap">
+        <input type="range" class="slider" min="0" max="100" value="30" style="--p:30%" oninput="brillo(this)">
+        <div class="slider-labels"><span>Brillo</span><span class="brillo-val">30%</span></div>
+      </div>
+    </div>
+    <div class="card" data-light>
+      <div class="card-head"><div class="card-icon">🛋️</div><div class="toggle" onclick="tLuz(this)"></div></div>
+      <div class="card-name">Tira LED Salón</div>
+      <div class="card-sub">Apagada</div>
+      <div class="slider-wrap">
+        <input type="range" class="slider" min="0" max="100" value="50" style="--p:50%" oninput="brillo(this)">
+        <div class="slider-labels"><span>Brillo</span><span class="brillo-val">50%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Climatización</div>
+  <div class="grid">
+    <div class="card" style="grid-column:span 2;min-width:260px">
+      <div class="card-head">
+        <div><div class="card-name">Termostato Salón</div><div class="card-sub">Modo calor · Auto</div></div>
+        <span class="badge blue">Conectado</span>
+      </div>
+      <div class="thermo">
+        <div class="dial">
+          <svg width="96" height="96">
+            <circle class="bg" cx="48" cy="48" r="40"></circle>
+            <circle class="fg" cx="48" cy="48" r="40" stroke-dasharray="251.3" stroke-dashoffset="100"></circle>
+          </svg>
+          <div class="center"><div><span id="temp-set">22</span><small>°C objetivo</small></div></div>
+        </div>
+        <div class="thermo-controls">
+          <div class="thermo-row">
+            <button class="thermo-btn" onclick="temp(-1)">−</button>
+            <button class="thermo-btn" onclick="temp(1)">+</button>
+          </div>
+          <div style="font-size:13px;color:var(--td)">Actual: <strong style="color:var(--t)">21.5 °C</strong><br>Humedad: <strong style="color:var(--t)">48%</strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-icon">❄️</div><span class="badge green">Eco</span></div>
+      <div class="card-name">Aire Acondicionado</div>
+      <div class="card-sub">Modo frío · Ventilador bajo</div>
+      <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+        <div class="card-value">24<small>°C</small></div>
+        <div class="toggle" onclick="this.classList.toggle('on')"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Sensores y estado</div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-head"><div class="card-icon">🌡️</div><span class="badge green">OK</span></div>
+      <div class="card-name" style="margin-bottom:14px">Temperatura interior</div>
+      <div class="sensor-row"><span class="sensor-label">🛋️ Salón</span><span class="sensor-val">22.4 °C</span></div>
+      <div class="sensor-row"><span class="sensor-label">🛏️ Dormitorio</span><span class="sensor-val">20.1 °C</span></div>
+      <div class="sensor-row"><span class="sensor-label">🍳 Cocina</span><span class="sensor-val">23.8 °C</span></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-icon">💧</div><span class="badge blue">Normal</span></div>
+      <div class="card-name" style="margin-bottom:14px">Humedad</div>
+      <div class="sensor-row"><span class="sensor-label">🛋️ Salón</span><span class="sensor-val">48 %</span></div>
+      <div class="sensor-row"><span class="sensor-label">🚿 Baño</span><span class="sensor-val">62 %</span></div>
+      <div class="sensor-row"><span class="sensor-label">🌿 Exterior</span><span class="sensor-val">71 %</span></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-icon">⚡</div><span class="badge green">2.1 kW</span></div>
+      <div class="card-name" style="margin-bottom:14px">Consumo energético</div>
+      <div class="sensor-row"><span class="sensor-label">Hoy</span><span class="sensor-val">8.4 kWh</span></div>
+      <div class="sensor-row"><span class="sensor-label">Semana</span><span class="sensor-val">52.7 kWh</span></div>
+      <div class="sensor-row"><span class="sensor-label">Solar generado</span><span class="sensor-val" style="color:var(--g)">3.2 kWh</span></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-icon">🔒</div><span class="badge green">Seguro</span></div>
+      <div class="card-name" style="margin-bottom:14px">Seguridad</div>
+      <div class="sensor-row"><span class="sensor-label">🚪 Puerta principal</span><span class="badge green">Cerrada</span></div>
+      <div class="sensor-row"><span class="sensor-label">🪟 Ventana salón</span><span class="badge red">Abierta</span></div>
+      <div class="sensor-row"><span class="sensor-label">🚨 Alarma</span><span class="badge green">Armada</span></div>
+    </div>
+  </div>
+
+  <div class="section-title">Cámara en directo</div>
+  <div class="grid">
+    <div class="card" style="grid-column:span 2;min-width:280px">
+      <div class="card-head">
+        <div><div class="card-name">Entrada principal</div><div class="card-sub">Última detección: hace 12 min</div></div>
+        <button class="icon-btn" style="width:34px;height:34px;font-size:14px">⛶</button>
+      </div>
+      <div class="camera">
+        <div class="live">EN VIVO</div>
+        <div class="scan"></div>
+        <div style="text-align:center;color:var(--td);font-size:13px">📹<br>Streaming 1080p</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-icon">🔔</div><span class="badge blue">3 eventos</span></div>
+      <div class="card-name" style="margin-bottom:12px">Actividad reciente</div>
+      <div class="sensor-row"><span class="sensor-label">🚶 Movimiento</span><span class="sensor-val" style="font-size:12px;color:var(--td)">hace 12 min</span></div>
+      <div class="sensor-row"><span class="sensor-label">🚪 Puerta abierta</span><span class="sensor-val" style="font-size:12px;color:var(--td)">hace 1 h</span></div>
+      <div class="sensor-row"><span class="sensor-label">💡 Luz encendida</span><span class="sensor-val" style="font-size:12px;color:var(--td)">hace 2 h</span></div>
+    </div>
+  </div>
+
+  <div class="section-title">Energía solar</div>
+  <div class="card energy-card">
+    <div class="card-head" style="align-items:center">
+      <div><div class="card-name">Flujo de energía en vivo</div><div class="card-sub">Placas · Batería · Vivienda · Red eléctrica</div></div>
+      <span class="badge blue" id="estado-red">Calculando…</span>
+    </div>
+    <svg class="flow-svg" viewBox="0 0 700 300">
+      <path class="wire" d="M138,87 Q 240,95 306,132"/>
+      <path class="wire" d="M138,213 Q 240,205 306,168"/>
+      <path class="wire" d="M396,150 L 554,150"/>
+      <path id="f-solar" class="flow" d="M138,87 Q 240,95 306,132"/>
+      <path id="f-bat-out" class="flow" d="M138,213 Q 240,205 306,168"/>
+      <path id="f-bat-in" class="flow rev" d="M138,213 Q 240,205 306,168"/>
+      <path id="f-export" class="flow" d="M396,150 L 554,150"/>
+      <path id="f-import" class="flow rev" d="M396,150 L 554,150"/>
+      <g class="node" id="n-solar"><circle class="ring" cx="100" cy="75" r="40"/><text class="ico" x="100" y="66">☀️</text><text class="val" x="100" y="95" id="v-solar">0.0 kW</text></g>
+      <text class="node-lbl" x="100" y="140">Placas solares</text>
+      <g class="node" id="n-bat"><circle class="ring" cx="100" cy="225" r="40"/><text class="ico" x="100" y="216">🔋</text><text class="val" x="100" y="245" id="v-bat">0 %</text></g>
+      <text class="node-lbl" x="100" y="290">Batería</text>
+      <g class="node" id="n-casa"><circle class="ring" cx="350" cy="150" r="46"/><text class="ico" x="350" y="140">🏠</text><text class="val" x="350" y="170" id="v-casa">0.0 kW</text></g>
+      <text class="node-lbl" x="350" y="222">Vivienda</text>
+      <g class="node" id="n-red"><circle class="ring" cx="600" cy="150" r="46"/><text class="ico" x="600" y="140">⚡</text><text class="val" x="600" y="170" id="v-red">0.0 kW</text></g>
+      <text class="node-lbl" x="600" y="222">Red eléctrica</text>
+    </svg>
+    <div class="flow-controls">
+      <div class="ctrl">
+        <label>Producción solar <b id="lbl-solar">0.0 kW</b></label>
+        <input type="range" class="slider" id="in-solar" min="0" max="7" step="0.1" value="3">
+      </div>
+      <div class="ctrl">
+        <label>Consumo vivienda <b id="lbl-consumo">0.0 kW</b></label>
+        <input type="range" class="slider" id="in-consumo" min="0" max="7" step="0.1" value="1.5">
+      </div>
+      <button class="btn-auto" id="btn-auto">⏸ Pausar simulación</button>
+    </div>
+    <div style="font-size:11px;color:var(--td);margin-top:12px;text-align:right">🕐 Hora simulada: <b id="sim-hora" style="color:var(--t)">09:00</b> · 1 s ≈ 6 min</div>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <div class="kpi"><div class="kpi-top">☀️ Producción solar hoy</div><div class="kpi-val" id="kpi-prod">—</div><div class="kpi-bar"><i id="bar-prod" style="background:linear-gradient(90deg,#ffc107,#ff9800)"></i></div></div>
+    <div class="kpi"><div class="kpi-top">🏠 Consumo vivienda</div><div class="kpi-val" id="kpi-cons">—</div><div class="kpi-bar"><i id="bar-cons" style="background:linear-gradient(90deg,#4fc3f7,#2979ff)"></i></div></div>
+    <div class="kpi"><div class="kpi-top">⬆️ Exportado a la red</div><div class="kpi-val" id="kpi-exp">—</div><div class="kpi-bar"><i id="bar-exp" style="background:linear-gradient(90deg,#4caf50,#8bc34a)"></i></div></div>
+    <div class="kpi"><div class="kpi-top">⬇️ Importado de la red</div><div class="kpi-val" id="kpi-imp">—</div><div class="kpi-bar"><i id="bar-imp" style="background:linear-gradient(90deg,#ef5350,#ff7043)"></i></div></div>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <div class="card" style="grid-column:span 2;min-width:300px">
+      <div class="card-head">
+        <div><div class="card-name">Producción vs consumo · hoy</div><div class="card-sub">Curva horaria en kW</div></div>
+        <span class="badge green" id="badge-auto">—</span>
+      </div>
+      <svg class="chart" viewBox="0 0 660 230">
+        <defs>
+          <linearGradient id="gS" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffc107" stop-opacity=".45"/><stop offset="100%" stop-color="#ffc107" stop-opacity="0"/></linearGradient>
+          <linearGradient id="gC" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4fc3f7" stop-opacity=".28"/><stop offset="100%" stop-color="#4fc3f7" stop-opacity="0"/></linearGradient>
+        </defs>
+        <g id="chart-grid"></g>
+        <path id="area-solar" fill="url(#gS)"/>
+        <path id="area-cons" fill="url(#gC)"/>
+        <path id="line-solar" class="chart-line solar"/>
+        <path id="line-cons" class="chart-line cons"/>
+      </svg>
+      <div class="legend">
+        <span><i class="dot" style="background:#ffc107"></i> Producción solar</span>
+        <span><i class="dot" style="background:#4fc3f7"></i> Consumo vivienda</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><div class="card-name">Últimos 7 días</div><div class="card-sub">kWh por día</div></div></div>
+      <div class="bars" id="bars-semana"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:#ffc107"></i> Solar</span>
+        <span><i class="dot" style="background:#4fc3f7"></i> Consumo</span>
+      </div>
+      <div style="margin-top:14px">
+        <div class="sensor-row"><span class="sensor-label">Producción semanal</span><span class="sensor-val" id="sem-prod">—</span></div>
+        <div class="sensor-row"><span class="sensor-label">Consumo semanal</span><span class="sensor-val" id="sem-cons">—</span></div>
+        <div class="sensor-row"><span class="sensor-label">Autoconsumo medio</span><span class="sensor-val" id="sem-auto">—</span></div>
+        <div class="sensor-row"><span class="sensor-label">Ahorro estimado</span><span class="sensor-val" style="color:var(--g)" id="sem-ahorro">—</span></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
