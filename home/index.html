@@ -189,49 +189,164 @@
   <div class="section-title">Energía solar</div>
   <div class="card energy-card">
     <div class="card-head" style="align-items:center">
-      <div><div class="card-name">Flujo de energía en vivo</div><div class="card-sub">Placas · Batería · Vivienda · Red eléctrica</div></div>
+      <div><div class="card-name">Flujo de energía en vivo</div><div class="card-sub">Solar · Fronius · Vivienda · Coche · Red eléctrica</div></div>
       <span class="badge blue" id="estado-red">Calculando…</span>
     </div>
-    <svg class="flow-svg" viewBox="0 0 700 300">
-      <path class="wire" d="M138,87 Q 240,95 306,132"/>
-      <path class="wire" d="M138,213 Q 240,205 306,168"/>
-      <path class="wire" d="M396,150 L 554,150"/>
-      <path id="f-solar" class="flow" d="M138,87 Q 240,95 306,132"/>
-      <path id="f-bat-out" class="flow" d="M138,213 Q 240,205 306,168"/>
-      <path id="f-bat-in" class="flow rev" d="M138,213 Q 240,205 306,168"/>
-      <path id="f-export" class="flow" d="M396,150 L 554,150"/>
-      <path id="f-import" class="flow rev" d="M396,150 L 554,150"/>
-      <g class="node" id="n-solar"><circle class="ring" cx="100" cy="75" r="40"/><text class="ico" x="100" y="66">☀️</text><text class="val" x="100" y="95" id="v-solar">0.0 kW</text></g>
-      <text class="node-lbl" x="100" y="140">Placas solares</text>
-      <g class="node" id="n-bat"><circle class="ring" cx="100" cy="225" r="40"/><text class="ico" x="100" y="216">🔋</text><text class="val" x="100" y="245" id="v-bat">0 %</text></g>
-      <text class="node-lbl" x="100" y="290">Batería</text>
-      <g class="node" id="n-casa"><circle class="ring" cx="350" cy="150" r="46"/><text class="ico" x="350" y="140">🏠</text><text class="val" x="350" y="170" id="v-casa">0.0 kW</text></g>
-      <text class="node-lbl" x="350" y="222">Vivienda</text>
-      <g class="node" id="n-red"><circle class="ring" cx="600" cy="150" r="46"/><text class="ico" x="600" y="140">⚡</text><text class="val" x="600" y="170" id="v-red">0.0 kW</text></g>
-      <text class="node-lbl" x="600" y="222">Red eléctrica</text>
+    <svg class="flow-svg" viewBox="0 0 800 440">
+      <!-- Cables -->
+      <path class="wire" d="M145,104 Q 190,135 245,175"/>
+      <path class="wire" id="w-bat" d="M240,264 Q 160,300 76,335" style="display:none"/>
+      <path class="wire" d="M360,193 Q 430,155 498,129"/>
+      <path class="wire" d="M360,220 L 664,220"/>
+      <path class="wire" d="M540,156 L 540,314"/>
+
+      <!-- Flujos animados -->
+      <path id="f-solar" class="flow" d="M145,104 Q 190,135 245,175"/>
+      <path id="f-bat-out" class="flow" d="M240,264 Q 160,300 76,335" style="display:none"/>
+      <path id="f-bat-in" class="flow rev" d="M240,264 Q 160,300 76,335" style="display:none"/>
+      <path id="f-casa" class="flow" d="M360,193 Q 430,155 498,129"/>
+      <path id="f-export" class="flow" d="M360,220 L 664,220"/>
+      <path id="f-import" class="flow rev" d="M360,220 L 664,220"/>
+      <path id="f-coche" class="flow" d="M540,156 L 540,314"/>
+
+      <!-- Nodo Solar -->
+      <g class="node" id="n-solar">
+        <circle class="ring" cx="110" cy="80" r="42"/>
+        <text class="ico" x="110" y="68">☀️</text>
+        <text class="val" x="110" y="100" id="v-solar">0.0 kW</text>
+      </g>
+      <text class="node-lbl" x="110" y="140">Solar</text>
+
+      <!-- Nodo Batería (opcional) -->
+      <g class="node" id="n-bat" style="display:none">
+        <circle class="ring" cx="110" cy="360" r="42"/>
+        <text class="ico" x="110" y="348">🔋</text>
+        <text class="val" x="110" y="380" id="v-bat">0 %</text>
+      </g>
+      <text class="node-lbl" id="lbl-bat" x="110" y="420" style="display:none">Batería</text>
+
+      <!-- Nodo Fronius -->
+      <g class="node" id="n-fronius">
+        <rect class="ring-rect" x="240" y="170" width="120" height="100" rx="14"/>
+        <text class="ico" x="300" y="205">⚡</text>
+        <text class="val" x="300" y="240" id="v-fronius">0.0 kW</text>
+      </g>
+      <text class="node-lbl" x="300" y="295">Fronius</text>
+
+      <!-- Nodo Casa -->
+      <g class="node" id="n-casa">
+        <circle class="ring" cx="540" cy="110" r="46"/>
+        <text class="ico" x="540" y="96">🏠</text>
+        <text class="val" x="540" y="130" id="v-casa">0.0 kW</text>
+      </g>
+      <text class="node-lbl" x="540" y="45">Vivienda</text>
+
+      <!-- Nodo Red -->
+      <g class="node" id="n-red">
+        <circle class="ring" cx="710" cy="220" r="46"/>
+        <text class="ico" x="710" y="206">🔌</text>
+        <text class="val" x="710" y="240" id="v-red">0.0 kW</text>
+      </g>
+      <text class="node-lbl" x="710" y="290">Red eléctrica</text>
+
+      <!-- Nodo Coche -->
+      <g class="node" id="n-coche">
+        <circle class="ring" cx="540" cy="360" r="46"/>
+        <text class="ico" x="540" y="346">🚗</text>
+        <text class="val" x="540" y="380" id="v-coche">0.0 kW</text>
+      </g>
+      <text class="node-lbl" x="540" y="420">Coche eléctrico</text>
     </svg>
+
     <div class="flow-controls">
       <div class="ctrl">
         <label>Producción solar <b id="lbl-solar">0.0 kW</b></label>
         <input type="range" class="slider" id="in-solar" min="0" max="7" step="0.1" value="3">
       </div>
       <div class="ctrl">
-        <label>Consumo vivienda <b id="lbl-consumo">0.0 kW</b></label>
-        <input type="range" class="slider" id="in-consumo" min="0" max="7" step="0.1" value="1.5">
+        <label>Consumo vivienda <b id="lbl-casa">0.0 kW</b></label>
+        <input type="range" class="slider" id="in-casa" min="0" max="7" step="0.1" value="1.5">
+      </div>
+      <div class="ctrl">
+        <label style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <span style="display:flex;align-items:center;gap:8px">🚗 Coche <span class="toggle toggle-sm" id="t-coche" onclick="tCoche(this)"></span></span>
+          <b id="lbl-coche">0.0 kW</b>
+        </label>
+        <input type="range" class="slider" id="in-coche" min="0" max="11" step="0.1" value="7.4">
       </div>
       <button class="btn-auto" id="btn-auto">⏸ Pausar simulación</button>
     </div>
+
     <div style="font-size:11px;color:var(--td);margin-top:12px;text-align:right">🕐 Hora simulada: <b id="sim-hora" style="color:var(--t)">09:00</b> · 1 s ≈ 6 min</div>
   </div>
 
   <div class="grid" style="margin-top:16px">
     <div class="kpi"><div class="kpi-top">☀️ Producción solar hoy</div><div class="kpi-val" id="kpi-prod">—</div><div class="kpi-bar"><i id="bar-prod" style="background:linear-gradient(90deg,#ffc107,#ff9800)"></i></div></div>
-    <div class="kpi"><div class="kpi-top">🏠 Consumo vivienda</div><div class="kpi-val" id="kpi-cons">—</div><div class="kpi-bar"><i id="bar-cons" style="background:linear-gradient(90deg,#4fc3f7,#2979ff)"></i></div></div>
+    <div class="kpi"><div class="kpi-top">🏠 Consumo casa</div><div class="kpi-val" id="kpi-cons">—</div><div class="kpi-bar"><i id="bar-cons" style="background:linear-gradient(90deg,#4fc3f7,#2979ff)"></i></div></div>
+    <div class="kpi"><div class="kpi-top">🚗 Coche cargado</div><div class="kpi-val" id="kpi-coche">—</div><div class="kpi-bar"><i id="bar-coche" style="background:linear-gradient(90deg,#7c4dff,#b388ff)"></i></div></div>
     <div class="kpi"><div class="kpi-top">⬆️ Exportado a la red</div><div class="kpi-val" id="kpi-exp">—</div><div class="kpi-bar"><i id="bar-exp" style="background:linear-gradient(90deg,#4caf50,#8bc34a)"></i></div></div>
     <div class="kpi"><div class="kpi-top">⬇️ Importado de la red</div><div class="kpi-val" id="kpi-imp">—</div><div class="kpi-bar"><i id="bar-imp" style="background:linear-gradient(90deg,#ef5350,#ff7043)"></i></div></div>
   </div>
 
-  <div class="grid" style="margin-top:16px">
+  <div class="section-title">Dispositivos</div>
+  <div class="grid">
+    <!-- Fronius -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon" style="background:rgba(124,77,255,.18)">⚡</div>
+        <span class="badge green" id="badge-fronius">Produciendo</span>
+      </div>
+      <div class="card-name">Inversor Fronius</div>
+      <div class="card-sub">Primo GEN24 6.0 · AC 230 V</div>
+      <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px">
+        <div class="card-value" id="fron-prod">0.0</div>
+        <span style="font-size:13px;color:var(--td)">kW AC salida</span>
+      </div>
+      <div class="sensor-row" style="margin-top:12px"><span class="sensor-label">Eficiencia</span><span class="sensor-val">98.2 %</span></div>
+      <div class="sensor-row"><span class="sensor-label">Energía hoy</span><span class="sensor-val" id="fron-hoy">—</span></div>
+      <div class="sensor-row"><span class="sensor-label">Temperatura</span><span class="sensor-val" id="fron-temp">—</span></div>
+    </div>
+
+    <!-- Cargador coche -->
+    <div class="card" id="card-coche">
+      <div class="card-head">
+        <div class="card-icon" id="ico-coche">🚗</div>
+        <span class="badge" id="badge-coche">En espera</span>
+      </div>
+      <div class="card-name">Cargador coche eléctrico</div>
+      <div class="card-sub">Wallbox 11 kW · Tipo 2</div>
+      <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px">
+        <div class="card-value" id="coche-pot">0.0</div>
+        <span style="font-size:13px;color:var(--td)">kW de carga</span>
+      </div>
+      <div class="mode-btns">
+        <button class="mode-btn active" id="modo-max" onclick="setModoCoche('max')">⚡ Máx</button>
+        <button class="mode-btn" id="modo-solar" onclick="setModoCoche('solar')">☀️ Solo solar</button>
+      </div>
+      <div class="sensor-row" style="margin-top:12px"><span class="sensor-label">Energía hoy</span><span class="sensor-val" id="coche-hoy">—</span></div>
+      <div class="sensor-row"><span class="sensor-label">Sesión</span><span class="sensor-val" id="coche-sesion">—</span></div>
+    </div>
+
+    <!-- Batería (opcional, se muestra si TIENE_BATERIA = true) -->
+    <div class="card" id="card-bat" style="display:none">
+      <div class="card-head">
+        <div class="card-icon" style="background:rgba(76,175,80,.18)">🔋</div>
+        <span class="badge green" id="badge-bat">En reposo</span>
+      </div>
+      <div class="card-name">Batería doméstica</div>
+      <div class="card-sub">LiFePO4 · 10 kWh</div>
+      <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px">
+        <div class="card-value" id="bat-nivel">0</div>
+        <span style="font-size:13px;color:var(--td)">% cargada</span>
+      </div>
+      <div class="kpi-bar" style="margin-top:14px"><i id="bar-bat" style="background:linear-gradient(90deg,#4caf50,#8bc34a);width:0%"></i></div>
+      <div class="sensor-row" style="margin-top:12px"><span class="sensor-label">Potencia</span><span class="sensor-val" id="bat-pot">0.0 kW</span></div>
+      <div class="sensor-row"><span class="sensor-label">Ciclos</span><span class="sensor-val">142</span></div>
+    </div>
+  </div>
+
+  <div class="section-title">Estadísticas</div>
+  <div class="grid">
     <div class="card" style="grid-column:span 2;min-width:300px">
       <div class="card-head">
         <div><div class="card-name">Producción vs consumo · hoy</div><div class="card-sub">Curva horaria en kW</div></div>
@@ -250,7 +365,7 @@
       </svg>
       <div class="legend">
         <span><i class="dot" style="background:#ffc107"></i> Producción solar</span>
-        <span><i class="dot" style="background:#4fc3f7"></i> Consumo vivienda</span>
+        <span><i class="dot" style="background:#4fc3f7"></i> Consumo casa + coche</span>
       </div>
     </div>
     <div class="card">
