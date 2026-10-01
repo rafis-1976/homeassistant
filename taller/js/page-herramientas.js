@@ -6,7 +6,7 @@ TP.pageSub   = 'Inventario completo';
 TP.navId     = 'herramientas';
 
 let filtros = { q: '', cat: '', est: '', ubi: '', orden: 'nombre' };
-let cacheHerrs = [];   // caché en memoria de la última consulta
+let cacheHerrs = [];
 
 function cardHerramienta(h) {
   const est  = h.prestamo ? 'prestada' : (h.estado === 'averiada' ? 'averiada' : 'disponible');
@@ -81,11 +81,12 @@ function renderListaHerramientas() {
     cont.innerHTML = totalReg
       ? `<div class="empty"><div class="em">🔍</div><h3>Sin resultados</h3><p>No hay herramientas que coincidan con los filtros aplicados.</p></div>`
       : `<div class="empty"><div class="em">🧰</div><h3>Tu taller está vacío</h3><p>Añade tu primera herramienta para empezar a controlar tu inventario y préstamos.</p><button class="btn btn-primary" onclick="TP.nuevaHerramienta()">＋ Añadir herramienta</button></div>`;
+    const cnt = TP.$('#contador-herr');
+    if (cnt) cnt.textContent = `0 de ${totalReg}`;
     return;
   }
   cont.innerHTML = `<div class="grid">${list.map(cardHerramienta).join('')}</div>`;
 
-  // Contador
   const cnt = TP.$('#contador-herr');
   if (cnt) cnt.textContent = `${list.length} de ${totalReg}`;
 }
@@ -95,7 +96,6 @@ TP.onReady = async function () {
   $v.innerHTML = '<p style="color:var(--text-2);padding:20px">Cargando herramientas…</p>';
 
   try {
-    // 1. Cargar herramientas + préstamos activos + categorías + ubicaciones en paralelo
     const [
       { data: herrs, error: e1 },
       { data: prestamos },
@@ -109,13 +109,11 @@ TP.onReady = async function () {
     ]);
     if (e1) throw e1;
 
-    // 2. Adjuntar préstamo activo a cada herramienta
     const prestMap = {};
     (prestamos || []).forEach(p => { prestMap[p.herramienta_id] = p; });
 
     cacheHerrs = (herrs || []).map(h => TP.mapHerramienta(h, prestMap[h.id] || null));
 
-    // 3. Render de la estructura (toolbar + contenedor)
     $v.innerHTML = `
       <div class="toolbar">
         <div class="search">
@@ -147,7 +145,6 @@ TP.onReady = async function () {
 
     renderListaHerramientas();
 
-    // 4. Wiring de filtros (solo re-renderiza la lista, sin volver a pedir a Supabase)
     const q = TP.$('#f-q');
     if (q) {
       q.oninput = e => {
