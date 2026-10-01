@@ -10,8 +10,8 @@
 
 <div id="loader">
   <div class="spinner"></div>
-  <h2 id="loaderTitle">Cargando base de datos SQLite…</h2>
-  <p id="loaderMsg">Inicializando motor SQL en el navegador (sql.js / WebAssembly).</p>
+  <h2 id="loaderTitle">Conectando a Supabase…</h2>
+  <p id="loaderMsg">Estableciendo conexión con la base de datos PostgreSQL.</p>
 </div>
 
 <div id="app"></div>
@@ -32,8 +32,8 @@
 
 <div class="toasts" id="toasts"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.min.js"></script>
-<script src="js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-config.js"></script>
 <script src="js/page-ajustes.js"></script>
 </body>
 </html>
