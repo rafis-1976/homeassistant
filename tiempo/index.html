@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tiempo — Taller</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
 <style>
 /* ============ RESET & VARIABLES ============ */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -39,7 +43,6 @@ button{cursor:pointer;border:none;background:none}
 /* ============ LAYOUT ============ */
 .page{max-width:960px;margin:0 auto;padding:22px 18px 60px}
 
-/* Header */
 .header{
   display:flex;align-items:center;gap:14px;flex-wrap:wrap;
   margin-bottom:22px;
@@ -62,16 +65,13 @@ button{cursor:pointer;border:none;background:none}
 .btn-primary:hover{background:var(--primary-h);filter:none}
 .btn-ghost{background:transparent;border:1px solid var(--border)}
 .btn-ghost:hover{background:var(--surface-2);filter:none}
+.btn-sm{padding:6px 10px;font-size:12.5px;border-radius:8px}
 .btn-icon{padding:8px;width:36px;height:36px;border-radius:10px;background:transparent;color:var(--text-2);font-size:17px}
 .btn-icon:hover{background:var(--surface-2);color:var(--text)}
 
 /* ============ BARRA DE BÚSQUEDA ============ */
-.search-bar{
-  display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap;
-}
-.search-input-wrap{
-  flex:1;min-width:200px;position:relative;
-}
+.search-bar{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap}
+.search-input-wrap{flex:1;min-width:200px;position:relative}
 .search-input-wrap .ico{
   position:absolute;left:14px;top:50%;transform:translateY(-50%);
   color:var(--text-2);font-size:15px;pointer-events:none;
@@ -85,11 +85,10 @@ button{cursor:pointer;border:none;background:none}
   border-color:var(--primary);
   box-shadow:0 0 0 3px var(--primary-soft);
 }
-/* Sugerencias */
 .suggestions{
   position:absolute;top:calc(100% + 6px);left:0;right:0;
   background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);
-  box-shadow:var(--shadow-lg);z-index:50;max-height:280px;overflow-y:auto;
+  box-shadow:var(--shadow-lg);z-index:1000;max-height:280px;overflow-y:auto;
   display:none;
 }
 .suggestions.open{display:block}
@@ -105,9 +104,7 @@ button{cursor:pointer;border:none;background:none}
 .suggestion .s-country{font-size:11.5px;color:var(--text-2);margin-left:auto}
 
 /* ============ ESTADOS ============ */
-.state{
-  text-align:center;padding:60px 20px;color:var(--text-2);
-}
+.state{text-align:center;padding:60px 20px;color:var(--text-2)}
 .state .em{font-size:52px;margin-bottom:14px;opacity:.6}
 .state h3{font-size:17px;color:var(--text);margin-bottom:6px;font-weight:650}
 .state p{font-size:13.5px;max-width:400px;margin:0 auto 18px;line-height:1.6}
@@ -117,7 +114,7 @@ button{cursor:pointer;border:none;background:none}
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ============ UBICACIÓN ACTUAL ============ */
+/* ============ UBICACIÓN ============ */
 .location-bar{
   display:flex;align-items:center;gap:10px;flex-wrap:wrap;
   background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);
@@ -162,7 +159,7 @@ button{cursor:pointer;border:none;background:none}
 .main-detail .d-value{font-size:17px;font-weight:700;margin-top:3px;letter-spacing:-.3px}
 .main-detail .d-sub{font-size:11px;opacity:.75;margin-top:1px}
 
-/* ============ SECCIÓN SOL ============ */
+/* ============ SOL ============ */
 .sun-card{
   background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
   padding:18px 20px;box-shadow:var(--shadow);margin-bottom:20px;
@@ -172,9 +169,7 @@ button{cursor:pointer;border:none;background:none}
   display:flex;align-items:center;gap:8px;
 }
 .sun-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.sun-item{
-  display:flex;align-items:center;gap:10px;flex:1;min-width:120px;
-}
+.sun-item{display:flex;align-items:center;gap:10px;flex:1;min-width:120px}
 .sun-item .s-icon{
   width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
   font-size:20px;background:var(--surface-2);flex-shrink:0;
@@ -182,7 +177,6 @@ button{cursor:pointer;border:none;background:none}
 .sun-item .s-info{min-width:0}
 .sun-item .s-label{font-size:11.5px;color:var(--text-2);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
 .sun-item .s-value{font-size:15.5px;font-weight:700;letter-spacing:-.2px;margin-top:1px}
-/* Barra visual del día */
 .day-bar{
   margin-top:16px;height:10px;border-radius:10px;background:var(--surface-2);
   position:relative;overflow:hidden;
@@ -197,6 +191,152 @@ button{cursor:pointer;border:none;background:none}
   margin-top:6px;
 }
 
+/* ============ RADAR DE LLUVIA ============ */
+.radar-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden;
+}
+.radar-header{
+  padding:16px 20px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.radar-header h3{
+  font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;
+}
+.radar-header .radar-status{
+  margin-left:auto;font-size:12px;color:var(--text-2);
+  display:flex;align-items:center;gap:6px;
+}
+.radar-header .radar-status .dot{
+  width:8px;height:8px;border-radius:50%;background:var(--success);
+  animation:pulse 1.6s infinite;
+}
+.radar-header .radar-status.cargando .dot{background:var(--warning)}
+.radar-header .radar-status.error .dot{background:var(--danger);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* Mapa */
+#radar-map{
+  width:100%;height:420px;background:var(--surface-2);
+  position:relative;
+}
+@media(max-width:640px){
+  #radar-map{height:320px}
+}
+
+/* Ajustes de Leaflet a nuestro tema */
+.leaflet-container{font-family:inherit;background:var(--surface-2)}
+[data-theme="oscuro"] .leaflet-tile-container img{
+  filter: brightness(.85) contrast(1.1);
+}
+.leaflet-control-attribution{
+  background:rgba(255,255,255,.85) !important;
+  color:#333 !important;
+  font-size:10px !important;
+}
+[data-theme="oscuro"] .leaflet-control-attribution{
+  background:rgba(23,27,35,.85) !important;
+  color:#9aa3b2 !important;
+}
+[data-theme="oscuro"] .leaflet-control-attribution a{color:#4d84ff !important}
+
+/* Controles de animación del radar */
+.radar-controls{
+  padding:14px 18px 16px;
+  display:flex;flex-direction:column;gap:11px;
+  background:var(--surface);
+}
+.radar-controls-row{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+}
+.radar-play{
+  width:42px;height:42px;border-radius:12px;
+  background:var(--primary);color:#fff;font-size:17px;
+  display:grid;place-items:center;flex-shrink:0;
+  box-shadow:0 2px 8px rgba(37,99,235,.28);
+  transition:.15s;
+}
+.radar-play:hover{background:var(--primary-h)}
+.radar-play:active{transform:scale(.95)}
+
+.radar-slider-wrap{
+  flex:1;min-width:180px;position:relative;
+}
+.radar-slider{
+  width:100%;height:6px;border-radius:6px;
+  background:var(--surface-2);outline:none;
+  -webkit-appearance:none;appearance:none;cursor:pointer;
+  display:block;
+}
+.radar-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:18px;height:18px;border-radius:50%;
+  background:var(--primary);cursor:pointer;
+  box-shadow:0 0 0 4px var(--primary-soft);
+  transition:transform .12s;
+}
+.radar-slider::-webkit-slider-thumb:hover{transform:scale(1.1)}
+.radar-slider::-moz-range-thumb{
+  width:18px;height:18px;border-radius:50%;
+  background:var(--primary);cursor:pointer;border:none;
+  box-shadow:0 0 0 4px var(--primary-soft);
+}
+
+.radar-time{
+  font-size:13.5px;font-weight:700;min-width:120px;text-align:right;
+  font-variant-numeric:tabular-nums;
+  color:var(--text);
+}
+.radar-time .offset{
+  font-size:11.5px;font-weight:500;color:var(--text-2);
+  display:block;margin-top:1px;
+}
+
+.radar-speed{
+  display:flex;gap:2px;background:var(--surface-2);padding:3px;border-radius:9px;
+  flex-shrink:0;
+}
+.radar-speed button{
+  padding:5px 10px;border-radius:6px;font-size:12px;font-weight:600;
+  color:var(--text-2);transition:.15s;
+}
+.radar-speed button:hover{color:var(--text)}
+.radar-speed button.active{
+  background:var(--surface);color:var(--primary);box-shadow:var(--shadow);
+}
+
+/* Leyenda */
+.radar-legend{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  font-size:11.5px;color:var(--text-2);
+  padding-top:6px;border-top:1px solid var(--border);
+}
+.radar-legend .legend-bar{
+  height:10px;border-radius:6px;flex:1;min-width:120px;max-width:260px;
+  background:linear-gradient(90deg,
+    #a4f5fc 0%, #3bb0f7 18%, #0b46c8 35%,
+    #3eeb2a 50%, #f7e641 65%, #f79e25 80%,
+    #e63e30 92%, #b2146b 100%);
+}
+.radar-legend .legend-label{font-weight:600;color:var(--text)}
+
+/* Marca de "tu ubicación" en el mapa */
+.user-marker{
+  width:18px;height:18px;border-radius:50%;
+  background:var(--primary);border:3px solid #fff;
+  box-shadow:0 0 0 6px rgba(37,99,235,.28);
+  position:relative;
+}
+.user-marker::after{
+  content:'';position:absolute;inset:-3px;
+  border-radius:50%;background:var(--primary);
+  animation:pulse-ring 2s infinite;
+}
+@keyframes pulse-ring{
+  0%{transform:scale(1);opacity:.6}
+  100%{transform:scale(2.4);opacity:0}
+}
+
 /* ============ PREVISIÓN 7 DÍAS ============ */
 .forecast-card{
   background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
@@ -209,21 +349,17 @@ button{cursor:pointer;border:none;background:none}
 .forecast-list{display:flex;flex-direction:column;gap:2px}
 .forecast-day{
   display:flex;align-items:center;gap:14px;padding:11px 10px;border-radius:10px;
-  transition:.12s;cursor:default;
+  transition:.12s;
 }
 .forecast-day:hover{background:var(--surface-2)}
-.forecast-day .f-day{
-  width:70px;font-weight:650;font-size:14px;flex-shrink:0;
-}
+.forecast-day .f-day{width:70px;font-weight:650;font-size:14px;flex-shrink:0}
 .forecast-day .f-day small{display:block;font-size:11px;color:var(--text-2);font-weight:500}
 .forecast-day .f-icon{font-size:26px;width:36px;text-align:center;flex-shrink:0}
 .forecast-day .f-precip{
   width:60px;font-size:12.5px;color:var(--info);font-weight:600;flex-shrink:0;
   display:flex;align-items:center;gap:4px;
 }
-.forecast-day .f-temps{
-  flex:1;display:flex;align-items:center;gap:10px;min-width:0;
-}
+.forecast-day .f-temps{flex:1;display:flex;align-items:center;gap:10px;min-width:0}
 .forecast-day .f-max{font-weight:700;font-size:15px;width:40px;text-align:right}
 .forecast-day .f-min{color:var(--text-2);font-size:14px;width:40px;text-align:right}
 .forecast-day .f-bar{
@@ -270,13 +406,14 @@ button{cursor:pointer;border:none;background:none}
   .forecast-day .f-day{width:56px;font-size:13px}
   .forecast-day .f-bar{display:none}
   .sun-item .s-value{font-size:14px}
+  .radar-time{text-align:left;min-width:0}
+  .radar-controls-row{gap:8px}
 }
 </style>
 </head>
 <body>
 <div class="page">
 
-  <!-- HEADER -->
   <header class="header">
     <h1><span class="icon">🌤️</span> El Tiempo</h1>
     <div class="header-actions">
@@ -285,7 +422,6 @@ button{cursor:pointer;border:none;background:none}
     </div>
   </header>
 
-  <!-- BÚSQUEDA -->
   <div class="search-bar">
     <div class="search-input-wrap">
       <span class="ico">🔍</span>
@@ -294,19 +430,22 @@ button{cursor:pointer;border:none;background:none}
     </div>
   </div>
 
-  <!-- CONTENIDO -->
   <div id="content"></div>
 
-  <!-- FOOTER -->
   <div class="footer">
-    Datos meteorológicos por <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · Gratis y sin clave API
+    Datos meteorológicos y radar por <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> y <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a> · Gratis, sin clave API
   </div>
 </div>
 
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
 /* ============================================================
-   Página del Tiempo — Open-Meteo API
-   Gratuita, sin clave. Datos actuales + previsión 7 días.
+   Página del Tiempo + Radar de lluvia animado
+   - Open-Meteo: previsión meteorológica
+   - RainViewer: radar de precipitación
+   - Leaflet: mapa base
    ============================================================ */
 (() => {
   'use strict';
@@ -319,12 +458,26 @@ button{cursor:pointer;border:none;background:none}
   const state = {
     lat: null, lon: null,
     lugar: 'Ubicación desconocida',
-    region: '',
-    pais: '',
+    region: '', pais: '',
     datos: null,
     cargando: false,
     error: null,
     tema: localStorage.getItem('tiempo_tema') || 'claro'
+  };
+
+  /* ---------- Estado del radar ---------- */
+  const radar = {
+    map: null,
+    baseLayer: null,
+    radarLayer: null,
+    frames: [],           // [{ time, path, tipo: 'past' | 'nowcast' }]
+    index: 0,
+    playing: false,
+    velocidad: 600,       // ms por fotograma
+    timer: null,
+    host: 'https://tilecache.rainviewer.com',
+    cargado: false,
+    error: null
   };
 
   /* ---------- Tema ---------- */
@@ -334,64 +487,62 @@ button{cursor:pointer;border:none;background:none}
     document.documentElement.dataset.theme = t;
     const b = $('#btnTheme');
     if (b) b.textContent = t === 'oscuro' ? '☀️' : '🌙';
+
+    // Cambiar basemap del radar si ya está inicializado
+    if (radar.map) {
+      radar.map.removeLayer(radar.baseLayer);
+      radar.baseLayer = crearBasemap();
+      radar.baseLayer.addTo(radar.map);
+      radar.baseLayer.bringToBack();
+    }
   }
 
   /* ---------- Códigos meteorológicos WMO ---------- */
   const WMO = {
-    0:  { txt: 'Cielo despejado',                icon: '☀️',  night: '🌙' },
-    1:  { txt: 'Mayormente despejado',           icon: '🌤️', night: '🌙' },
-    2:  { txt: 'Parcialmente nublado',           icon: '⛅',  night: '☁️' },
-    3:  { txt: 'Nublado',                        icon: '☁️',  night: '☁️' },
-    45: { txt: 'Niebla',                         icon: '🌫️', night: '🌫️' },
-    48: { txt: 'Niebla con escarcha',            icon: '🌫️', night: '🌫️' },
-    51: { txt: 'Llovizna ligera',                icon: '🌦️', night: '🌦️' },
-    53: { txt: 'Llovizna moderada',              icon: '🌦️', night: '🌦️' },
-    55: { txt: 'Llovizna densa',                 icon: '🌧️', night: '🌧️' },
-    56: { txt: 'Llovizna helada ligera',         icon: '🌧️', night: '🌧️' },
-    57: { txt: 'Llovizna helada densa',          icon: '🌧️', night: '🌧️' },
-    61: { txt: 'Lluvia ligera',                  icon: '🌧️', night: '🌧️' },
-    63: { txt: 'Lluvia moderada',                icon: '🌧️', night: '🌧️' },
-    65: { txt: 'Lluvia fuerte',                  icon: '🌧️', night: '🌧️' },
-    66: { txt: 'Lluvia helada ligera',           icon: '🌧️', night: '🌧️' },
-    67: { txt: 'Lluvia helada fuerte',           icon: '🌧️', night: '🌧️' },
-    71: { txt: 'Nevada ligera',                  icon: '🌨️', night: '🌨️' },
-    73: { txt: 'Nevada moderada',                icon: '🌨️', night: '🌨️' },
-    75: { txt: 'Nevada fuerte',                  icon: '❄️',  night: '❄️' },
-    77: { txt: 'Granizo',                        icon: '🌨️', night: '🌨️' },
-    80: { txt: 'Chubascos ligeros',              icon: '🌦️', night: '🌦️' },
-    81: { txt: 'Chubascos moderados',            icon: '🌧️', night: '🌧️' },
-    82: { txt: 'Chubascos violentos',            icon: '⛈️', night: '⛈️' },
-    85: { txt: 'Chubascos de nieve ligeros',     icon: '🌨️', night: '🌨️' },
-    86: { txt: 'Chubascos de nieve fuertes',     icon: '❄️',  night: '❄️' },
-    95: { txt: 'Tormenta',                       icon: '⛈️', night: '⛈️' },
-    96: { txt: 'Tormenta con granizo ligero',    icon: '⛈️', night: '⛈️' },
-    99: { txt: 'Tormenta con granizo fuerte',    icon: '⛈️', night: '⛈️' }
+    0:{txt:'Cielo despejado',icon:'☀️',night:'🌙'},
+    1:{txt:'Mayormente despejado',icon:'🌤️',night:'🌙'},
+    2:{txt:'Parcialmente nublado',icon:'⛅',night:'☁️'},
+    3:{txt:'Nublado',icon:'☁️',night:'☁️'},
+    45:{txt:'Niebla',icon:'🌫️',night:'🌫️'},
+    48:{txt:'Niebla con escarcha',icon:'🌫️',night:'🌫️'},
+    51:{txt:'Llovizna ligera',icon:'🌦️',night:'🌦️'},
+    53:{txt:'Llovizna moderada',icon:'🌦️',night:'🌦️'},
+    55:{txt:'Llovizna densa',icon:'🌧️',night:'🌧️'},
+    56:{txt:'Llovizna helada ligera',icon:'🌧️',night:'🌧️'},
+    57:{txt:'Llovizna helada densa',icon:'🌧️',night:'🌧️'},
+    61:{txt:'Lluvia ligera',icon:'🌧️',night:'🌧️'},
+    63:{txt:'Lluvia moderada',icon:'🌧️',night:'🌧️'},
+    65:{txt:'Lluvia fuerte',icon:'🌧️',night:'🌧️'},
+    66:{txt:'Lluvia helada ligera',icon:'🌧️',night:'🌧️'},
+    67:{txt:'Lluvia helada fuerte',icon:'🌧️',night:'🌧️'},
+    71:{txt:'Nevada ligera',icon:'🌨️',night:'🌨️'},
+    73:{txt:'Nevada moderada',icon:'🌨️',night:'🌨️'},
+    75:{txt:'Nevada fuerte',icon:'❄️',night:'❄️'},
+    77:{txt:'Granizo',icon:'🌨️',night:'🌨️'},
+    80:{txt:'Chubascos ligeros',icon:'🌦️',night:'🌦️'},
+    81:{txt:'Chubascos moderados',icon:'🌧️',night:'🌧️'},
+    82:{txt:'Chubascos violentos',icon:'⛈️',night:'⛈️'},
+    85:{txt:'Chubascos de nieve ligeros',icon:'🌨️',night:'🌨️'},
+    86:{txt:'Chubascos de nieve fuertes',icon:'❄️',night:'❄️'},
+    95:{txt:'Tormenta',icon:'⛈️',night:'⛈️'},
+    96:{txt:'Tormenta con granizo ligero',icon:'⛈️',night:'⛈️'},
+    99:{txt:'Tormenta con granizo fuerte',icon:'⛈️',night:'⛈️'}
   };
   function infoTiempo(code, esDia = true) {
     const w = WMO[code] || { txt: 'Desconocido', icon: '❓', night: '❓' };
     return { txt: w.txt, icon: esDia ? w.icon : (w.night || w.icon) };
   }
 
-  /* ---------- Dirección del viento ---------- */
   function dirViento(deg) {
     if (deg == null) return '—';
     const d = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
     return d[Math.round(deg / 22.5) % 16];
   }
 
-  /* ---------- Formatear hora ISO local ---------- */
   function fmtHora(iso) {
     if (!iso) return '—';
-    try {
-      return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-    } catch { return iso.slice(11, 16); }
-  }
-
-  /* ---------- Formatear fecha ---------- */
-  function fmtFecha(iso) {
-    if (!iso) return '';
-    const d = new Date(iso + 'T00:00:00');
-    return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
+    try { return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }
+    catch { return iso.slice(11, 16); }
   }
   function fmtDiaCorto(iso) {
     const d = new Date(iso + 'T00:00:00');
@@ -400,6 +551,12 @@ button{cursor:pointer;border:none;background:none}
     if (diff === 0) return 'Hoy';
     if (diff === 1) return 'Mañana';
     return d.toLocaleDateString('es-ES', { weekday: 'short' });
+  }
+  function formatearDuracion(segundos) {
+    if (!segundos && segundos !== 0) return '—';
+    const h = Math.floor(segundos / 3600);
+    const m = Math.round((segundos % 3600) / 60);
+    return `${h}h ${m}m`;
   }
 
   /* ============================================================
@@ -418,7 +575,6 @@ button{cursor:pointer;border:none;background:none}
       async (pos) => {
         state.lat = pos.coords.latitude;
         state.lon = pos.coords.longitude;
-        // Intentar obtener el nombre del lugar con reverse geocoding
         await reverseGeocode(state.lat, state.lon);
         await cargarTiempo();
       },
@@ -434,13 +590,8 @@ button{cursor:pointer;border:none;background:none}
     );
   }
 
-  /* Reverse geocoding: coordenadas → nombre de lugar */
   async function reverseGeocode(lat, lon) {
     try {
-      const r = await fetch(
-        `https://geocoding-api.open-meteo.com/v1/search?name=&latitude=${lat}&longitude=${lon}&count=1&language=es`
-      );
-      // La API de geocodificación no hace reverse directo; usamos BigDataCloud (también gratuita) como alternativa
       const r2 = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=es`);
       if (r2.ok) {
         const d = await r2.json();
@@ -456,35 +607,27 @@ button{cursor:pointer;border:none;background:none}
   }
 
   /* ============================================================
-     GEOCODING: buscar ciudad por nombre
+     BUSCADOR
      ============================================================ */
   let buscadorTimer = null;
   let sugerenciasActuales = [];
   let indiceSugerencia = -1;
 
   async function buscarCiudades(q) {
-    if (!q || q.length < 2) {
-      cerrarSugerencias();
-      return;
-    }
+    if (!q || q.length < 2) { cerrarSugerencias(); return; }
     try {
-      const r = await fetch(
-        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=es&format=json`
-      );
+      const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=es&format=json`);
       if (!r.ok) return;
       const d = await r.json();
       sugerenciasActuales = d.results || [];
       renderSugerencias();
-    } catch (e) {
-      console.warn('Error buscando ciudades:', e);
-    }
+    } catch (e) { console.warn(e); }
   }
 
   function renderSugerencias() {
     const cont = $('#suggestions');
     if (!sugerenciasActuales.length) { cerrarSugerencias(); return; }
     cont.innerHTML = sugerenciasActuales.map((c, i) => {
-      const region = [c.admin1, c.country].filter(Boolean).join(', ');
       return `
         <div class="suggestion" data-i="${i}">
           <span class="s-icon">📍</span>
@@ -495,7 +638,6 @@ button{cursor:pointer;border:none;background:none}
     }).join('');
     cont.classList.add('open');
     indiceSugerencia = -1;
-
     cont.querySelectorAll('.suggestion').forEach(el => {
       el.onclick = () => seleccionarSugerencia(+el.dataset.i);
     });
@@ -521,7 +663,7 @@ button{cursor:pointer;border:none;background:none}
   }
 
   /* ============================================================
-     CARGA DE DATOS METEOROLÓGICOS
+     CARGA DEL TIEMPO
      ============================================================ */
   async function cargarTiempo() {
     if (state.lat == null || state.lon == null) return;
@@ -533,42 +675,18 @@ button{cursor:pointer;border:none;background:none}
       const params = new URLSearchParams({
         latitude: state.lat,
         longitude: state.lon,
-        // Actuales
         current: [
-          'temperature_2m',
-          'relative_humidity_2m',
-          'apparent_temperature',
-          'is_day',
-          'precipitation',
-          'rain',
-          'weather_code',
-          'cloud_cover',
-          'pressure_msl',
-          'wind_speed_10m',
-          'wind_direction_10m',
-          'wind_gusts_10m'
+          'temperature_2m','relative_humidity_2m','apparent_temperature','is_day',
+          'precipitation','rain','weather_code','cloud_cover','pressure_msl',
+          'wind_speed_10m','wind_direction_10m','wind_gusts_10m'
         ].join(','),
-        // Diarios (7 días)
         daily: [
-          'weather_code',
-          'temperature_2m_max',
-          'temperature_2m_min',
-          'apparent_temperature_max',
-          'apparent_temperature_min',
-          'sunrise',
-          'sunset',
-          'daylight_duration',
-          'sunshine_duration',
-          'uv_index_max',
-          'precipitation_sum',
-          'rain_sum',
-          'showers_sum',
-          'snowfall_sum',
-          'precipitation_hours',
-          'precipitation_probability_max',
-          'wind_speed_10m_max',
-          'wind_gusts_10m_max',
-          'wind_direction_10m_dominant'
+          'weather_code','temperature_2m_max','temperature_2m_min',
+          'apparent_temperature_max','apparent_temperature_min',
+          'sunrise','sunset','daylight_duration','sunshine_duration','uv_index_max',
+          'precipitation_sum','rain_sum','showers_sum','snowfall_sum',
+          'precipitation_hours','precipitation_probability_max',
+          'wind_speed_10m_max','wind_gusts_10m_max','wind_direction_10m_dominant'
         ].join(','),
         timezone: 'auto',
         forecast_days: '7',
@@ -582,11 +700,215 @@ button{cursor:pointer;border:none;background:none}
       state.datos = await r.json();
       state.cargando = false;
       render();
+      // Una vez pintado el HTML, inicializar/actualizar el radar
+      initRadar();
     } catch (e) {
       state.cargando = false;
       state.error = e.message || 'Error desconocido';
       render();
     }
+  }
+
+  /* ============================================================
+     RADAR DE LLUVIA (RainViewer + Leaflet)
+     ============================================================ */
+
+  function crearBasemap() {
+    // Usamos CARTO para que combine con el tema claro/oscuro
+    if (state.tema === 'oscuro') {
+      return L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          subdomains: 'abcd',
+          maxZoom: 19
+        }
+      );
+    }
+    return L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+      }
+    );
+  }
+
+  async function initRadar() {
+    const mapEl = document.getElementById('radar-map');
+    if (!mapEl || state.lat == null || state.lon == null) return;
+
+    // Si ya estaba creado, solo recentrar
+    if (radar.map) {
+      radar.map.setView([state.lat, state.lon], radar.map.getZoom() || 8);
+      actualizarMarcadorUsuario();
+      return;
+    }
+
+    // 1. Crear mapa
+    radar.map = L.map('radar-map', {
+      center: [state.lat, state.lon],
+      zoom: 8,
+      zoomControl: true,
+      attributionControl: true,
+      preferCanvas: true
+    });
+
+    // 2. Basemap
+    radar.baseLayer = crearBasemap();
+    radar.baseLayer.addTo(radar.map);
+
+    // 3. Marcador de usuario
+    actualizarMarcadorUsuario();
+
+    // 4. Cargar frames de RainViewer
+    await cargarFramesRadar();
+
+    // 5. Pintar el fotograma actual
+    aplicarFotograma(radar.index);
+
+    // 6. Reajustar tamaño por si el contenedor cambió
+    setTimeout(() => { try { radar.map.invalidateSize(); } catch {} }, 150);
+  }
+
+  let marcadorUsuario = null;
+  function actualizarMarcadorUsuario() {
+    if (!radar.map || state.lat == null) return;
+    if (marcadorUsuario) radar.map.removeLayer(marcadorUsuario);
+    const icono = L.divIcon({
+      className: '',
+      html: '<div class="user-marker"></div>',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9]
+    });
+    marcadorUsuario = L.marker([state.lat, state.lon], { icon: icono, interactive: false })
+      .addTo(radar.map);
+  }
+
+  async function cargarFramesRadar() {
+    const status = document.getElementById('radar-status');
+    if (status) { status.className = 'radar-status cargando'; status.innerHTML = '<span class="dot"></span> Cargando radar…'; }
+
+    try {
+      const r = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const data = await r.json();
+
+      radar.host = data.host || 'https://tilecache.rainviewer.com';
+      const past = (data.radar && data.radar.past) || [];
+      const nowcast = (data.radar && data.radar.nowcast) || [];
+
+      // Normalizar
+      radar.frames = [
+        ...past.map(f => ({ time: f.time, path: f.path, tipo: 'past' })),
+        ...nowcast.map(f => ({ time: f.time, path: f.path, tipo: 'nowcast' }))
+      ];
+
+      // Empezar por el último fotograma del pasado (lo más reciente)
+      radar.index = past.length > 0 ? past.length - 1 : 0;
+      radar.cargado = true;
+      radar.error = null;
+
+      // Actualizar el slider con el rango correcto
+      const slider = document.getElementById('radar-slider');
+      if (slider) {
+        slider.min = 0;
+        slider.max = Math.max(0, radar.frames.length - 1);
+        slider.value = radar.index;
+      }
+
+      if (status) {
+        status.className = 'radar-status';
+        const ahora = new Date();
+        status.innerHTML = '<span class="dot"></span> Radar en vivo · ' + ahora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      }
+    } catch (e) {
+      console.error('Error cargando radar:', e);
+      radar.error = e.message;
+      if (status) {
+        status.className = 'radar-status error';
+        status.innerHTML = '<span class="dot"></span> Radar no disponible';
+      }
+    }
+  }
+
+  function aplicarFotograma(i) {
+    if (!radar.map || !radar.frames.length) return;
+    const f = radar.frames[i];
+    if (!f) return;
+
+    // Eliminar capa anterior
+    if (radar.radarLayer) {
+      try { radar.map.removeLayer(radar.radarLayer); } catch {}
+    }
+
+    // Crear nueva capa con el timestamp del fotograma
+    // Formato RainViewer: /v2/radar/{time}/256/{z}/{x}/{y}/{color}/{options}.png
+    // color 2 = "Universal Blue", options 1_1 = smooth + snow
+    const url = `${radar.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`;
+    radar.radarLayer = L.tileLayer(url, {
+      tileSize: 256,
+      opacity: 0.75,
+      zIndex: 10,
+      attribution: ''
+    });
+    radar.radarLayer.addTo(radar.map);
+
+    // Actualizar UI: hora y etiqueta
+    actualizarHoraRadar(f);
+  }
+
+  function actualizarHoraRadar(f) {
+    const el = document.getElementById('radar-time');
+    if (!el) return;
+
+    const fecha = new Date(f.time * 1000);
+    const ahora = new Date();
+    const diffMin = Math.round((fecha - ahora) / 60000);
+
+    let etiqueta;
+    if (diffMin === 0) etiqueta = 'ahora mismo';
+    else if (diffMin > 0) etiqueta = `dentro de ${diffMin} min`;
+    else etiqueta = `hace ${Math.abs(diffMin)} min`;
+
+    // Marcar si es previsión (nowcast)
+    const prefiere = f.tipo === 'nowcast' ? ' · previsión' : '';
+
+    el.innerHTML = `
+      ${fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+      <span class="offset">${etiqueta}${prefiere}</span>
+    `;
+
+    // Actualizar slider
+    const slider = document.getElementById('radar-slider');
+    if (slider) slider.value = radar.index;
+  }
+
+  function playRadar() {
+    if (radar.playing) return;
+    if (!radar.frames.length) return;
+    radar.playing = true;
+    actualizarBotonPlay();
+
+    const avanzar = () => {
+      if (!radar.playing) return;
+      radar.index = (radar.index + 1) % radar.frames.length;
+      aplicarFotograma(radar.index);
+      radar.timer = setTimeout(avanzar, radar.velocidad);
+    };
+    avanzar();
+  }
+
+  function pauseRadar() {
+    radar.playing = false;
+    clearTimeout(radar.timer);
+    actualizarBotonPlay();
+  }
+
+  function actualizarBotonPlay() {
+    const b = document.getElementById('radar-play');
+    if (b) b.textContent = radar.playing ? '⏸' : '▶';
   }
 
   /* ============================================================
@@ -626,13 +948,11 @@ button{cursor:pointer;border:none;background:none}
     const esDia = cur.is_day === 1;
     const tiempo = infoTiempo(cur.weather_code, esDia);
 
-    // Datos de HOY
     const sunrise = daily.sunrise?.[0];
     const sunset = daily.sunset?.[0];
-    const daylight = daily.daylight_duration?.[0];       // segundos
-    const sunshine = daily.sunshine_duration?.[0];        // segundos
+    const daylight = daily.daylight_duration?.[0];
+    const sunshine = daily.sunshine_duration?.[0];
 
-    // Barra del día: calcular posición actual entre amanecer y anochecer
     let barLeft = 0, barWidth = 0;
     if (sunrise && sunset) {
       const ahora = new Date();
@@ -644,12 +964,10 @@ button{cursor:pointer;border:none;background:none}
       barWidth = esDia ? Math.min(100 - barLeft, 100) : 0;
     }
 
-    // Totales de lluvia de la semana
     const lluviaSemana = (daily.precipitation_sum || []).reduce((s, x) => s + (x || 0), 0);
     const diasConLluvia = (daily.precipitation_sum || []).filter(x => x > 0.5).length;
     const probMaxSemana = Math.max(...(daily.precipitation_probability_max || [0]));
 
-    // Previsión 7 días: rango de temperaturas para las barras
     const tempMaxGlobal = Math.max(...(daily.temperature_2m_max || [0]));
     const tempMinGlobal = Math.min(...(daily.temperature_2m_min || [0]));
     const rangoTemp = Math.max(1, tempMaxGlobal - tempMinGlobal);
@@ -681,7 +999,6 @@ button{cursor:pointer;border:none;background:none}
             <div class="main-sub">Sensación térmica ${Math.round(cur.apparent_temperature)}° · Máx ${Math.round(daily.temperature_2m_max[0])}° / Mín ${Math.round(daily.temperature_2m_min[0])}°</div>
           </div>
         </div>
-
         <div class="main-details">
           <div class="main-detail">
             <div class="d-label">💧 Humedad</div>
@@ -707,6 +1024,42 @@ button{cursor:pointer;border:none;background:none}
           <div class="main-detail">
             <div class="d-label">🔆 UV máx</div>
             <div class="d-value">${daily.uv_index_max?.[0] ?? '—'}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RADAR DE LLUVIA -->
+      <div class="radar-card">
+        <div class="radar-header">
+          <h3>📡 Radar de lluvia en tiempo real</h3>
+          <div class="radar-status" id="radar-status"><span class="dot"></span> Inicializando…</div>
+        </div>
+
+        <div id="radar-map"></div>
+
+        <div class="radar-controls">
+          <div class="radar-controls-row">
+            <button class="radar-play" id="radar-play" title="Reproducir / Pausar">▶</button>
+
+            <div class="radar-slider-wrap">
+              <input type="range" class="radar-slider" id="radar-slider" min="0" max="0" value="0" step="1">
+            </div>
+
+            <div class="radar-time" id="radar-time">—</div>
+
+            <div class="radar-speed" role="group" aria-label="Velocidad de animación">
+              <button data-v="900">×0.5</button>
+              <button data-v="600" class="active">×1</button>
+              <button data-v="300">×2</button>
+              <button data-v="150">×4</button>
+            </div>
+          </div>
+
+          <div class="radar-legend">
+            <span class="legend-label">Intensidad</span>
+            <span>Débil</span>
+            <div class="legend-bar"></div>
+            <span>Fuerte</span>
           </div>
         </div>
       </div>
@@ -778,13 +1131,9 @@ button{cursor:pointer;border:none;background:none}
             const tMax = daily.temperature_2m_max[i];
             const tMin = daily.temperature_2m_min[i];
             const prob = daily.precipitation_probability_max[i] || 0;
-            const lluvia = daily.precipitation_sum[i] || 0;
             const esHoy = i === 0;
-
-            // Posición de la barra de temperatura
             const leftPct = ((tMin - tempMinGlobal) / rangoTemp) * 100;
             const widthPct = ((tMax - tMin) / rangoTemp) * 100;
-
             return `
               <div class="forecast-day" ${esHoy ? 'style="background:var(--primary-soft)"' : ''}>
                 <div class="f-day">
@@ -807,14 +1156,52 @@ button{cursor:pointer;border:none;background:none}
         </div>
       </div>
     `;
+
+    // Wiring del radar (después de que exista el DOM)
+    wireRadar();
   }
 
-  /* ---------- Utilidades de formato ---------- */
-  function formatearDuracion(segundos) {
-    if (!segundos && segundos !== 0) return '—';
-    const h = Math.floor(segundos / 3600);
-    const m = Math.round((segundos % 3600) / 60);
-    return `${h}h ${m}m`;
+  /* ============================================================
+     WIRING DEL RADAR
+     ============================================================ */
+  function wireRadar() {
+    const slider = document.getElementById('radar-slider');
+    const play = document.getElementById('radar-play');
+    const speeds = document.querySelectorAll('.radar-speed button');
+
+    if (slider) {
+      slider.oninput = (e) => {
+        pauseRadar();
+        radar.index = parseInt(e.target.value, 10);
+        aplicarFotograma(radar.index);
+      };
+    }
+    if (play) {
+      play.onclick = () => { radar.playing ? pauseRadar() : playRadar(); };
+    }
+    speeds.forEach(b => {
+      b.onclick = () => {
+        speeds.forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        radar.velocidad = parseInt(b.dataset.v, 10);
+        if (radar.playing) { pauseRadar(); playRadar(); }
+      };
+    });
+
+    // Si ya había mapa creado y ahora se cambió de ciudad,
+    // recentramos y volvemos a cargar el radar.
+    if (radar.map) {
+      radar.map.setView([state.lat, state.lon], radar.map.getZoom() || 8);
+      actualizarMarcadorUsuario();
+      // Recargar solo si el mapa ya no tiene la capa radar
+      if (radar.radarLayer && radar.frames.length) {
+        aplicarFotograma(radar.index);
+      } else {
+        cargarFramesRadar().then(() => aplicarFotograma(radar.index));
+      }
+    } else {
+      // Primera vez: lo llama initRadar() al final de render()
+    }
   }
 
   function mostrarError(titulo, msg) {
@@ -828,16 +1215,12 @@ button{cursor:pointer;border:none;background:none}
   }
 
   /* ============================================================
-     WIRING
+     WIRING GENERAL
      ============================================================ */
   function wire() {
-    // Tema
     $('#btnTheme').onclick = () => setTema(state.tema === 'oscuro' ? 'claro' : 'oscuro');
-
-    // Geolocalización
     $('#btnGeo').onclick = () => geolocalizar();
 
-    // Buscador con debounce
     const input = $('#search');
     input.addEventListener('input', () => {
       clearTimeout(buscadorTimer);
@@ -849,11 +1232,11 @@ button{cursor:pointer;border:none;background:none}
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         indiceSugerencia = Math.min(indiceSugerencia + 1, items.length - 1);
-        actualizarSeleccion(items);
+        items.forEach((el, i) => el.classList.toggle('active', i === indiceSugerencia));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         indiceSugerencia = Math.max(indiceSugerencia - 1, 0);
-        actualizarSeleccion(items);
+        items.forEach((el, i) => el.classList.toggle('active', i === indiceSugerencia));
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (indiceSugerencia >= 0) seleccionarSugerencia(indiceSugerencia);
@@ -862,18 +1245,15 @@ button{cursor:pointer;border:none;background:none}
         cerrarSugerencias();
       }
     });
-    input.addEventListener('blur', () => {
-      setTimeout(cerrarSugerencias, 200);
-    });
-
-    // Click fuera cierra sugerencias
+    input.addEventListener('blur', () => setTimeout(cerrarSugerencias, 200));
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.search-input-wrap')) cerrarSugerencias();
     });
-  }
 
-  function actualizarSeleccion(items) {
-    items.forEach((el, i) => el.classList.toggle('active', i === indiceSugerencia));
+    // Pausar radar si cambiamos de pestaña
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && radar.playing) pauseRadar();
+    });
   }
 
   /* ============================================================
@@ -883,12 +1263,9 @@ button{cursor:pointer;border:none;background:none}
     setTema(state.tema);
     wire();
     render();
-    // Intentar geolocalización automática
     if (navigator.geolocation) {
       navigator.permissions?.query({ name: 'geolocation' }).then(p => {
-        if (p.state === 'granted') {
-          geolocalizar();
-        }
+        if (p.state === 'granted') geolocalizar();
       }).catch(() => {});
     }
   }
