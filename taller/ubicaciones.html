@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="claro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TallerPro — Ubicaciones</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div id="loader">
+  <div class="spinner"></div>
+  <h2 id="loaderTitle">Cargando base de datos SQLite…</h2>
+  <p id="loaderMsg">Inicializando motor SQL en el navegador (sql.js / WebAssembly).</p>
+</div>
+
+<div id="app"></div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">Título</h3>
+      <button class="btn-icon" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="modalCancel">Cancelar</button>
+      <button class="btn btn-primary" id="modalSave">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.min.js"></script>
+<script src="js/common.js"></script>
+<script src="js/page-ubicaciones.js"></script>
+</body>
+</html>
