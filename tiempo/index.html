@@ -102,8 +102,8 @@ button{cursor:pointer;border:none;background:none}
 .main-detail .d-value{font-size:17px;font-weight:700;margin-top:3px;letter-spacing:-.3px}
 .main-detail .d-sub{font-size:11px;opacity:.75;margin-top:1px}
 
-.sun-card,.forecast-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);margin-bottom:20px}
-.sun-title,.forecast-title{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.sun-card,.forecast-card,.hourly-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);margin-bottom:20px}
+.sun-title,.forecast-title,.hourly-title{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .sun-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .sun-item{display:flex;align-items:center;gap:10px;flex:1;min-width:120px}
 .sun-item .s-icon{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:var(--surface-2);flex-shrink:0}
@@ -112,6 +112,64 @@ button{cursor:pointer;border:none;background:none}
 .day-bar{margin-top:16px;height:10px;border-radius:10px;background:var(--surface-2);position:relative;overflow:hidden}
 .day-bar .day-fill{position:absolute;top:0;bottom:0;border-radius:10px;background:linear-gradient(90deg,#fbbf24,#f97316,#8b5cf6);transition:left .5s,width .5s}
 .day-bar-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--text-2);margin-top:6px}
+
+/* ============ PREVISIÓN POR HORAS ============ */
+.hourly-selector{
+  display:flex;gap:5px;overflow-x:auto;padding-bottom:6px;margin-bottom:14px;
+  scrollbar-width:thin;
+}
+.hourly-selector::-webkit-scrollbar{height:6px}
+.hourly-selector::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px}
+.hourly-selector button{
+  flex-shrink:0;padding:7px 13px;border-radius:20px;font-size:12.5px;font-weight:600;
+  background:var(--surface-2);color:var(--text-2);transition:.15s;white-space:nowrap;
+}
+.hourly-selector button:hover{color:var(--text)}
+.hourly-selector button.active{
+  background:var(--primary);color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.28);
+}
+.hourly-selector button .small{font-size:10.5px;font-weight:500;opacity:.85;margin-left:4px}
+
+.hourly-carousel{
+  display:flex;gap:10px;overflow-x:auto;padding:6px 2px 10px;
+  scrollbar-width:thin;
+}
+.hourly-carousel::-webkit-scrollbar{height:8px}
+.hourly-carousel::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px}
+
+.hour{
+  flex-shrink:0;width:78px;padding:10px 6px;border-radius:12px;
+  background:var(--surface-2);display:flex;flex-direction:column;
+  align-items:center;gap:5px;transition:.15s;text-align:center;
+}
+.hour:hover{background:var(--primary-soft)}
+.hour.actual{
+  background:var(--primary-soft);
+  box-shadow:0 0 0 2px var(--primary) inset;
+}
+.hour .h-hora{
+  font-size:11.5px;font-weight:700;color:var(--text-2);
+}
+.hour.actual .h-hora{color:var(--primary)}
+.hour .h-icon{font-size:22px;line-height:1}
+.hour .h-temp{
+  font-size:14px;font-weight:700;letter-spacing:-.3px;
+}
+.hour .h-precip{
+  font-size:10.5px;font-weight:600;color:var(--info);
+  display:flex;align-items:center;gap:2px;
+}
+.hour .h-precip.cero{color:var(--text-2);opacity:.4}
+.hour .h-viento{
+  font-size:10px;color:var(--text-2);font-weight:500;
+}
+
+.hourly-info{
+  font-size:12px;color:var(--text-2);margin-top:8px;
+  padding-top:8px;border-top:1px solid var(--border);
+  display:flex;flex-wrap:wrap;gap:12px;
+}
+.hourly-info span{display:flex;align-items:center;gap:4px}
 
 .rain-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
 .rain-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;box-shadow:var(--shadow)}
@@ -136,33 +194,17 @@ button{cursor:pointer;border:none;background:none}
 [data-theme="oscuro"] .leaflet-control-attribution{background:rgba(23,27,35,.85)!important;color:#9aa3b2!important}
 [data-theme="oscuro"] .leaflet-control-attribution a{color:#4d84ff!important}
 
-/* Indicador de zoom en el mapa */
 .leaflet-control-zoom-indicator{
-  background:var(--surface);
-  color:var(--text);
-  border:1px solid var(--border);
-  border-radius:8px;
-  padding:6px 10px;
-  font-size:12.5px;
-  font-weight:600;
-  font-family:inherit;
-  display:flex;
-  align-items:center;
-  gap:6px;
+  background:var(--surface);color:var(--text);
+  border:1px solid var(--border);border-radius:8px;
+  padding:6px 10px;font-size:12.5px;font-weight:600;font-family:inherit;
+  display:flex;align-items:center;gap:6px;
   box-shadow:0 2px 8px rgba(0,0,0,.12);
-  cursor:default;
-  user-select:none;
-  margin:10px;
+  cursor:default;user-select:none;margin:10px;
 }
 .leaflet-control-zoom-indicator .zi-icon{font-size:12px;opacity:.7}
 .leaflet-control-zoom-indicator .zi-label{color:var(--text-2);font-weight:500}
-.leaflet-control-zoom-indicator .zi-value{
-  color:var(--primary);
-  font-weight:700;
-  font-variant-numeric:tabular-nums;
-  min-width:20px;
-  text-align:right;
-}
+.leaflet-control-zoom-indicator .zi-value{color:var(--primary);font-weight:700;font-variant-numeric:tabular-nums;min-width:20px;text-align:right}
 [data-theme="oscuro"] .leaflet-control-zoom-indicator{background:#171b23;border-color:#2a313d}
 [data-theme="oscuro"] .leaflet-control-zoom-indicator .zi-value{color:#4d84ff}
 
@@ -215,6 +257,7 @@ button{cursor:pointer;border:none;background:none}
   .forecast-day .f-day{width:56px;font-size:13px}
   .forecast-day .f-bar{display:none}
   .radar-time{text-align:left;min-width:0}
+  .hour{width:70px;padding:9px 4px}
 }
 </style>
 </head>
@@ -288,20 +331,15 @@ button{cursor:pointer;border:none;background:none}
   /* ============================================================
      CONFIGURACIÓN DE JAWG MAPS
      ============================================================ */
-  // ⚠️ SUSTITUYE ESTE TOKEN por el tuyo de https://app.jawg.io
   const JAWG_TOKEN = 'bQUll5WQyxb42bBkNkHy4ppYPX7ImVhmIh8xOMh3TPJCh5ACW8iyaGmMqJQSULfN';
-
-  // Estilos disponibles: 'jawg-light' | 'jawg-dark' | 'jawg-sunny'
-  //                     'jawg-streets' | 'jawg-terrain' | 'jawg-lagoon'
   const JAWG_ESTILO_CLARO  = 'jawg-light';
   const JAWG_ESTILO_OSCURO = 'jawg-dark';
 
   /* ============================================================
-     FETCH RESILIENTE: timeout + reintentos con backoff
+     FETCH RESILIENTE
      ============================================================ */
   async function fetchResiliente(url, opciones = {}, {
-    timeoutMs = 12000,
-    intentos = 3,
+    timeoutMs = 12000, intentos = 3,
     reintentarCodigos = [408, 425, 429, 500, 502, 503, 504]
   } = {}) {
     let ultimoError = null;
@@ -312,9 +350,8 @@ button{cursor:pointer;border:none;background:none}
         const r = await fetch(url, { ...opciones, signal: ctrl.signal });
         clearTimeout(tid);
         if (r.ok) return r;
-        if (!reintentarCodigos.includes(r.status)) {
+        if (!reintentarCodigos.includes(r.status))
           throw new Error(`HTTP ${r.status} — el servidor rechazó la petición`);
-        }
         ultimoError = new Error(`HTTP ${r.status}`);
         console.warn(`⚠️ ${url} → HTTP ${r.status}, reintentando (${intento + 1}/${intentos})…`);
       } catch (e) {
@@ -357,7 +394,8 @@ button{cursor:pointer;border:none;background:none}
     lugar: 'Ubicación desconocida', region: '', pais: '',
     datos: null, cargando: false, error: null,
     avisoStale: null,
-    tema: localStorage.getItem('tiempo_tema') || 'claro'
+    tema: localStorage.getItem('tiempo_tema') || 'claro',
+    diaSeleccionado: 0   // índice del día para el carrusel horario (0 = hoy)
   };
 
   const radar = {
@@ -427,7 +465,7 @@ button{cursor:pointer;border:none;background:none}
   }
 
   /* ============================================================
-     GEOLOCALIZACIÓN + reverse geocoding (Nominatim)
+     GEOLOCALIZACIÓN
      ============================================================ */
   function geolocalizar() {
     if (!navigator.geolocation) {
@@ -517,6 +555,7 @@ button{cursor:pointer;border:none;background:none}
     state.lugar = c.name;
     state.region = c.admin1 || '';
     state.pais = c.country || '';
+    state.diaSeleccionado = 0;
     $('#search').value = '';
     cerrarSugerencias();
     cargarTiempo();
@@ -544,6 +583,7 @@ button{cursor:pointer;border:none;background:none}
         latitude: state.lat,
         longitude: state.lon,
         current: 'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+        hourly: 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,is_day',
         daily: 'weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,daylight_duration,sunshine_duration,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant',
         timezone: 'auto',
         forecast_days: '7'
@@ -554,7 +594,7 @@ button{cursor:pointer;border:none;background:none}
       state.datos = data;
       state.cargando = false;
       guardarCache(cacheKey, data);
-      console.log('✅ Tiempo cargado');
+      console.log('✅ Tiempo cargado (con hourly)');
       render();
       mostrarRadarYArrancar();
     } catch (e) {
@@ -576,7 +616,7 @@ button{cursor:pointer;border:none;background:none}
   }
 
   /* ============================================================
-     MAPA BASE — JAWG Maps
+     MAPA BASE — JAWG
      ============================================================ */
   function crearBasemap() {
     const estilo = state.tema === 'oscuro' ? JAWG_ESTILO_OSCURO : JAWG_ESTILO_CLARO;
@@ -606,7 +646,7 @@ button{cursor:pointer;border:none;background:none}
     }
 
     if (radar.inicializado) {
-      radar.map.setView([state.lat, state.lon], radar.map.getZoom() || 8);
+      radar.map.setView([state.lat, state.lon], radar.map.getZoom() || 7);
       actualizarMarcador();
       try { radar.map.invalidateSize(); } catch {}
       if (!radar.frames.length) {
@@ -639,7 +679,6 @@ button{cursor:pointer;border:none;background:none}
       radar.baseLayer = crearBasemap();
       radar.baseLayer.addTo(radar.map);
 
-      // ---- Control personalizado: indicador de zoom ----
       const ZoomIndicator = L.Control.extend({
         options: { position: 'bottomright' },
         onAdd: function () {
@@ -653,7 +692,6 @@ button{cursor:pointer;border:none;background:none}
       });
       radar.map.addControl(new ZoomIndicator());
 
-      // Actualizar el número al cambiar el zoom
       radar.map.on('zoomend', () => {
         const el = document.getElementById('zoom-value');
         if (el) el.textContent = radar.map.getZoom();
@@ -705,11 +743,7 @@ button{cursor:pointer;border:none;background:none}
         data = cache.data;
       } else {
         console.log('📡 Descargando frames de RainViewer...');
-        const r = await fetchResiliente(
-          'https://api.rainviewer.com/public/weather-maps.json',
-          {},
-          { intentos: 3, timeoutMs: 10000 }
-        );
+        const r = await fetchResiliente('https://api.rainviewer.com/public/weather-maps.json', {}, { intentos: 3, timeoutMs: 10000 });
         data = await r.json();
         guardarCache('radar_frames', data);
       }
@@ -723,10 +757,7 @@ button{cursor:pointer;border:none;background:none}
       console.log('✅ Frames cargados:', past.length, 'pasado,', nowcast.length, 'previsión');
 
       const slider = $('#radar-slider');
-      if (slider) {
-        slider.min = 0;
-        slider.max = Math.max(0, radar.frames.length - 1);
-      }
+      if (slider) { slider.min = 0; slider.max = Math.max(0, radar.frames.length - 1); }
       if (st) {
         st.className = 'radar-status';
         st.innerHTML = '<span class="dot"></span> En vivo · ' + new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
@@ -802,6 +833,112 @@ button{cursor:pointer;border:none;background:none}
       radar.velocidad = parseInt(b.dataset.v, 10);
       if (radar.playing) { pauseRadar(); playRadar(); }
     });
+  }
+
+  /* ============================================================
+     PREVISIÓN POR HORAS — helpers
+     ============================================================ */
+
+  /**
+   * Devuelve la lista de horas (índices dentro del array hourly) que
+   * pertenecen al día N (0 = hoy, 1 = mañana, etc.).
+   */
+  function horasDelDia(diaIdx) {
+    const h = state.datos?.hourly;
+    if (!h || !h.time) return [];
+
+    // Fecha de referencia del día seleccionado
+    const fechaDia = new Date(hoyISO() + 'T00:00:00');
+    fechaDia.setDate(fechaDia.getDate() + diaIdx);
+    const fechaISO = fechaDia.toISOString().slice(0, 10);
+
+    const indices = [];
+    h.time.forEach((iso, i) => {
+      if (iso.slice(0, 10) === fechaISO) indices.push(i);
+    });
+    return indices;
+  }
+
+  /**
+   * Índice de la hora actual dentro del array hourly (o null si no aplica).
+   */
+  function indiceHoraActual() {
+    const h = state.datos?.hourly;
+    if (!h || !h.time) return null;
+    const ahoraISO = new Date().toISOString().slice(0, 13); // YYYY-MM-DDTHH
+    for (let i = 0; i < h.time.length; i++) {
+      if (h.time[i].slice(0, 13) === ahoraISO) return i;
+    }
+    return null;
+  }
+
+  /**
+   * Genera el HTML de un carrusel de horas para el día indicado.
+   */
+  function renderHorasDelDia(diaIdx) {
+    const h = state.datos?.hourly;
+    if (!h || !h.time) return '<p style="color:var(--text-2);font-size:13px">Sin datos por horas</p>';
+
+    const indices = horasDelDia(diaIdx);
+    if (!indices.length) return '<p style="color:var(--text-2);font-size:13px">Sin datos</p>';
+
+    const idxActual = indiceHoraActual();
+    const ahora = new Date();
+
+    return indices.map(i => {
+      const isoHora = h.time[i];
+      const hora = new Date(isoHora + ':00').toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      const temp = Math.round(h.temperature_2m[i]);
+      const icono = infoTiempo(h.weather_code[i], h.is_day?.[i] === 1).icon;
+      const prob = h.precipitation_probability?.[i] ?? 0;
+      const viento = Math.round(h.wind_speed_10m?.[i] ?? 0);
+      const esAhora = i === idxActual;
+
+      return `
+        <div class="hour ${esAhora ? 'actual' : ''}" data-idx="${i}" title="${esc(infoTiempo(h.weather_code[i], h.is_day?.[i] === 1).txt)}">
+          <div class="h-hora">${esAhora ? 'Ahora' : hora}</div>
+          <div class="h-icon">${icono}</div>
+          <div class="h-temp">${temp}°</div>
+          <div class="h-precip ${prob === 0 ? 'cero' : ''}">💧 ${prob}%</div>
+          <div class="h-viento">💨 ${viento}</div>
+        </div>`;
+    }).join('');
+  }
+
+  /**
+   * Selector de días (Hoy, Mañana, Mié, Jue, ...).
+   */
+  function renderSelectorDias() {
+    const d = state.datos?.daily;
+    if (!d || !d.time) return '';
+    return d.time.map((iso, i) => {
+      const fecha = new Date(iso + 'T00:00:00');
+      const label = i === 0 ? 'Hoy' : i === 1 ? 'Mañana' :
+                    fecha.toLocaleDateString('es-ES', { weekday: 'short' });
+      const labelCap = label.charAt(0).toUpperCase() + label.slice(1);
+      const num = fecha.toLocaleDateString('es-ES', { day: 'numeric' });
+      return `<button data-dia="${i}" class="${i === state.diaSeleccionado ? 'active' : ''}">
+        ${labelCap}<span class="small">${num}</span>
+      </button>`;
+    }).join('');
+  }
+
+  /**
+   * Resumen del día seleccionado: máx/mín, prob máx de lluvia, etc.
+   */
+  function renderResumenDia(diaIdx) {
+    const d = state.datos?.daily;
+    if (!d || !d.time) return '';
+    const tMax = Math.round(d.temperature_2m_max?.[diaIdx] ?? 0);
+    const tMin = Math.round(d.temperature_2m_min?.[diaIdx] ?? 0);
+    const prob = d.precipitation_probability_max?.[diaIdx] ?? 0;
+    const lluvia = (d.precipitation_sum?.[diaIdx] ?? 0).toFixed(1);
+    const uv = d.uv_index_max?.[diaIdx] ?? '—';
+    return `
+      <span>🌡️ Máx <b>${tMax}°</b> / Mín <b>${tMin}°</b></span>
+      <span>💧 Lluvia <b>${prob}%</b> (${lluvia} mm)</span>
+      <span>🔆 UV <b>${uv}</b></span>
+    `;
   }
 
   /* ============================================================
@@ -892,6 +1029,20 @@ button{cursor:pointer;border:none;background:none}
         </div>
       </div>
 
+      <!-- NUEVA TARJETA: PREVISIÓN POR HORAS -->
+      <div class="hourly-card">
+        <div class="hourly-title">⏰ Previsión por horas</div>
+        <div class="hourly-selector" id="hourly-selector">
+          ${renderSelectorDias()}
+        </div>
+        <div class="hourly-carousel" id="hourly-carousel">
+          ${renderHorasDelDia(state.diaSeleccionado)}
+        </div>
+        <div class="hourly-info" id="hourly-info">
+          ${renderResumenDia(state.diaSeleccionado)}
+        </div>
+      </div>
+
       <div class="sun-card">
         <div class="sun-title">☀️ El sol hoy</div>
         <div class="sun-row">
@@ -943,6 +1094,43 @@ button{cursor:pointer;border:none;background:none}
         </div>
       </div>
     `;
+
+    wireHourly();
+  }
+
+  /* ============================================================
+     WIRING DEL CARRUSEL POR HORAS
+     ============================================================ */
+  function wireHourly() {
+    const selector = $('#hourly-selector');
+    if (!selector) return;
+
+    // Cambio de día
+    selector.querySelectorAll('button').forEach(btn => {
+      btn.onclick = () => {
+        state.diaSeleccionado = parseInt(btn.dataset.dia, 10);
+        selector.querySelectorAll('button').forEach(b => b.classList.toggle('active', +b.dataset.dia === state.diaSeleccionado));
+        $('#hourly-carousel').innerHTML = renderHorasDelDia(state.diaSeleccionado);
+        $('#hourly-info').innerHTML = renderResumenDia(state.diaSeleccionado);
+        // Hacer scroll horizontal al inicio para cada cambio de día
+        $('#hourly-carousel').scrollLeft = 0;
+      };
+    });
+
+    // Auto-scroll a la hora actual SOLO si estamos viendo el día de hoy
+    const carrusel = $('#hourly-carousel');
+    if (carrusel && state.diaSeleccionado === 0) {
+      const actual = carrusel.querySelector('.hour.actual');
+      if (actual) {
+        // Centrar la hora actual en la vista
+        setTimeout(() => {
+          const carruselRect = carrusel.getBoundingClientRect();
+          const actualRect = actual.getBoundingClientRect();
+          const offset = actualRect.left - carruselRect.left - (carruselRect.width / 2) + (actualRect.width / 2);
+          carrusel.scrollTo({ left: carrusel.scrollLeft + offset, behavior: 'smooth' });
+        }, 150);
+      }
+    }
   }
 
   function mostrarError(titulo, msg) {
@@ -950,7 +1138,7 @@ button{cursor:pointer;border:none;background:none}
     $('#content').innerHTML = `<div class="state"><div class="em">⚠️</div><h3>${esc(titulo)}</h3><p>${esc(msg)}</p><button class="btn btn-primary" onclick="location.reload()">Reintentar</button></div>`;
   }
 
-  /* ---------- Wiring ---------- */
+  /* ---------- Wiring general ---------- */
   function wire() {
     $('#btnTheme').onclick = () => setTema(state.tema === 'oscuro' ? 'claro' : 'oscuro');
     $('#btnGeo').onclick = () => geolocalizar();
@@ -991,14 +1179,6 @@ button{cursor:pointer;border:none;background:none}
     setTema(state.tema);
     wire();
     render();
-
-    // Aviso si el token de JAWG no se ha sustituido
-    if (JAWG_TOKEN === 'TU_ACCESS_TOKEN_AQUI') {
-      console.warn('⚠️ JAWG: no has configurado tu token. El mapa no cargará.');
-    } else {
-      console.log('✅ JAWG: token configurado');
-    }
-
     if (typeof L === 'undefined') console.warn('⚠️ Leaflet no cargó');
     else console.log('✅ Leaflet cargado');
 
