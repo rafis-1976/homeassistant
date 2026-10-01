@@ -276,19 +276,15 @@ footer .dot{
     padding:18px 18px 30px;
   }
 
+  /* Tarjeta cuadrada */
   .card{
-    /* Contenedor cuadrado con icono centrado */
     aspect-ratio: 1 / 1;
     min-height: 0;
     padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     border-radius: 20px;
   }
 
-  /* Ocultar todo el contenido textual en móvil */
-  .card .card-top,
+  /* Ocultar SOLO los textos (dejamos .card-top visible) */
   .card h2,
   .card p,
   .card .card-tag,
@@ -296,33 +292,43 @@ footer .dot{
     display: none;
   }
 
-  /* El icono pasa a ocupar el centro de la tarjeta */
+  /* .card-top ocupa toda la tarjeta y centra su contenido */
+  .card .card-top{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    gap: 0;
+  }
+
+  /* El icono se agranda y ocupa el centro */
   .card .card-icon{
-    width: 42%;
-    height: 42%;
-    max-width: 120px;
-    max-height: 120px;
+    width: 62%;
+    height: 62%;
+    max-width: 140px;
+    max-height: 140px;
     border-radius: 22px;
-    font-size: 3rem;
-    transition: transform .25s;
+    font-size: 3.4rem;
   }
 
   .card:active{
     transform: scale(.96);
   }
   .card:active .card-icon{
-    transform: scale(1.08);
+    transform: scale(1.06);
   }
 }
 
-/* Ajustes extra para móviles muy estrechos */
+/* Ajuste para móviles muy estrechos */
 @media (max-width: 380px){
   main{
     gap: 10px;
     padding: 14px 14px 26px;
   }
   .card .card-icon{
-    font-size: 2.6rem;
+    font-size: 2.8rem;
     border-radius: 18px;
   }
 }
