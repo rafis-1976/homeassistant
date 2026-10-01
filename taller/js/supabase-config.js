@@ -1,18 +1,28 @@
 /* ============================================================
    TallerPro — supabase-config.js
-   Cliente Supabase + CRUD completo
-   Todas las tablas usan prefijo "taller_"
+   Cliente Supabase + CRUD + Shell
+   Tablas con prefijo "taller_"
    ============================================================ */
 (function () {
   const TP = window.TP = {};
 
   /* ============ 1. CONFIGURACIÓN (RELLENA ESTO) ============ */
-  SUPABASE_URL:      'https://mwzhyozqmsqmfpgtzeek.supabase.co',
-  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13emh5b3pxbXNxbWZwZ3R6ZWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMjE3ODEsImV4cCI6MjEwNTc5Nzc4MX0.U03Ec0QqhWznmy9_pyyjvp0yS9vzuPy9FY01UvfZDs0';
+  const SUPABASE_URL      = 'https://mwzhyozqmsqmfpgtzeek.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13emh5b3pxbXNxbWZwZ3R6ZWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMjE3ODEsImV4cCI6MjEwNTc5Nzc4MX0.U03Ec0QqhWznmy9_pyyjvp0yS9vzuPy9FY01UvfZDs0';
 
   /* ============ 2. Cliente Supabase ============ */
-  const { createClient } = supabase;
-  const sb = TP.sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  if (typeof supabase === 'undefined' || !supabase.createClient) {
+    document.addEventListener('DOMContentLoaded', () => {
+      const l = document.getElementById('loader');
+      if (!l) return;
+      l.classList.add('err');
+      document.getElementById('loaderTitle').textContent = 'Falta la librería de Supabase';
+      document.getElementById('loaderMsg').textContent =
+        'No se pudo cargar @supabase/supabase-js desde el CDN. Comprueba tu conexión a internet.';
+    });
+    return;
+  }
+  const sb = TP.sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   /* ============ 3. Utilidades ============ */
   const $  = TP.$  = (s, r = document) => r.querySelector(s);
@@ -64,7 +74,7 @@
     }, 2600);
   };
 
-  /* ============ 6. Modal ============ */
+  /* ============ 6. Modal (con soporte async) ============ */
   let modalSaveHandler = null;
   TP.showModal = function ({ title, body, saveText = 'Guardar', onSave, hideSave = false }) {
     $('#modalTitle').textContent = title;
@@ -83,60 +93,55 @@
     $('#modalClose').onclick  = TP.closeModal;
     $('#modalCancel').onclick = TP.closeModal;
     $('#overlay').onclick = e => { if (e.target.id === 'overlay') TP.closeModal(); };
-    $('#modalSave').onclick = () => {
-      if (typeof modalSaveHandler === 'function') {
-        if (modalSaveHandler() !== false) TP.closeModal();
-      } else TP.closeModal();
+    $('#modalSave').onclick = async () => {
+      if (typeof modalSaveHandler !== 'function') { TP.closeModal(); return; }
+      const res = modalSaveHandler();
+      const val = (res && typeof res.then === 'function') ? await res : res;
+      if (val !== false) TP.closeModal();
     };
     document.addEventListener('keydown', e => { if (e.key === 'Escape') TP.closeModal(); });
   }
 
-  /* ============ 7. CRUD con Supabase ============ */
+  /* ============ 7. Helpers de mapeo ============ */
+  TP.mapHerramienta = function (h, prest) {
+    if (!h) return null;
+    return {
+      id: h.id, nombre: h.nombre, categoria: h.categoria,
+      marca: h.marca, modelo: h.modelo, serie: h.serie,
+      cantidad: h.cantidad, precio: h.precio,
+      fechaCompra: h.fecha_compra, ubicacion: h.ubicacion,
+      estado: h.estado, notas: h.notas, creado: h.creado,
+      prestamo: prest ? {
+        id: prest.id, persona: prest.persona, telefono: prest.telefono,
+        fecha: prest.fecha_prestamo, fechaPrevista: prest.fecha_prevista,
+        notas: prest.notas
+      } : null
+    };
+  };
 
-  // --- Lectura ---
+  /* ============ 8. CRUD Supabase ============ */
+
   TP.getH = async function (id) {
-    const { data, error } = await sb
-      .from('taller_herramientas')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const { data, error } = await sb.from('taller_herramientas').select('*').eq('id', id).single();
     if (error) { console.error(error); return null; }
-    const { data: prest } = await sb
-      .from('taller_prestamos')
-      .select('*')
-      .eq('herramienta_id', id)
-      .eq('activo', true)
-      .maybeSingle();
+    const { data: prest } = await sb.from('taller_prestamos').select('*')
+      .eq('herramienta_id', id).eq('activo', true).maybeSingle();
     return TP.mapHerramienta(data, prest);
   };
 
   TP.listH = async function () {
-    const { data: herrs, error } = await sb
-      .from('taller_herramientas')
-      .select('*')
-      .order('nombre', { ascending: true });
+    const { data: herrs, error } = await sb.from('taller_herramientas').select('*').order('nombre');
     if (error) { console.error(error); return []; }
-
-    const { data: prestamos } = await sb
-      .from('taller_prestamos')
-      .select('*')
-      .eq('activo', true);
-
+    const { data: prestamos } = await sb.from('taller_prestamos').select('*').eq('activo', true);
     const prestMap = {};
     (prestamos || []).forEach(p => { prestMap[p.herramienta_id] = p; });
-
     return (herrs || []).map(h => TP.mapHerramienta(h, prestMap[h.id] || null));
   };
 
   TP.activos = async function () {
-    const { data, error } = await sb
-      .from('taller_prestamos')
-      .select(`
-        *,
-        taller_herramientas ( nombre, categoria )
-      `)
-      .eq('activo', true)
-      .order('fecha_prevista', { ascending: true });
+    const { data, error } = await sb.from('taller_prestamos')
+      .select('*, taller_herramientas ( nombre, categoria )')
+      .eq('activo', true).order('fecha_prevista', { ascending: true });
     if (error) { console.error(error); return []; }
     return (data || []).map(p => ({
       id: p.herramienta_id,
@@ -160,9 +165,8 @@
   };
 
   TP.getHistPrest = async function () {
-    const { data } = await sb
-      .from('taller_prestamos')
-      .select(`*, taller_herramientas ( nombre )`)
+    const { data } = await sb.from('taller_prestamos')
+      .select('*, taller_herramientas ( nombre )')
       .eq('activo', false)
       .order('fecha_devolucion', { ascending: false });
     return (data || []).map(p => ({
@@ -176,166 +180,6 @@
     return act.filter(h => h.prestamo.fechaPrevista && TP.diasHasta(h.prestamo.fechaPrevista) < 0);
   };
 
-  // --- Escritura ---
-  TP.nuevaHerramienta = function () {
-    TP.showModal({
-      title: 'Nueva herramienta',
-      body: formHerramienta({ cantidad: 1, estado: 'disponible' }),
-      saveText: 'Añadir al inventario',
-      onSave: async () => {
-        const d = leerFormulario({});
-        if (!d) return false;
-
-        await sb.from('taller_categorias').upsert({ nombre: d.categoria });
-        if (d.ubicacion) await sb.from('taller_ubicaciones').upsert({ nombre: d.ubicacion });
-
-        const { error } = await sb.from('taller_herramientas').insert({
-          id: TP.uid('h'),
-          nombre: d.nombre,
-          categoria: d.categoria,
-          marca: d.marca,
-          modelo: d.modelo,
-          serie: d.serie,
-          cantidad: d.cantidad,
-          precio: d.precio,
-          fecha_compra: d.fechaCompra || null,
-          ubicacion: d.ubicacion,
-          estado: d.estado,
-          notas: d.notas
-        });
-        if (error) { TP.toast('Error: ' + error.message, 'err'); return false; }
-
-        await TP.log('alta', `Añadida «${d.nombre}» al inventario`);
-        await TP.refresh();
-        TP.toast('Herramienta añadida');
-      }
-    });
-  };
-
-  TP.editarHerramienta = async function (id) {
-    const h = await TP.getH(id);
-    if (!h) return;
-    TP.showModal({
-      title: 'Editar herramienta',
-      body: formHerramienta(h),
-      saveText: 'Guardar cambios',
-      onSave: async () => {
-        const d = leerFormulario(h);
-        if (!d) return false;
-        const { error } = await sb.from('taller_herramientas').update({
-          nombre: d.nombre, categoria: d.categoria, marca: d.marca,
-          modelo: d.modelo, serie: d.serie, cantidad: d.cantidad,
-          precio: d.precio, fecha_compra: d.fechaCompra || null,
-          ubicacion: d.ubicacion, estado: d.estado, notas: d.notas
-        }).eq('id', id);
-        if (error) { TP.toast('Error: ' + error.message, 'err'); return false; }
-        await TP.log('edicion', `Editada «${d.nombre}»`);
-        await TP.refresh();
-        TP.toast('Cambios guardados');
-      }
-    });
-  };
-
-  TP.eliminarHerramienta = async function (id) {
-    const h = await TP.getH(id);
-    if (!h) return;
-    TP.showModal({
-      title: 'Eliminar herramienta',
-      body: `<p style="font-size:14.5px;line-height:1.6">¿Seguro que quieres eliminar <b>${TP.esc(h.nombre)}</b>?</p>
-             <p style="margin-top:10px;color:var(--text-2);font-size:13px">También se eliminarán sus préstamos. Esta acción no se puede deshacer.</p>`,
-      saveText: 'Sí, eliminar',
-      onSave: async () => {
-        const { error } = await sb.from('taller_herramientas').delete().eq('id', id);
-        if (error) { TP.toast('Error: ' + error.message, 'err'); return false; }
-        await TP.log('baja', `Eliminada «${h.nombre}»`);
-        await TP.refresh();
-        TP.toast('Herramienta eliminada');
-      }
-    });
-  };
-
-  TP.prestar = async function (id) {
-    const h = await TP.getH(id);
-    if (!h) return;
-    if (h.prestamo) { TP.toast('Ya está prestada', 'err'); return; }
-    TP.showModal({
-      title: 'Prestar: ' + h.nombre,
-      body: `
-        <div class="form-grid">
-          <label class="full">Persona que lo lleva *
-            <input id="p-persona" placeholder="Nombre y apellidos" maxlength="60">
-          </label>
-          <label>Teléfono de contacto
-            <input id="p-tel" placeholder="Opcional">
-          </label>
-          <label>Fecha de devolución prevista
-            <input id="p-fecha" type="date" value="${TP.addDays(TP.hoy(), 7)}">
-          </label>
-          <label class="full">Notas
-            <textarea id="p-notas" rows="2" placeholder="Observaciones..."></textarea>
-          </label>
-        </div>`,
-      saveText: 'Registrar préstamo',
-      onSave: async () => {
-        const persona = $('#p-persona').value.trim();
-        if (!persona) { TP.toast('Indica el nombre de la persona', 'err'); return false; }
-        const { error } = await sb.from('taller_prestamos').insert({
-          herramienta_id: id,
-          persona,
-          telefono: $('#p-tel').value.trim(),
-          fecha_prestamo: TP.hoy(),
-          fecha_prevista: $('#p-fecha').value || TP.addDays(TP.hoy(), 7),
-          notas: $('#p-notas').value.trim(),
-          activo: true
-        });
-        if (error) { TP.toast('Error: ' + error.message, 'err'); return false; }
-        await TP.log('prestamo', `«${h.nombre}» prestada a ${persona}`);
-        await TP.refresh();
-        TP.toast('Préstamo registrado');
-      }
-    });
-  };
-
-  TP.devolver = async function (id) {
-    const h = await TP.getH(id);
-    if (!h || !h.prestamo) return;
-    const p = h.prestamo;
-    const retraso = p.fechaPrevista ? TP.diasHasta(p.fechaPrevista) : 0;
-    TP.showModal({
-      title: 'Devolver herramienta',
-      body: `
-        <p style="font-size:14.5px;margin-bottom:14px">Devolución de <b>${TP.esc(h.nombre)}</b> por <b>${TP.esc(p.persona)}</b>.</p>
-        ${retraso < 0 ? `<div class="alert alert-d"><span>⏰</span><div>Con <b>${Math.abs(retraso)} días</b> de retraso.</div></div>` : ''}
-        <div class="form-grid">
-          <label class="full">Estado en que se devuelve
-            <select id="d-estado">
-              <option value="disponible">Correcto — disponible</option>
-              <option value="averiada">Averiada</option>
-            </select>
-          </label>
-          <label class="full">Observaciones
-            <textarea id="d-notas" rows="2" placeholder="Opcional"></textarea>
-          </label>
-        </div>`,
-      saveText: 'Confirmar devolución',
-      onSave: async () => {
-        const nuevoEstado = $('#d-estado').value;
-        const obs = $('#d-notas').value.trim();
-        const { error: e1 } = await sb.from('taller_prestamos').update({
-          activo: false,
-          fecha_devolucion: TP.hoy(),
-          retraso: retraso < 0 ? Math.abs(retraso) : 0,
-          notas: obs || p.notas
-        }).eq('id', p.id);
-        if (e1) { TP.toast('Error: ' + e1.message, 'err'); return false; }
-        await sb.from('taller_herramientas').update({ estado: nuevoEstado }).eq('id', id);
-        await TP.log('devolucion', `«${h.nombre}» devuelta por ${p.persona}`);
-        await TP.refresh();
-        TP.toast('Devolución registrada');
-      }
-    });
-  };
-
   TP.log = async function (tipo, texto) {
     await sb.from('taller_actividad').insert({ tipo, texto });
     const { data } = await sb.from('taller_actividad').select('id')
@@ -345,23 +189,7 @@
     }
   };
 
-  /* ============ 8. Helpers ============ */
-  TP.mapHerramienta = function (h, prest) {
-    if (!h) return null;
-    return {
-      id: h.id, nombre: h.nombre, categoria: h.categoria,
-      marca: h.marca, modelo: h.modelo, serie: h.serie,
-      cantidad: h.cantidad, precio: h.precio,
-      fechaCompra: h.fecha_compra, ubicacion: h.ubicacion,
-      estado: h.estado, notas: h.notas,
-      prestamo: prest ? {
-        id: prest.id, persona: prest.persona, telefono: prest.telefono,
-        fecha: prest.fecha_prestamo, fechaPrevista: prest.fecha_prevista,
-        notas: prest.notas
-      } : null
-    };
-  };
-
+  /* ============ 9. Formularios ============ */
   function formHerramienta(h = {}) {
     const prestada = !!h.prestamo;
     return `
@@ -426,7 +254,213 @@
     };
   }
 
-  /* ============ 9. Shell ============ */
+  /* ============ 10. CRUD de herramientas ============ */
+  TP.nuevaHerramienta = function () {
+    TP.showModal({
+      title: 'Nueva herramienta',
+      body: formHerramienta({ cantidad: 1, estado: 'disponible' }),
+      saveText: 'Añadir al inventario',
+      onSave: async () => {
+        const d = leerFormulario({});
+        if (!d) return false;
+
+        await sb.from('taller_categorias').upsert({ nombre: d.categoria });
+        if (d.ubicacion) await sb.from('taller_ubicaciones').upsert({ nombre: d.ubicacion });
+
+        const { error } = await sb.from('taller_herramientas').insert({
+          id: TP.uid('h'),
+          nombre: d.nombre, categoria: d.categoria,
+          marca: d.marca, modelo: d.modelo, serie: d.serie,
+          cantidad: d.cantidad, precio: d.precio,
+          fecha_compra: d.fechaCompra || null,
+          ubicacion: d.ubicacion, estado: d.estado, notas: d.notas
+        });
+        if (error) { TP.toast('Error: ' + error.message, 'err'); return false; }
+
+        await TP.log('alta', `Añadida «${d.nombre}» al inventario`);
+        await TP.refresh();
+        TP.toast('Herramienta añadida');
+      }
+    });
+  };
+
+  TP.editarHerramienta = async function (id) {
+    const h = await TP.getH(id);
+    if (!h) return;
+    TP.showModal({
+      title: 'Editar herramienta',
+      body: formHerramienta(h),
+      saveText: 'Guardar cambios',
+      onSave: async () => {
+        const d = leerFormulario(h);
+        if (!d) return false;
+        const { error } = await sb.from('taller_herramientas').update({
+          nombre: d.nombre, categoria: d.categoria, marca: d.marca,
+          modelo: d.modelo, serie: d.serie, cantidad: d.cantidad,
+          precio: d.precio, fecha_compra: d.fechaCompra || null,
+          ubicacion: d.ubicacion, estado: d.estado, notas: d.notas
+        }).eq('id', id);
+        if (error) { TP.toast('Error: ' + error.message, 'err'); return false; }
+        await TP.log('edicion', `Editada «${d.nombre}»`);
+        await TP.refresh();
+        TP.toast('Cambios guardados');
+      }
+    });
+  };
+
+  TP.eliminarHerramienta = async function (id) {
+    const h = await TP.getH(id);
+    if (!h) return;
+    TP.showModal({
+      title: 'Eliminar herramienta',
+      body: `<p style="font-size:14.5px;line-height:1.6">¿Seguro que quieres eliminar <b>${TP.esc(h.nombre)}</b>?</p>
+             <p style="margin-top:10px;color:var(--text-2);font-size:13px">También se eliminarán sus préstamos. Esta acción no se puede deshacer.</p>`,
+      saveText: 'Sí, eliminar',
+      onSave: async () => {
+        const { error } = await sb.from('taller_herramientas').delete().eq('id', id);
+        if (error) { TP.toast('Error: ' + error.message, 'err'); return false; }
+        await TP.log('baja', `Eliminada «${h.nombre}»`);
+        await TP.refresh();
+        TP.toast('Herramienta eliminada');
+      }
+    });
+  };
+
+  TP.verDetalle = async function (id) {
+    const h = await TP.getH(id);
+    if (!h) return;
+    const est = h.prestamo ? 'prestada' : (h.estado === 'averiada' ? 'averiada' : 'disponible');
+    const { data: historial } = await sb.from('taller_prestamos').select('*')
+      .eq('herramienta_id', id).eq('activo', false)
+      .order('fecha_devolucion', { ascending: false });
+
+    const fila = (k, v) => `<div style="background:var(--surface-2);padding:9px 12px;border-radius:9px">
+      <div style="font-size:11px;color:var(--text-2);font-weight:600;text-transform:uppercase;letter-spacing:.4px">${TP.esc(k)}</div>
+      <div style="font-weight:600;margin-top:2px">${TP.esc(v)}</div></div>`;
+
+    const body = `
+      <div style="display:flex;gap:14px;align-items:center;margin-bottom:18px">
+        <div class="tool-ico" style="width:54px;height:54px;font-size:26px">${TP.iconoCat(h.categoria)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:17px;font-weight:700;letter-spacing:-.3px">${TP.esc(h.nombre)}</div>
+          <div style="color:var(--text-2);font-size:13px">${[h.marca, h.modelo].filter(Boolean).map(TP.esc).join(' · ') || TP.esc(h.categoria)}</div>
+        </div>
+        <span class="badge-est ${TP.ESTADOS[est].cls}">${TP.ESTADOS[est].label}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;font-size:13.5px">
+        ${fila('Categoría', h.categoria)}
+        ${fila('Ubicación', h.ubicacion || '—')}
+        ${fila('Nº de serie', h.serie || '—')}
+        ${fila('Cantidad', h.cantidad || 1)}
+        ${fila('Precio', TP.num(h.precio) ? TP.fmtMoney(h.precio) : '—')}
+        ${fila('Fecha de compra', h.fechaCompra ? TP.fmtFecha(h.fechaCompra) : '—')}
+      </div>
+      ${h.notas ? `<div style="margin-top:15px;padding:12px 14px;background:var(--surface-2);border-radius:10px;font-size:13px;color:var(--text-2)">${TP.esc(h.notas)}</div>` : ''}
+      ${h.prestamo ? `
+        <div class="section-title" style="font-size:13.5px;margin-top:20px">🤝 Préstamo activo</div>
+        <div style="background:var(--info-soft);color:var(--info);padding:13px 15px;border-radius:10px;font-size:13px;line-height:1.7">
+          <b>${TP.esc(h.prestamo.persona)}</b>${h.prestamo.telefono ? ' · ' + TP.esc(h.prestamo.telefono) : ''}<br>
+          Prestada el ${TP.fmtFecha(h.prestamo.fecha)} · Devolución prevista: ${TP.fmtFecha(h.prestamo.fechaPrevista)}
+          ${h.prestamo.notas ? '<br><i>' + TP.esc(h.prestamo.notas) + '</i>' : ''}
+        </div>` : ''}
+      <div class="section-title" style="font-size:13.5px;margin-top:20px">📜 Historial de préstamos (${(historial || []).length})</div>
+      ${(historial || []).length ? historial.map(p => `
+        <div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <div style="display:flex;justify-content:space-between;gap:10px">
+            <b>${TP.esc(p.persona)}</b>
+            <span style="color:var(--text-2);font-size:12.5px">Devuelto: ${TP.fmtFecha(p.fecha_devolucion)}</span>
+          </div>
+          <div style="color:var(--text-2);margin-top:2px">Prestado ${TP.fmtFecha(p.fecha_prestamo)}${p.fecha_prevista ? ' → Previsto ' + TP.fmtFecha(p.fecha_prevista) : ''}${p.retraso ? ' · <span style="color:var(--danger)">' + p.retraso + ' días de retraso</span>' : ''}</div>
+          ${p.notas ? `<div style="color:var(--text-2);font-style:italic;margin-top:2px">${TP.esc(p.notas)}</div>` : ''}
+        </div>`).join('') : '<p style="color:var(--text-2);font-size:13px">Sin préstamos registrados</p>'}
+    `;
+    TP.showModal({
+      title: 'Detalle de herramienta', body, saveText: 'Editar',
+      onSave: () => { setTimeout(() => TP.editarHerramienta(id), 50); return true; }
+    });
+  };
+
+  TP.prestar = async function (id) {
+    const h = await TP.getH(id);
+    if (!h) return;
+    if (h.prestamo) { TP.toast('Ya está prestada', 'err'); return; }
+    TP.showModal({
+      title: 'Prestar: ' + h.nombre,
+      body: `
+        <div class="form-grid">
+          <label class="full">Persona que lo lleva *
+            <input id="p-persona" placeholder="Nombre y apellidos" maxlength="60">
+          </label>
+          <label>Teléfono de contacto
+            <input id="p-tel" placeholder="Opcional">
+          </label>
+          <label>Fecha de devolución prevista
+            <input id="p-fecha" type="date" value="${TP.addDays(TP.hoy(), 7)}">
+          </label>
+          <label class="full">Notas
+            <textarea id="p-notas" rows="2" placeholder="Observaciones..."></textarea>
+          </label>
+        </div>`,
+      saveText: 'Registrar préstamo',
+      onSave: async () => {
+        const persona = $('#p-persona').value.trim();
+        if (!persona) { TP.toast('Indica el nombre de la persona', 'err'); return false; }
+        const { error } = await sb.from('taller_prestamos').insert({
+          herramienta_id: id, persona,
+          telefono: $('#p-tel').value.trim(),
+          fecha_prestamo: TP.hoy(),
+          fecha_prevista: $('#p-fecha').value || TP.addDays(TP.hoy(), 7),
+          notas: $('#p-notas').value.trim(),
+          activo: true
+        });
+        if (error) { TP.toast('Error: ' + error.message, 'err'); return false; }
+        await TP.log('prestamo', `«${h.nombre}» prestada a ${persona}`);
+        await TP.refresh();
+        TP.toast('Préstamo registrado');
+      }
+    });
+  };
+
+  TP.devolver = async function (id) {
+    const h = await TP.getH(id);
+    if (!h || !h.prestamo) return;
+    const p = h.prestamo;
+    const retraso = p.fechaPrevista ? TP.diasHasta(p.fechaPrevista) : 0;
+    TP.showModal({
+      title: 'Devolver herramienta',
+      body: `
+        <p style="font-size:14.5px;margin-bottom:14px">Devolución de <b>${TP.esc(h.nombre)}</b> por <b>${TP.esc(p.persona)}</b>.</p>
+        ${retraso < 0 ? `<div class="alert alert-d"><span>⏰</span><div>Con <b>${Math.abs(retraso)} días</b> de retraso.</div></div>` : ''}
+        <div class="form-grid">
+          <label class="full">Estado en que se devuelve
+            <select id="d-estado">
+              <option value="disponible">Correcto — disponible</option>
+              <option value="averiada">Averiada</option>
+            </select>
+          </label>
+          <label class="full">Observaciones
+            <textarea id="d-notas" rows="2" placeholder="Opcional"></textarea>
+          </label>
+        </div>`,
+      saveText: 'Confirmar devolución',
+      onSave: async () => {
+        const nuevoEstado = $('#d-estado').value;
+        const obs = $('#d-notas').value.trim();
+        const { error: e1 } = await sb.from('taller_prestamos').update({
+          activo: false, fecha_devolucion: TP.hoy(),
+          retraso: retraso < 0 ? Math.abs(retraso) : 0,
+          notas: obs || p.notas
+        }).eq('id', p.id);
+        if (e1) { TP.toast('Error: ' + e1.message, 'err'); return false; }
+        await sb.from('taller_herramientas').update({ estado: nuevoEstado }).eq('id', id);
+        await TP.log('devolucion', `«${h.nombre}» devuelta por ${p.persona}`);
+        await TP.refresh();
+        TP.toast('Devolución registrada');
+      }
+    });
+  };
+
+  /* ============ 11. Shell ============ */
   TP.navItems = [
     { id: 'dashboard',    href: 'index.html',        icon: '📊', label: 'Panel' },
     { id: 'herramientas', href: 'herramientas.html', icon: '🔧', label: 'Herramientas' },
@@ -492,10 +526,10 @@
     TP.vencidos().then(v => {
       const badge = $('#navBadge');
       if (badge && v.length) { badge.style.display = ''; badge.textContent = v.length; }
-    });
+    }).catch(() => {});
   };
 
-  /* ============ 10. Refresh + Boot ============ */
+  /* ============ 12. Refresh + Boot ============ */
   TP.onReady = null;
   TP.refresh = async function () {
     TP.renderShell();
@@ -520,7 +554,7 @@
     }
   };
 
-  /* ============ 11. Descargas ============ */
+  /* ============ 13. Descargas ============ */
   TP.descargar = function (nombre, contenido, tipo) {
     const blob = contenido instanceof Blob ? contenido : new Blob([contenido], { type: tipo });
     const url = URL.createObjectURL(blob);
