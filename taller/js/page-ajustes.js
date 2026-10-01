@@ -17,7 +17,6 @@ TP.onReady = async function () {
   $v.innerHTML = '<p style="color:var(--text-2);padding:20px">Cargando…</p>';
 
   try {
-    // Stats reales en paralelo
     const [
       { count: nRefs },
       { data: herrs },
@@ -145,7 +144,6 @@ TP.borrarTodo = function () {
            <div class="alert alert-d" style="margin-top:12px"><span>⚠️</span><div>Esta acción es irreversible. Asegúrate de tener una copia de seguridad (exporta antes el CSV).</div></div>`,
     saveText: 'Sí, borrar todo',
     onSave: async () => {
-      // Orden importante por las FK
       await TP.sb.from('taller_prestamos').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       await TP.sb.from('taller_herramientas').delete().neq('id', '__none__');
       await TP.sb.from('taller_actividad').delete().neq('id', '00000000-0000-0000-0000-000000000000');
