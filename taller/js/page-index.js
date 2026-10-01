@@ -1,5 +1,5 @@
 /* ============================================================
-   Página: Panel (Dashboard) — datos 100% desde Supabase
+   Página: Panel (Dashboard) — datos desde Supabase
    ============================================================ */
 TP.pageTitle = 'Panel';
 TP.pageSub   = 'Resumen de tu taller';
@@ -11,55 +11,41 @@ function iconoAct(t) {
 
 TP.onReady = async function () {
   const $v = TP.$('#view');
-  $v.innerHTML = '<p style="color:var(--text-2)">Cargando datos…</p>';
+  $v.innerHTML = '<p style="color:var(--text-2);padding:20px">Cargando datos…</p>';
 
   try {
-    // 1. Cargar todo en paralelo
     const [
       { data: herrs },
       { data: prestamos },
-      { data: cats },
-      { data: ubis },
       { data: acts }
     ] = await Promise.all([
       TP.sb.from('taller_herramientas').select('*'),
       TP.sb.from('taller_prestamos').select('*').eq('activo', true),
-      TP.sb.from('taller_categorias').select('nombre'),
-      TP.sb.from('taller_ubicaciones').select('nombre'),
       TP.sb.from('taller_actividad').select('*').order('fecha', { ascending: false }).limit(7)
     ]);
 
-    const herramientas  = herrs    || [];
-    const prestActivos  = prestamos|| [];
-    const listaCats     = cats     || [];
-    const listaUbis     = ubis     || [];
-    const actividad     = acts     || [];
+    const herramientas = herrs     || [];
+    const prestActivos = prestamos || [];
+    const actividad    = acts      || [];
 
-    // 2. Mapa herramienta_id -> préstamo
     const prestMap = {};
     prestActivos.forEach(p => { prestMap[p.herramienta_id] = p; });
 
-    // 3. Métricas calculadas en cliente
-    const total          = herramientas.length;
-    const und            = herramientas.reduce((s, h) => s + (h.cantidad || 0), 0);
-    const prest          = prestActivos.length;
-    const aver           = herramientas.filter(h => h.estado === 'averiada').length;
-    const disp           = herramientas.filter(h =>
-                            !prestMap[h.id] && h.estado === 'disponible').length;
-    const valor          = herramientas.reduce((s, h) => s + (h.precio || 0) * (h.cantidad || 0), 0);
+    const total = herramientas.length;
+    const und   = herramientas.reduce((s, h) => s + (h.cantidad || 0), 0);
+    const prest = prestActivos.length;
+    const aver  = herramientas.filter(h => h.estado === 'averiada').length;
+    const disp  = herramientas.filter(h => !prestMap[h.id] && h.estado === 'disponible').length;
+    const valor = herramientas.reduce((s, h) => s + (h.precio || 0) * (h.cantidad || 0), 0);
 
     const venc = prestActivos.filter(p =>
       p.fecha_prevista && TP.diasHasta(p.fecha_prevista) < 0);
 
-    // 4. Conteo por categoría
     const porCat = {};
-    herramientas.forEach(h => {
-      porCat[h.categoria] = (porCat[h.categoria] || 0) + 1;
-    });
+    herramientas.forEach(h => { porCat[h.categoria] = (porCat[h.categoria] || 0) + 1; });
     const cats = Object.entries(porCat).sort((a, b) => b[1] - a[1]).slice(0, 7);
     const maxCat = Math.max(1, ...cats.map(c => c[1]));
 
-    // 5. Conteo por estado
     const estMap = { disponible: 0, prestada: 0, averiada: 0 };
     herramientas.forEach(h => {
       if (prestMap[h.id]) estMap.prestada++;
@@ -67,7 +53,6 @@ TP.onReady = async function () {
       else estMap.disponible++;
     });
 
-    // 6. Conteo por ubicación
     const porUbi = {};
     herramientas.forEach(h => {
       const u = h.ubicacion || 'Sin ubicación';
@@ -76,7 +61,6 @@ TP.onReady = async function () {
     const ubis = Object.entries(porUbi).sort((a, b) => b[1] - a[1]).slice(0, 8);
     const maxU = Math.max(1, ...ubis.map(u => u[1]));
 
-    // 7. Alertas
     let alertas = '';
     venc.forEach(p => {
       const h = herramientas.find(x => x.id === p.herramienta_id);
@@ -85,7 +69,6 @@ TP.onReady = async function () {
     if (aver > 0)
       alertas += `<div class="alert alert-d"><span>🔴</span><div><b>${aver} herramienta${aver > 1 ? 's' : ''} averiada${aver > 1 ? 's' : ''}</b> — revisa el estado en el inventario</div></div>`;
 
-    // 8. Render
     $v.innerHTML = `
       <div class="stats">
         <div class="stat" style="--accent:var(--primary)">
