@@ -1,0 +1,1679 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="claro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TallerPro — Gestión de Herramientas</title>
+<style>
+/* ============ RESET & VARIABLES ============ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f6f9; --surface:#ffffff; --surface-2:#eef1f6; --border:#e2e6ee;
+  --text:#151922; --text-2:#6b7280; --primary:#2563eb; --primary-h:#1d4ed8;
+  --primary-soft:#e8f0fe; --success:#0f9d63; --success-soft:#e3f8ee;
+  --warning:#d97706; --warning-soft:#fef4e3; --danger:#dc2626; --danger-soft:#fdeaea;
+  --info:#0891b2; --info-soft:#e2f6fa;
+  --radius:14px; --radius-sm:9px;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.05);
+  --shadow-md:0 4px 14px rgba(16,24,40,.08);
+  --shadow-lg:0 20px 50px rgba(16,24,40,.22);
+}
+[data-theme="oscuro"]{
+  --bg:#0e1117; --surface:#171b23; --surface-2:#1f242e; --border:#2a313d;
+  --text:#e8ebf0; --text-2:#9aa3b2; --primary:#4d84ff; --primary-h:#3b74f0;
+  --primary-soft:#1c2740; --success:#2ecc8b; --success-soft:#123326;
+  --warning:#f0a742; --warning-soft:#332512; --danger:#ff6b6b; --danger-soft:#3a1c1c;
+  --info:#38bcd8; --info-soft:#123038;
+  --shadow:0 1px 2px rgba(0,0,0,.5); --shadow-md:0 4px 14px rgba(0,0,0,.4);
+  --shadow-lg:0 20px 50px rgba(0,0,0,.6);
+}
+html,body{height:100%}
+body{
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg); color:var(--text); font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; transition:background .25s,color .25s;
+}
+input,select,textarea,button{font-family:inherit;font-size:14px;color:inherit}
+button{cursor:pointer;border:none;background:none}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:20px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ============ LAYOUT ============ */
+.app{display:flex;min-height:100vh}
+.sidebar{
+  width:252px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:18px 14px;gap:4px;
+  position:sticky;top:0;height:100vh;z-index:60;transition:transform .25s;
+}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.brand-icon{
+  width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:20px;
+  background:linear-gradient(135deg,var(--primary),#7c3aed);color:#fff;flex-shrink:0;
+  box-shadow:0 4px 12px rgba(37,99,235,.35);
+}
+.brand h1{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.brand p{font-size:12px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.nav{display:flex;flex-direction:column;gap:3px;flex:1}
+.nav-item{
+  display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:var(--radius-sm);
+  color:var(--text-2);font-weight:500;font-size:14px;text-align:left;transition:.15s;width:100%;
+}
+.nav-item:hover{background:var(--surface-2);color:var(--text)}
+.nav-item.active{background:var(--primary-soft);color:var(--primary);font-weight:600}
+.nav-item .ico{font-size:17px;width:20px;text-align:center}
+.nav-item .badge{margin-left:auto;background:var(--danger);color:#fff;font-size:11px;font-weight:700;
+  padding:1px 7px;border-radius:20px;min-width:20px;text-align:center}
+.sidebar-footer{padding-top:12px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text-2);text-align:center}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{
+  display:flex;align-items:center;gap:14px;padding:14px 26px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:50;
+}
+.hamburger{display:none;font-size:20px;padding:6px 10px;border-radius:8px;background:var(--surface-2)}
+.topbar h2{font-size:19px;font-weight:700;letter-spacing:-.4px}
+.topbar .sub{font-size:12.5px;color:var(--text-2);margin-top:1px}
+.topbar-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.view{padding:24px 26px 60px;flex:1;max-width:1500px;width:100%}
+
+/* ============ COMPONENTES ============ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:9px 15px;border-radius:var(--radius-sm);font-weight:600;font-size:13.5px;
+  background:var(--surface-2);color:var(--text);transition:.15s;white-space:nowrap;
+  border:1px solid transparent;
+}
+.btn:hover{filter:brightness(.96)}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.28)}
+.btn-primary:hover{background:var(--primary-h);filter:none}
+.btn-ghost{background:transparent;border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--surface-2);filter:none}
+.btn-danger{background:var(--danger-soft);color:var(--danger)}
+.btn-success{background:var(--success-soft);color:var(--success)}
+.btn-sm{padding:6px 10px;font-size:12.5px;border-radius:8px}
+.btn-icon{padding:7px;width:32px;height:32px;border-radius:8px;background:transparent;color:var(--text-2)}
+.btn-icon:hover{background:var(--surface-2);color:var(--text)}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card-pad{padding:18px}
+.card-title{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:20px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 17px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.stat::after{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:var(--accent,var(--primary))}
+.stat-label{font-size:12.5px;color:var(--text-2);font-weight:500;display:flex;align-items:center;gap:6px}
+.stat-value{font-size:27px;font-weight:750;margin-top:5px;letter-spacing:-1px;line-height:1.1}
+.stat-sub{font-size:11.5px;color:var(--text-2);margin-top:3px}
+
+/* Toolbar */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px}
+.search{position:relative;flex:1;min-width:200px;max-width:380px}
+.search input{
+  width:100%;padding:10px 14px 10px 38px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--surface);outline:none;transition:.15s;
+}
+.search input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+.search .ico{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-2);font-size:14px}
+select.filter{
+  padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);
+  background:var(--surface);outline:none;cursor:pointer;transition:.15s;max-width:170px;
+}
+select.filter:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+
+/* Grid herramientas */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:14px}
+.tool{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px;box-shadow:var(--shadow);transition:.18s;display:flex;flex-direction:column;gap:11px;
+  position:relative;
+}
+.tool:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);border-color:var(--primary)}
+.tool-top{display:flex;gap:11px;align-items:flex-start}
+.tool-ico{
+  width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-size:20px;
+  background:var(--surface-2);flex-shrink:0;
+}
+.tool-name{font-weight:650;font-size:14.5px;line-height:1.3;letter-spacing:-.2px;word-break:break-word}
+.tool-meta{font-size:12px;color:var(--text-2);margin-top:2px}
+.tool-body{display:flex;flex-wrap:wrap;gap:6px;font-size:12px}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;
+  background:var(--surface-2);color:var(--text-2);font-size:11.5px;font-weight:550;
+}
+.badge-est{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;
+  font-size:11.5px;font-weight:650;white-space:nowrap}
+.badge-est::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.est-disponible{background:var(--success-soft);color:var(--success)}
+.est-prestada{background:var(--info-soft);color:var(--info)}
+.est-mantenimiento{background:var(--warning-soft);color:var(--warning)}
+.est-averiada{background:var(--danger-soft);color:var(--danger)}
+.tool-actions{display:flex;gap:6px;flex-wrap:wrap;padding-top:11px;border-top:1px solid var(--border);margin-top:auto}
+.tool-actions .btn{flex:1;min-width:0}
+
+/* Lista / préstamos */
+.list{display:flex;flex-direction:column;gap:11px}
+.row{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;box-shadow:var(--shadow);display:flex;gap:14px;align-items:center;flex-wrap:wrap;
+}
+.row-main{flex:1;min-width:190px}
+.row-title{font-weight:650;font-size:14.5px}
+.row-sub{font-size:12.5px;color:var(--text-2);margin-top:2px}
+.row-actions{display:flex;gap:7px;flex-wrap:wrap}
+
+/* Vacío */
+.empty{text-align:center;padding:60px 20px;color:var(--text-2)}
+.empty .em{font-size:44px;margin-bottom:12px;opacity:.6}
+.empty h3{font-size:16px;color:var(--text);margin-bottom:5px;font-weight:650}
+.empty p{font-size:13.5px;max-width:400px;margin:0 auto 18px}
+
+/* Alertas */
+.alert{
+  display:flex;gap:11px;align-items:flex-start;padding:12px 14px;border-radius:var(--radius-sm);
+  font-size:13.5px;margin-bottom:9px;border:1px solid transparent;
+}
+.alert-w{background:var(--warning-soft);color:var(--warning);border-color:rgba(217,119,6,.2)}
+.alert-d{background:var(--danger-soft);color:var(--danger);border-color:rgba(220,38,38,.2)}
+.alert-i{background:var(--info-soft);color:var(--info);border-color:rgba(8,145,178,.2)}
+.alert b{font-weight:700}
+
+/* Barras dashboard */
+.bar-row{display:flex;align-items:center;gap:11px;margin-bottom:9px;font-size:13px}
+.bar-label{width:110px;flex-shrink:0;color:var(--text-2);font-weight:500;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;height:9px;background:var(--surface-2);border-radius:20px;overflow:hidden}
+.bar-fill{height:100%;border-radius:20px;background:var(--primary);transition:width .5s ease}
+.bar-val{width:34px;text-align:right;font-weight:650;font-size:12.5px;color:var(--text-2)}
+
+/* Formularios */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-grid label{display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:600;color:var(--text-2)}
+.form-grid label.full{grid-column:1/-1}
+.form-grid input,.form-grid select,.form-grid textarea{
+  padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);
+  background:var(--surface);outline:none;transition:.15s;font-weight:400;font-size:14px;color:var(--text);
+  width:100%;
+}
+.form-grid input:focus,.form-grid select:focus,.form-grid textarea:focus{
+  border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft);
+}
+.form-grid textarea{resize:vertical;min-height:60px}
+.form-grid .hint{font-size:11.5px;font-weight:400;color:var(--text-2)}
+
+/* Modal */
+.overlay{
+  position:fixed;inset:0;background:rgba(10,14,22,.55);backdrop-filter:blur(3px);
+  display:none;align-items:center;justify-content:center;z-index:200;padding:20px;
+}
+.overlay.open{display:flex;animation:fade .18s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{
+  background:var(--surface);border-radius:18px;width:100%;max-width:560px;max-height:90vh;
+  display:flex;flex-direction:column;box-shadow:var(--shadow-lg);animation:pop .2s;
+  border:1px solid var(--border);
+}
+@keyframes pop{from{transform:scale(.95) translateY(10px);opacity:0}to{transform:none;opacity:1}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;
+  border-bottom:1px solid var(--border)}
+.modal-head h3{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.modal-body{padding:22px;overflow-y:auto}
+.modal-foot{display:flex;gap:9px;justify-content:flex-end;padding:16px 22px;border-top:1px solid var(--border)}
+
+/* Toast */
+.toasts{position:fixed;bottom:22px;right:22px;z-index:300;display:flex;flex-direction:column;gap:9px}
+.toast{
+  background:var(--text);color:var(--bg);padding:12px 17px;border-radius:11px;font-size:13.5px;
+  font-weight:600;box-shadow:var(--shadow-lg);animation:slide .25s;display:flex;align-items:center;gap:9px;
+  max-width:340px;
+}
+@keyframes slide{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+.toast.err{background:var(--danger);color:#fff}
+.toast.ok{background:var(--success);color:#fff}
+
+/* Tabs */
+.tabs{display:flex;gap:5px;background:var(--surface-2);padding:4px;border-radius:11px;margin-bottom:18px;width:fit-content}
+.tab{padding:7px 15px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--text-2);transition:.15s}
+.tab.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+
+/* Ubicaciones */
+.loc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.loc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:15px;
+  box-shadow:var(--shadow);display:flex;align-items:center;gap:12px}
+.loc-ico{width:38px;height:38px;border-radius:10px;background:var(--primary-soft);display:grid;
+  place-items:center;font-size:18px;flex-shrink:0}
+.loc-info{flex:1;min-width:0}
+.loc-name{font-weight:650;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.loc-count{font-size:12px;color:var(--text-2)}
+
+.section-title{font-size:15px;font-weight:700;margin:26px 0 13px;display:flex;align-items:center;gap:8px}
+.section-title:first-child{margin-top:0}
+
+/* Responsive */
+@media(max-width:900px){
+  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);box-shadow:var(--shadow-lg)}
+  .sidebar.open{transform:none}
+  .hamburger{display:block}
+  .view{padding:18px 15px 70px}
+  .topbar{padding:12px 15px}
+  .form-grid{grid-template-columns:1fr}
+  .grid{grid-template-columns:1fr}
+  .toasts{left:15px;right:15px;bottom:15px}
+  .toast{max-width:none}
+}
+.backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:55}
+.backdrop.open{display:block}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-icon">🛠️</div>
+      <div style="min-width:0">
+        <h1>TallerPro</h1>
+        <p id="brandSub">Mi Taller</p>
+      </div>
+    </div>
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-view="dashboard"><span class="ico">📊</span> Panel</button>
+      <button class="nav-item" data-view="herramientas"><span class="ico">🔧</span> Herramientas</button>
+      <button class="nav-item" data-view="prestamos"><span class="ico">🤝</span> Préstamos<span class="badge" id="navBadge" style="display:none">0</span></button>
+      <button class="nav-item" data-view="mantenimiento"><span class="ico">🧰</span> Mantenimiento</button>
+      <button class="nav-item" data-view="ubicaciones"><span class="ico">📍</span> Ubicaciones</button>
+      <button class="nav-item" data-view="ajustes"><span class="ico">⚙️</span> Ajustes</button>
+    </nav>
+    <div class="sidebar-footer">TallerPro · v1.0</div>
+  </aside>
+  <div class="backdrop" id="backdrop"></div>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="hamburger" id="hamburger">☰</button>
+      <div>
+        <h2 id="viewTitle">Panel</h2>
+        <div class="sub" id="viewSub">Resumen de tu taller</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost btn-sm" id="btnTheme" title="Cambiar tema">🌙</button>
+        <button class="btn btn-primary" id="btnNueva">＋ Nueva herramienta</button>
+      </div>
+    </header>
+    <div class="view" id="view"></div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">Título</h3>
+      <button class="btn-icon" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="modalCancel">Cancelar</button>
+      <button class="btn btn-primary" id="modalSave">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<datalist id="dl-categorias"></datalist>
+<datalist id="dl-ubicaciones"></datalist>
+
+<script>
+/* ============================================================
+   TallerPro — Gestión de herramientas de taller
+   ============================================================ */
+
+/* ---------- Utilidades ---------- */
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const uid = (p = 'id') => p + '_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hoy = () => new Date().toISOString().slice(0, 10);
+const addDays = (f, n) => { const d = new Date(f + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+const diasHasta = f => Math.round((new Date(f + 'T00:00:00') - new Date(hoy() + 'T00:00:00')) / 86400000);
+const fmtFecha = f => f ? new Date(f + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const fmtMoney = n => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(n || 0);
+const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+
+const ESTADOS = {
+  disponible:    { label: 'Disponible',      cls: 'est-disponible' },
+  prestada:      { label: 'Prestada',        cls: 'est-prestada' },
+  mantenimiento: { label: 'En mantenimiento',cls: 'est-mantenimiento' },
+  averiada:      { label: 'Averiada',        cls: 'est-averiada' }
+};
+const ICONOS_CAT = {
+  'Manuales':'🔨','Eléctricas':'⚡','Medición':'📏','Automoción':'🚗','Jardinería':'🌿',
+  'Fijación':'🔩','Seguridad':'🦺','Soldadura':'🔥','Neumática':'💨','Pintura':'🎨','Otros':'🧰'
+};
+const iconoCat = c => ICONOS_CAT[c] || '🧰';
+
+/* ---------- Estado ---------- */
+const LS_KEY = 'tallerpro_v1';
+let state = {
+  herramientas: [],
+  categorias: ['Manuales','Eléctricas','Medición','Automoción','Jardinería','Fijación','Seguridad','Soldadura','Neumática','Pintura','Otros'],
+  ubicaciones: ['Estantería A','Estantería B','Cajonera','Pared norte','Armario','Zona de trabajo'],
+  historialPrestamos: [],
+  actividad: [],
+  ajustes: { taller: 'Mi Taller', tema: 'claro' }
+};
+let currentView = 'dashboard';
+let filtros = { q: '', cat: '', est: '', ubi: '', orden: 'nombre' };
+let tabPrestamos = 'activos';
+
+/* ---------- Persistencia ---------- */
+function save() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+  catch (e) { toast('No se pudo guardar (almacenamiento lleno)', 'err'); }
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      state = { ...state, ...d, ajustes: { ...state.ajustes, ...(d.ajustes || {}) } };
+      return true;
+    }
+  } catch (e) { console.warn(e); }
+  return false;
+}
+function log(tipo, texto) {
+  state.actividad.unshift({ id: uid('a'), fecha: new Date().toISOString(), tipo, texto });
+  if (state.actividad.length > 300) state.actividad.length = 300;
+}
+
+/* ---------- Datos de ejemplo ---------- */
+function seed() {
+  const base = [
+    ['Taladro percutor 18V','Eléctricas','Bosch','GSB 18V-55','Estantería A',149.9,'2022-11-03'],
+    ['Juego de llaves combinadas','Manuales','Stanley','12 pzs','Cajonera',49.5,'2021-05-18'],
+    ['Calibre pie de rey digital','Medición','Mitutoyo','500-196','Armario',89,'2023-02-11'],
+    ['Amoladora angular 125mm','Eléctricas','Makita','GA5030','Estantería A',79.9,'2022-08-22'],
+    ['Gato hidráulico 2T','Automoción','Bahco','BH12000','Zona de trabajo',65,'2020-09-30'],
+    ['Cortacésped eléctrico','Jardinería','Einhell','GC-EM 1032','Pared norte',119,'2023-04-07'],
+    ['Sierra circular','Eléctricas','DeWalt','DWE560','Estantería B',139,'2021-12-01'],
+    ['Multímetro digital','Medición','Fluke','117','Armario',189,'2022-03-15'],
+    ['Llave dinamométrica','Automoción','Gedore','1/2" 40-200','Cajonera',129,'2023-06-20'],
+    ['Taladro de columna','Eléctricas','Einhell','TC-BD 450','Zona de trabajo',199,'2019-10-05'],
+    ['Compresor de aire 50L','Neumática','Michelin','MC50','Estantería B',179,'2022-01-28'],
+    ['Máscara de soldar automática','Seguridad','Telwin','Aster-X','Armario',59,'2023-03-12'],
+    ['Martillo de bola 500g','Manuales','Bellota','—','Cajonera',18.9,'2020-06-14'],
+    ['Nivel láser autonivelante','Medición','Bosch','GLL 2-15','Estantería A',109,'2023-09-01'],
+    ['Hidrolimpiadora 130 bar','Jardinería','Kärcher','K5','Pared norte',229,'2021-07-19']
+  ];
+  state.herramientas = base.map(([nombre, categoria, marca, modelo, ubicacion, precio, fechaCompra], i) => ({
+    id: uid('h'),
+    nombre, categoria, marca, modelo,
+    serie: '', cantidad: 1, precio, fechaCompra, ubicacion,
+    estado: 'disponible', proximoMantenimiento: '', notas: '',
+    prestamo: null, mantenimientos: [],
+    creado: Date.now() - (base.length - i) * 1000
+  }));
+  // Un par de ejemplos con estado distinto
+  state.herramientas[3].estado = 'prestada';
+  state.herramientas[3].prestamo = {
+    persona: 'Carlos Ruiz', telefono: '600 123 456',
+    fecha: addDays(hoy(), -12), fechaPrevista: addDays(hoy(), -3), notas: 'Para reforma en su garaje'
+  };
+  state.herramientas[2].proximoMantenimiento = addDays(hoy(), 12);
+  state.herramientas[6].proximoMantenimiento = addDays(hoy(), -5);
+  state.herramientas[6].mantenimientos.push({
+    id: uid('m'), fecha: addDays(hoy(), -180), tipo: 'Revisión',
+    descripcion: 'Cambio de escobillas y limpieza general', coste: 12
+  });
+  state.herramientas[9].estado = 'mantenimiento';
+  log('sistema', 'Datos de ejemplo cargados');
+  save();
+}
+
+/* ---------- Toast ---------- */
+function toast(msg, tipo = 'ok') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (tipo === 'err' ? 'err' : 'ok');
+  el.innerHTML = `<span>${tipo === 'err' ? '⚠️' : '✅'}</span><span>${esc(msg)}</span>`;
+  $('#toasts').appendChild(el);
+  setTimeout(() => {
+    el.style.transition = 'opacity .3s, transform .3s';
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(30px)';
+    setTimeout(() => el.remove(), 320);
+  }, 2600);
+}
+
+/* ---------- Modal ---------- */
+let modalSaveHandler = null;
+function showModal({ title, body, saveText = 'Guardar', onSave, hideSave = false }) {
+  $('#modalTitle').textContent = title;
+  $('#modalBody').innerHTML = body;
+  $('#modalSave').textContent = saveText;
+  $('#modalSave').style.display = hideSave ? 'none' : '';
+  modalSaveHandler = onSave;
+  $('#overlay').classList.add('open');
+  setTimeout(() => { const f = $('#modalBody input, #modalBody select, #modalBody textarea'); if (f) f.focus(); }, 60);
+}
+function closeModal() {
+  $('#overlay').classList.remove('open');
+  modalSaveHandler = null;
+}
+$('#modalClose').onclick = closeModal;
+$('#modalCancel').onclick = closeModal;
+$('#overlay').onclick = e => { if (e.target === $('#overlay')) closeModal(); };
+$('#modalSave').onclick = () => {
+  if (typeof modalSaveHandler === 'function') {
+    if (modalSaveHandler() !== false) closeModal();
+  } else closeModal();
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ---------- Helpers de datos ---------- */
+const getH = id => state.herramientas.find(h => h.id === id);
+const activos = () => state.herramientas.filter(h => h.prestamo);
+const enMantenimiento = () => state.herramientas.filter(h => h.estado === 'mantenimiento' || h.estado === 'averiada');
+const valorTotal = () => state.herramientas.reduce((s, h) => s + num(h.precio) * (num(h.cantidad) || 1), 0);
+const totalUnidades = () => state.herramientas.reduce((s, h) => s + (num(h.cantidad) || 1), 0);
+function vencidos() {
+  return activos().filter(h => h.prestamo.fechaPrevista && diasHasta(h.prestamo.fechaPrevista) < 0);
+}
+function proxMantenimiento(dias = 30) {
+  return state.herramientas
+    .filter(h => h.proximoMantenimiento && diasHasta(h.proximoMantenimiento) <= dias)
+    .sort((a, b) => a.proximoMantenimiento.localeCompare(b.proximoMantenimiento));
+}
+
+/* ============================================================
+   RENDER PRINCIPAL
+   ============================================================ */
+function render() {
+  document.documentElement.dataset.theme = state.ajustes.tema;
+  $('#brandSub').textContent = state.ajustes.taller || 'Mi Taller';
+  $('#btnTheme').textContent = state.ajustes.tema === 'oscuro' ? '☀️' : '🌙';
+
+  // Badge de préstamos vencidos
+  const v = vencidos().length;
+  const badge = $('#navBadge');
+  if (v > 0) { badge.style.display = ''; badge.textContent = v; }
+  else badge.style.display = 'none';
+
+  // Datalists
+  $('#dl-categorias').innerHTML = state.categorias.map(c => `<option value="${esc(c)}">`).join('');
+  $('#dl-ubicaciones').innerHTML = state.ubicaciones.map(u => `<option value="${esc(u)}">`).join('');
+
+  const titles = {
+    dashboard: ['Panel', 'Resumen de tu taller'],
+    herramientas: ['Herramientas', 'Inventario completo'],
+    prestamos: ['Préstamos', 'Herramientas fuera del taller'],
+    mantenimiento: ['Mantenimiento', 'Revisiones y reparaciones'],
+    ubicaciones: ['Ubicaciones y categorías', 'Organiza tu taller'],
+    ajustes: ['Ajustes', 'Configuración y datos']
+  };
+  $('#viewTitle').textContent = titles[currentView][0];
+  $('#viewSub').textContent = titles[currentView][1];
+
+  $$('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === currentView));
+
+  const views = {
+    dashboard: renderDashboard,
+    herramientas: renderHerramientas,
+    prestamos: renderPrestamos,
+    mantenimiento: renderMantenimiento,
+    ubicaciones: renderUbicaciones,
+    ajustes: renderAjustes
+  };
+  views[currentView]();
+}
+
+/* ============================================================
+   VISTA: DASHBOARD
+   ============================================================ */
+function renderDashboard() {
+  const total = state.herramientas.length;
+  const und = totalUnidades();
+  const prest = activos().length;
+  const mant = enMantenimiento().length;
+  const disp = state.herramientas.filter(h => h.estado === 'disponible' && !h.prestamo).length;
+  const valor = valorTotal();
+  const venc = vencidos();
+  const prox = proxMantenimiento(30);
+
+  // Conteo por categoría
+  const porCat = {};
+  state.herramientas.forEach(h => { porCat[h.categoria] = (porCat[h.categoria] || 0) + 1; });
+  const cats = Object.entries(porCat).sort((a, b) => b[1] - a[1]).slice(0, 7);
+  const maxCat = Math.max(1, ...cats.map(c => c[1]));
+
+  // Conteo por estado
+  const porEst = { disponible: 0, prestada: 0, mantenimiento: 0, averiada: 0 };
+  state.herramientas.forEach(h => {
+    const e = h.prestamo ? 'prestada' : h.estado;
+    porEst[e] = (porEst[e] || 0) + 1;
+  });
+
+  let alertas = '';
+  if (venc.length) {
+    alertas += venc.map(h => `<div class="alert alert-d"><span>⏰</span><div><b>Préstamo vencido:</b> ${esc(h.nombre)} — ${esc(h.prestamo.persona)} (${Math.abs(diasHasta(h.prestamo.fechaPrevista))} días de retraso)</div></div>`).join('');
+  }
+  prox.filter(h => diasHasta(h.proximoMantenimiento) <= 15).forEach(h => {
+    const d = diasHasta(h.proximoMantenimiento);
+    const txt = d < 0 ? `vencido hace ${Math.abs(d)} días` : d === 0 ? 'hoy' : `en ${d} días`;
+    alertas += `<div class="alert alert-w"><span>🧰</span><div><b>Mantenimiento:</b> ${esc(h.nombre)} — ${txt} (${fmtFecha(h.proximoMantenimiento)})</div></div>`;
+  });
+  if (state.herramientas.some(h => h.estado === 'averiada')) {
+    const n = state.herramientas.filter(h => h.estado === 'averiada').length;
+    alertas += `<div class="alert alert-d"><span>🔴</span><div><b>${n} herramienta${n > 1 ? 's' : ''} averiada${n > 1 ? 's' : ''}</b> — revisa la sección de mantenimiento</div></div>`;
+  }
+
+  const recientes = state.actividad.slice(0, 7);
+
+  $('#view').innerHTML = `
+    <div class="stats">
+      <div class="stat" style="--accent:var(--primary)">
+        <div class="stat-label">🔧 Referencias</div>
+        <div class="stat-value">${total}</div>
+        <div class="stat-sub">${und} unidades en total</div>
+      </div>
+      <div class="stat" style="--accent:var(--success)">
+        <div class="stat-label">✅ Disponibles</div>
+        <div class="stat-value">${disp}</div>
+        <div class="stat-sub">listas para usar</div>
+      </div>
+      <div class="stat" style="--accent:var(--info)">
+        <div class="stat-label">🤝 Prestadas</div>
+        <div class="stat-value">${prest}</div>
+        <div class="stat-sub">${venc.length ? `<span style="color:var(--danger);font-weight:700">${venc.length} vencida(s)</span>` : 'fuera del taller'}</div>
+      </div>
+      <div class="stat" style="--accent:var(--warning)">
+        <div class="stat-label">🧰 Mantenimiento</div>
+        <div class="stat-value">${mant}</div>
+        <div class="stat-sub">${prox.length} próximas revisiones</div>
+      </div>
+      <div class="stat" style="--accent:#7c3aed">
+        <div class="stat-label">💰 Valor inventario</div>
+        <div class="stat-value" style="font-size:22px">${fmtMoney(valor)}</div>
+        <div class="stat-sub">valor estimado</div>
+      </div>
+    </div>
+
+    ${alertas ? `<div style="margin-bottom:22px">${alertas}</div>` : ''}
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
+      <div class="card card-pad">
+        <div class="card-title">📊 Herramientas por categoría</div>
+        ${cats.length ? cats.map(([c, n]) => `
+          <div class="bar-row">
+            <div class="bar-label">${iconoCat(c)} ${esc(c)}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${(n / maxCat) * 100}%"></div></div>
+            <div class="bar-val">${n}</div>
+          </div>`).join('') : '<p style="color:var(--text-2);font-size:13px">Sin datos</p>'}
+      </div>
+
+      <div class="card card-pad">
+        <div class="card-title">🎯 Estado del inventario</div>
+        ${Object.entries(porEst).map(([k, n]) => {
+          const pct = total ? (n / total) * 100 : 0;
+          const col = { disponible: 'var(--success)', prestada: 'var(--info)', mantenimiento: 'var(--warning)', averiada: 'var(--danger)' }[k];
+          return `<div class="bar-row">
+            <div class="bar-label">${ESTADOS[k].label}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div>
+            <div class="bar-val">${n}</div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div class="card card-pad">
+        <div class="card-title">🕓 Actividad reciente</div>
+        ${recientes.length ? recientes.map(a => `
+          <div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+            <span style="opacity:.7">${iconoAct(a.tipo)}</span>
+            <div style="flex:1;min-width:0">
+              <div style="word-break:break-word">${esc(a.texto)}</div>
+              <div style="font-size:11.5px;color:var(--text-2);margin-top:1px">${new Date(a.fecha).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+            </div>
+          </div>`).join('') : '<p style="color:var(--text-2);font-size:13px">Sin actividad registrada</p>'}
+      </div>
+
+      <div class="card card-pad">
+        <div class="card-title">📍 Herramientas por ubicación</div>
+        ${(() => {
+          const porUbi = {};
+          state.herramientas.forEach(h => { const u = h.ubicacion || 'Sin ubicación'; porUbi[u] = (porUbi[u] || 0) + 1; });
+          const arr = Object.entries(porUbi).sort((a, b) => b[1] - a[1]).slice(0, 8);
+          const mx = Math.max(1, ...arr.map(a => a[1]));
+          return arr.length ? arr.map(([u, n]) => `
+            <div class="bar-row">
+              <div class="bar-label">📍 ${esc(u)}</div>
+              <div class="bar-track"><div class="bar-fill" style="width:${(n / mx) * 100}%;background:var(--info)"></div></div>
+              <div class="bar-val">${n}</div>
+            </div>`).join('') : '<p style="color:var(--text-2);font-size:13px">Sin datos</p>';
+        })()}
+      </div>
+    </div>
+  `;
+}
+function iconoAct(t) {
+  return { alta: '➕', edicion: '✏️', baja: '🗑️', prestamo: '🤝', devolucion: '↩️', mantenimiento: '🧰', sistema: '💾' }[t] || '•';
+}
+
+/* ============================================================
+   VISTA: HERRAMIENTAS
+   ============================================================ */
+function renderHerramientas() {
+  const q = filtros.q.trim().toLowerCase();
+  let list = state.herramientas.filter(h => {
+    const txt = `${h.nombre} ${h.marca} ${h.modelo} ${h.serie} ${h.categoria} ${h.ubicacion} ${h.notas}`.toLowerCase();
+    if (q && !txt.includes(q)) return false;
+    if (filtros.cat && h.categoria !== filtros.cat) return false;
+    if (filtros.est) {
+      const e = h.prestamo ? 'prestada' : h.estado;
+      if (e !== filtros.est) return false;
+    }
+    if (filtros.ubi && h.ubicacion !== filtros.ubi) return false;
+    return true;
+  });
+
+  list.sort((a, b) => {
+    switch (filtros.orden) {
+      case 'reciente': return (b.creado || 0) - (a.creado || 0);
+      case 'precio': return num(b.precio) - num(a.precio);
+      case 'categoria': return a.categoria.localeCompare(b.categoria) || a.nombre.localeCompare(b.nombre);
+      default: return a.nombre.localeCompare(b.nombre, 'es');
+    }
+  });
+
+  $('#view').innerHTML = `
+    <div class="toolbar">
+      <div class="search">
+        <span class="ico">🔍</span>
+        <input id="f-q" placeholder="Buscar por nombre, marca, modelo..." value="${esc(filtros.q)}">
+      </div>
+      <select class="filter" id="f-cat">
+        <option value="">Todas las categorías</option>
+        ${state.categorias.map(c => `<option value="${esc(c)}" ${filtros.cat === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+      </select>
+      <select class="filter" id="f-est">
+        <option value="">Todos los estados</option>
+        ${Object.entries(ESTADOS).map(([k, v]) => `<option value="${k}" ${filtros.est === k ? 'selected' : ''}>${v.label}</option>`).join('')}
+      </select>
+      <select class="filter" id="f-ubi">
+        <option value="">Todas las ubicaciones</option>
+        ${state.ubicaciones.map(u => `<option value="${esc(u)}" ${filtros.ubi === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}
+      </select>
+      <select class="filter" id="f-orden">
+        <option value="nombre" ${filtros.orden === 'nombre' ? 'selected' : ''}>Ordenar: Nombre</option>
+        <option value="reciente" ${filtros.orden === 'reciente' ? 'selected' : ''}>Ordenar: Más reciente</option>
+        <option value="precio" ${filtros.orden === 'precio' ? 'selected' : ''}>Ordenar: Precio</option>
+        <option value="categoria" ${filtros.orden === 'categoria' ? 'selected' : ''}>Ordenar: Categoría</option>
+      </select>
+      ${(filtros.q || filtros.cat || filtros.est || filtros.ubi) ? '<button class="btn btn-ghost btn-sm" id="f-clear">✕ Limpiar</button>' : ''}
+      <span style="margin-left:auto;color:var(--text-2);font-size:13px;font-weight:600">${list.length} de ${state.herramientas.length}</span>
+    </div>
+    <div id="lista-herr"></div>
+  `;
+
+  const cont = $('#lista-herr');
+  if (!list.length) {
+    cont.innerHTML = state.herramientas.length
+      ? `<div class="empty"><div class="em">🔍</div><h3>Sin resultados</h3><p>No hay herramientas que coincidan con los filtros aplicados.</p></div>`
+      : `<div class="empty"><div class="em">🧰</div><h3>Tu taller está vacío</h3><p>Añade tu primera herramienta para empezar a controlar tu inventario, préstamos y mantenimiento.</p><button class="btn btn-primary" onclick="nuevaHerramienta()">＋ Añadir herramienta</button></div>`;
+    bindFiltros();
+    return;
+  }
+
+  cont.innerHTML = `<div class="grid">${list.map(cardHerramienta).join('')}</div>`;
+  bindFiltros();
+}
+
+function cardHerramienta(h) {
+  const est = h.prestamo ? 'prestada' : h.estado;
+  const venc = h.prestamo && h.prestamo.fechaPrevista && diasHasta(h.prestamo.fechaPrevista) < 0;
+  const proxMant = h.proximoMantenimiento ? diasHasta(h.proximoMantenimiento) : null;
+
+  return `
+  <div class="tool">
+    <div class="tool-top">
+      <div class="tool-ico">${iconoCat(h.categoria)}</div>
+      <div style="flex:1;min-width:0">
+        <div class="tool-name">${esc(h.nombre)}</div>
+        <div class="tool-meta">${[h.marca, h.modelo].filter(Boolean).map(esc).join(' · ') || esc(h.categoria)}</div>
+      </div>
+    </div>
+    <div class="tool-body">
+      <span class="badge-est ${ESTADOS[est].cls}">${ESTADOS[est].label}</span>
+      ${h.ubicacion ? `<span class="chip">📍 ${esc(h.ubicacion)}</span>` : ''}
+      ${(num(h.cantidad) || 1) > 1 ? `<span class="chip">×${h.cantidad}</span>` : ''}
+      ${num(h.precio) > 0 ? `<span class="chip">${fmtMoney(h.precio)}</span>` : ''}
+      ${proxMant !== null ? `<span class="chip" style="${proxMant < 0 ? 'background:var(--danger-soft);color:var(--danger)' : proxMant <= 30 ? 'background:var(--warning-soft);color:var(--warning)' : ''}">🧰 ${proxMant < 0 ? 'Revisión vencida' : fmtFecha(h.proximoMantenimiento)}</span>` : ''}
+    </div>
+    ${h.prestamo ? `
+      <div style="background:var(--info-soft);color:var(--info);padding:9px 12px;border-radius:9px;font-size:12.5px">
+        <b>${esc(h.prestamo.persona)}</b>${h.prestamo.telefono ? ' · ' + esc(h.prestamo.telefono) : ''}<br>
+        <span style="${venc ? 'color:var(--danger);font-weight:700' : ''}">
+          Devolución: ${fmtFecha(h.prestamo.fechaPrevista)}${venc ? ` (${Math.abs(diasHasta(h.prestamo.fechaPrevista))}d de retraso)` : ''}
+        </span>
+      </div>` : ''}
+    ${h.notas ? `<div style="font-size:12.5px;color:var(--text-2);font-style:italic">${esc(h.notas)}</div>` : ''}
+    <div class="tool-actions">
+      ${h.prestamo
+        ? `<button class="btn btn-sm btn-success" onclick="devolver('${h.id}')">↩️ Devolver</button>`
+        : `<button class="btn btn-sm btn-primary" onclick="prestar('${h.id}')">🤝 Prestar</button>`}
+      <button class="btn btn-sm btn-ghost" onclick="editarHerramienta('${h.id}')">✏️ Editar</button>
+      <button class="btn btn-sm btn-ghost" onclick="verDetalle('${h.id}')" title="Detalle">ℹ️</button>
+      <button class="btn btn-sm btn-ghost" onclick="eliminarHerramienta('${h.id}')" title="Eliminar" style="color:var(--danger)">🗑️</button>
+    </div>
+  </div>`;
+}
+
+function bindFiltros() {
+  const q = $('#f-q');
+  if (q) {
+    q.oninput = e => {
+      filtros.q = e.target.value;
+      clearTimeout(window._tq);
+      window._tq = setTimeout(() => {
+        const pos = e.target.selectionStart;
+        render();
+        const nq = $('#f-q'); if (nq) { nq.focus(); nq.setSelectionRange(pos, pos); }
+      }, 220);
+    };
+  }
+  const bind = (id, key) => { const el = $(id); if (el) el.onchange = e => { filtros[key] = e.target.value; render(); }; };
+  bind('#f-cat', 'cat'); bind('#f-est', 'est'); bind('#f-ubi', 'ubi'); bind('#f-orden', 'orden');
+  const cl = $('#f-clear');
+  if (cl) cl.onclick = () => { filtros = { q: '', cat: '', est: '', ubi: '', orden: filtros.orden }; render(); };
+}
+
+/* ============================================================
+   FORMULARIO HERRAMIENTA
+   ============================================================ */
+function formHerramienta(h = {}) {
+  const prestada = !!h.prestamo;
+  return `
+  <div class="form-grid">
+    <label class="full">Nombre de la herramienta *
+      <input id="f-nombre" value="${esc(h.nombre || '')}" placeholder="Ej: Taladro percutor 18V" maxlength="80">
+    </label>
+    <label>Categoría
+      <input id="f-categoria" list="dl-categorias" value="${esc(h.categoria || '')}" placeholder="Eléctricas">
+    </label>
+    <label>Ubicación
+      <input id="f-ubicacion" list="dl-ubicaciones" value="${esc(h.ubicacion || '')}" placeholder="Estantería A">
+    </label>
+    <label>Marca
+      <input id="f-marca" value="${esc(h.marca || '')}" placeholder="Bosch">
+    </label>
+    <label>Modelo
+      <input id="f-modelo" value="${esc(h.modelo || '')}" placeholder="GSB 18V-55">
+    </label>
+    <label>Nº de serie / referencia
+      <input id="f-serie" value="${esc(h.serie || '')}" placeholder="Opcional">
+    </label>
+    <label>Cantidad
+      <input id="f-cantidad" type="number" min="1" step="1" value="${esc(h.cantidad || 1)}">
+    </label>
+    <label>Precio de compra (€)
+      <input id="f-precio" type="number" min="0" step="0.01" value="${h.precio != null && h.precio !== '' ? esc(h.precio) : ''}" placeholder="0.00">
+    </label>
+    <label>Fecha de compra
+      <input id="f-fechaCompra" type="date" value="${esc(h.fechaCompra || '')}">
+    </label>
+    <label>Próximo mantenimiento
+      <input id="f-proximoMantenimiento" type="date" value="${esc(h.proximoMantenimiento || '')}">
+      <span class="hint">Recibirás aviso cuando se acerque la fecha</span>
+    </label>
+    <label>Estado
+      <select id="f-estado" ${prestada ? 'disabled' : ''}>
+        <option value="disponible" ${(!prestada && (h.estado || 'disponible') === 'disponible') ? 'selected' : ''}>Disponible</option>
+        <option value="mantenimiento" ${(!prestada && h.estado === 'mantenimiento') ? 'selected' : ''}>En mantenimiento</option>
+        <option value="averiada" ${(!prestada && h.estado === 'averiada') ? 'selected' : ''}>Averiada</option>
+        ${prestada ? '<option value="prestada" selected>Prestada</option>' : ''}
+      </select>
+      ${prestada ? '<span class="hint">Prestada a ' + esc(h.prestamo.persona) + ' — devuélvela para cambiar el estado</span>' : ''}
+    </label>
+    <label class="full">Notas
+      <textarea id="f-notas" rows="3" placeholder="Accesorios, observaciones, ubicación exacta...">${esc(h.notas || '')}</textarea>
+    </label>
+  </div>`;
+}
+
+function leerFormulario(h) {
+  const nombre = $('#f-nombre').value.trim();
+  if (!nombre) { toast('El nombre es obligatorio', 'err'); return null; }
+  const cat = $('#f-categoria').value.trim() || 'Otros';
+  const ubi = $('#f-ubicacion').value.trim();
+  if (!state.categorias.includes(cat)) state.categorias.push(cat);
+  if (ubi && !state.ubicaciones.includes(ubi)) state.ubicaciones.push(ubi);
+  return {
+    nombre,
+    categoria: cat,
+    marca: $('#f-marca').value.trim(),
+    modelo: $('#f-modelo').value.trim(),
+    serie: $('#f-serie').value.trim(),
+    cantidad: Math.max(1, parseInt($('#f-cantidad').value) || 1),
+    precio: num($('#f-precio').value),
+    fechaCompra: $('#f-fechaCompra').value,
+    proximoMantenimiento: $('#f-proximoMantenimiento').value,
+    ubicacion: ubi,
+    estado: h.prestamo ? h.estado : $('#f-estado').value,
+    notas: $('#f-notas').value.trim()
+  };
+}
+
+function nuevaHerramienta() {
+  showModal({
+    title: 'Nueva herramienta',
+    body: formHerramienta({ cantidad: 1, estado: 'disponible' }),
+    saveText: 'Añadir al inventario',
+    onSave: () => {
+      const datos = leerFormulario({});
+      if (!datos) return false;
+      const nueva = { id: uid('h'), ...datos, prestamo: null, mantenimientos: [], creado: Date.now() };
+      state.herramientas.push(nueva);
+      log('alta', `Añadida «${nueva.nombre}» al inventario`);
+      save(); render(); toast('Herramienta añadida');
+    }
+  });
+}
+
+function editarHerramienta(id) {
+  const h = getH(id);
+  if (!h) return;
+  showModal({
+    title: 'Editar herramienta',
+    body: formHerramienta(h),
+    saveText: 'Guardar cambios',
+    onSave: () => {
+      const datos = leerFormulario(h);
+      if (!datos) return false;
+      Object.assign(h, datos);
+      log('edicion', `Editada «${h.nombre}»`);
+      save(); render(); toast('Cambios guardados');
+    }
+  });
+}
+
+function eliminarHerramienta(id) {
+  const h = getH(id);
+  if (!h) return;
+  showModal({
+    title: 'Eliminar herramienta',
+    body: `<p style="font-size:14.5px;line-height:1.6">¿Seguro que quieres eliminar <b>${esc(h.nombre)}</b> del inventario?</p>
+           <p style="margin-top:10px;color:var(--text-2);font-size:13px">Se perderá también su historial de mantenimiento. Esta acción no se puede deshacer.</p>
+           ${h.prestamo ? '<div class="alert alert-w d" style="margin-top:14px"><span>⚠️</span><div>Esta herramienta está actualmente prestada a <b>' + esc(h.prestamo.persona) + '</b>.</div></div>' : ''}`,
+    saveText: 'Sí, eliminar',
+    onSave: () => {
+      state.herramientas = state.herramientas.filter(x => x.id !== id);
+      log('baja', `Eliminada «${h.nombre}»`);
+      save(); render(); toast('Herramienta eliminada');
+    }
+  });
+}
+
+/* ============================================================
+   DETALLE DE HERRAMIENTA
+   ============================================================ */
+function verDetalle(id) {
+  const h = getH(id);
+  if (!h) return;
+  const est = h.prestamo ? 'prestada' : h.estado;
+  const mant = (h.mantenimientos || []).slice().sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const costeTotal = mant.reduce((s, m) => s + num(m.coste), 0);
+
+  const body = `
+    <div style="display:flex;gap:14px;align-items:center;margin-bottom:18px">
+      <div class="tool-ico" style="width:54px;height:54px;font-size:26px">${iconoCat(h.categoria)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.3px">${esc(h.nombre)}</div>
+        <div style="color:var(--text-2);font-size:13px">${[h.marca, h.modelo].filter(Boolean).map(esc).join(' · ') || esc(h.categoria)}</div>
+      </div>
+      <span class="badge-est ${ESTADOS[est].cls}">${ESTADOS[est].label}</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;font-size:13.5px">
+      ${filaDetalle('Categoría', h.categoria)}
+      ${filaDetalle('Ubicación', h.ubicacion || '—')}
+      ${filaDetalle('Nº de serie', h.serie || '—')}
+      ${filaDetalle('Cantidad', h.cantidad || 1)}
+      ${filaDetalle('Precio', num(h.precio) ? fmtMoney(h.precio) : '—')}
+      ${filaDetalle('Fecha de compra', h.fechaCompra ? fmtFecha(h.fechaCompra) : '—')}
+      ${filaDetalle('Próximo mantenimiento', h.proximoMantenimiento ? fmtFecha(h.proximoMantenimiento) : '—')}
+      ${filaDetalle('Coste mantenimiento', costeTotal ? fmtMoney(costeTotal) : '—')}
+    </div>
+
+    ${h.notas ? `<div style="margin-top:15px;padding:12px 14px;background:var(--surface-2);border-radius:10px;font-size:13px;color:var(--text-2)">${esc(h.notas)}</div>` : ''}
+
+    ${h.prestamo ? `
+      <div class="section-title" style="font-size:13.5px;margin-top:20px">🤝 Préstamo activo</div>
+      <div style="background:var(--info-soft);color:var(--info);padding:13px 15px;border-radius:10px;font-size:13px;line-height:1.7">
+        <b>${esc(h.prestamo.persona)}</b>${h.prestamo.telefono ? ' · ' + esc(h.prestamo.telefono) : ''}<br>
+        Prestada el ${fmtFecha(h.prestamo.fecha)} · Devolución prevista: ${fmtFecha(h.prestamo.fechaPrevista)}
+        ${h.prestamo.notas ? '<br><i>' + esc(h.prestamo.notas) + '</i>' : ''}
+      </div>` : ''}
+
+    <div class="section-title" style="font-size:13.5px;margin-top:20px">🧰 Historial de mantenimiento (${mant.length})</div>
+    ${mant.length ? mant.map(m => `
+      <div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <div style="display:flex;justify-content:space-between;gap:10px">
+          <b>${esc(m.tipo)}</b>
+          <span style="color:var(--text-2);font-size:12.5px">${fmtFecha(m.fecha)}</span>
+        </div>
+        ${m.descripcion ? `<div style="color:var(--text-2);margin-top:2px">${esc(m.descripcion)}</div>` : ''}
+        ${num(m.coste) ? `<div style="color:var(--text-2);font-size:12.5px;margin-top:2px">Coste: ${fmtMoney(m.coste)}</div>` : ''}
+      </div>`).join('') : '<p style="color:var(--text-2);font-size:13px">Sin registros de mantenimiento</p>'}
+  `;
+
+  showModal({
+    title: 'Detalle de herramienta',
+    body,
+    saveText: 'Editar',
+    onSave: () => { setTimeout(() => editarHerramienta(id), 50); return true; }
+  });
+}
+function filaDetalle(k, v) {
+  return `<div style="background:var(--surface-2);padding:9px 12px;border-radius:9px">
+    <div style="font-size:11px;color:var(--text-2);font-weight:600;text-transform:uppercase;letter-spacing:.4px">${esc(k)}</div>
+    <div style="font-weight:600;margin-top:2px">${esc(v)}</div>
+  </div>`;
+}
+
+/* ============================================================
+   PRÉSTAMOS
+   ============================================================ */
+function prestar(id) {
+  const h = getH(id);
+  if (!h) return;
+  showModal({
+    title: 'Prestar: ' + h.nombre,
+    body: `
+      <div class="form-grid">
+        <label class="full">Persona que lo lleva *
+          <input id="p-persona" placeholder="Nombre y apellidos" maxlength="60">
+        </label>
+        <label>Teléfono de contacto
+          <input id="p-tel" placeholder="Opcional">
+        </label>
+        <label>Fecha de devolución prevista
+          <input id="p-fecha" type="date" value="${addDays(hoy(), 7)}">
+        </label>
+        <label class="full">Notas
+          <textarea id="p-notas" rows="2" placeholder="Para qué lo necesita, en qué estado se lleva..."></textarea>
+        </label>
+      </div>`,
+    saveText: 'Registrar préstamo',
+    onSave: () => {
+      const persona = $('#p-persona').value.trim();
+      if (!persona) { toast('Indica el nombre de la persona', 'err'); return false; }
+      h.prestamo = {
+        persona,
+        telefono: $('#p-tel').value.trim(),
+        fecha: hoy(),
+        fechaPrevista: $('#p-fecha').value || addDays(hoy(), 7),
+        notas: $('#p-notas').value.trim()
+      };
+      h.estado = 'prestada';
+      log('prestamo', `«${h.nombre}» prestada a ${persona}`);
+      save(); render(); toast('Préstamo registrado');
+    }
+  });
+}
+
+function devolver(id) {
+  const h = getH(id);
+  if (!h || !h.prestamo) return;
+  const p = h.prestamo;
+  const retraso = p.fechaPrevista ? diasHasta(p.fechaPrevista) : 0;
+  showModal({
+    title: 'Devolver herramienta',
+    body: `
+      <p style="font-size:14.5px;margin-bottom:14px">Registrar la devolución de <b>${esc(h.nombre)}</b> por parte de <b>${esc(p.persona)}</b>.</p>
+      ${retraso < 0 ? `<div class="alert alert-d"><span>⏰</span><div>Devolución con <b>${Math.abs(retraso)} días</b> de retraso respecto a la fecha prevista.</div></div>` : ''}
+      <div class="form-grid">
+        <label class="full">Estado en que se devuelve
+          <select id="d-estado">
+            <option value="disponible">Correcto — disponible</option>
+            <option value="mantenimiento">Necesita mantenimiento</option>
+            <option value="averiada">Averiada</option>
+          </select>
+        </label>
+        <label class="full">Observaciones
+          <textarea id="d-notas" rows="2" placeholder="Opcional"></textarea>
+        </label>
+      </div>`,
+    saveText: 'Confirmar devolución',
+    onSave: () => {
+      const nuevoEstado = $('#d-estado').value;
+      const obs = $('#d-notas').value.trim();
+      state.historialPrestamos.unshift({
+        id: uid('hp'),
+        herramientaId: h.id,
+        herramienta: h.nombre,
+        persona: p.persona,
+        telefono: p.telefono,
+        fechaPrestamo: p.fecha,
+        fechaPrevista: p.fechaPrevista,
+        fechaDevolucion: hoy(),
+        retraso: retraso < 0 ? Math.abs(retraso) : 0,
+        notas: obs
+      });
+      h.prestamo = null;
+      h.estado = nuevoEstado;
+      log('devolucion', `«${h.nombre}» devuelta por ${p.persona}${obs ? ' — ' + obs : ''}`);
+      save(); render(); toast('Devolución registrada');
+    }
+  });
+}
+
+function renderPrestamos() {
+  const act = activos().sort((a, b) => (a.prestamo.fechaPrevista || '').localeCompare(b.prestamo.fechaPrevista || ''));
+  const hist = state.historialPrestamos;
+
+  $('#view').innerHTML = `
+    <div class="tabs">
+      <button class="tab ${tabPrestamos === 'activos' ? 'active' : ''}" data-tab="activos">Activos (${act.length})</button>
+      <button class="tab ${tabPrestamos === 'historial' ? 'active' : ''}" data-tab="historial">Historial (${hist.length})</button>
+    </div>
+    <div id="prest-body"></div>
+  `;
+
+  $$('.tab').forEach(t => t.onclick = () => { tabPrestamos = t.dataset.tab; renderPrestamos(); });
+
+  const body = $('#prest-body');
+
+  if (tabPrestamos === 'activos') {
+    if (!act.length) {
+      body.innerHTML = `<div class="empty"><div class="em">🤝</div><h3>No hay préstamos activos</h3><p>Todas tus herramientas están en el taller. Cuando prestes alguna, aparecerá aquí con su fecha de devolución.</p></div>`;
+      return;
+    }
+    body.innerHTML = `<div class="list">${act.map(h => {
+      const d = h.prestamo.fechaPrevista ? diasHasta(h.prestamo.fechaPrevista) : null;
+      const venc = d !== null && d < 0;
+      const proximo = d !== null && d >= 0 && d <= 3;
+      return `
+      <div class="row" style="${venc ? 'border-color:var(--danger)' : proximo ? 'border-color:var(--warning)' : ''}">
+        <div class="tool-ico">${iconoCat(h.categoria)}</div>
+        <div class="row-main">
+          <div class="row-title">${esc(h.nombre)}</div>
+          <div class="row-sub">
+            <b>${esc(h.prestamo.persona)}</b>${h.prestamo.telefono ? ' · ' + esc(h.prestamo.telefono) : ''}
+            · Prestada el ${fmtFecha(h.prestamo.fecha)}
+          </div>
+          <div class="row-sub" style="${venc ? 'color:var(--danger);font-weight:700' : proximo ? 'color:var(--warning);font-weight:700' : ''}">
+            ${venc ? `⏰ Vencida hace ${Math.abs(d)} días (${fmtFecha(h.prestamo.fechaPrevista)})`
+                   : d === 0 ? '📅 Devolución prevista para hoy'
+                   : `📅 Devolución prevista: ${fmtFecha(h.prestamo.fechaPrevista)} (en ${d} días)`}
+          </div>
+          ${h.prestamo.notas ? `<div class="row-sub" style="font-style:italic">${esc(h.prestamo.notas)}</div>` : ''}
+        </div>
+        <div class="row-actions">
+          <button class="btn btn-sm btn-success" onclick="devolver('${h.id}')">↩️ Devolver</button>
+          <button class="btn btn-sm btn-ghost" onclick="verDetalle('${h.id}')">ℹ️</button>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+  } else {
+    if (!hist.length) {
+      body.innerHTML = `<div class="empty"><div class="em">📜</div><h3>Sin historial todavía</h3><p>Aquí se registrarán todas las devoluciones con sus fechas y observaciones.</p></div>`;
+      return;
+    }
+    body.innerHTML = `<div class="list">${hist.map(p => `
+      <div class="row">
+        <div class="tool-ico" style="background:var(--success-soft)">↩️</div>
+        <div class="row-main">
+          <div class="row-title">${esc(p.herramienta)}</div>
+          <div class="row-sub"><b>${esc(p.persona)}</b> · Prestada ${fmtFecha(p.fechaPrestamo)} → Devuelta ${fmtFecha(p.fechaDevolucion)}</div>
+          ${p.retraso ? `<div class="row-sub" style="color:var(--danger)">⏰ Con ${p.retraso} días de retraso</div>` : ''}
+          ${p.notas ? `<div class="row-sub" style="font-style:italic">${esc(p.notas)}</div>` : ''}
+        </div>
+        <div class="row-actions">
+          <button class="btn btn-sm btn-ghost" onclick="borrarHistorial('${p.id}')" title="Eliminar registro" style="color:var(--danger)">🗑️</button>
+        </div>
+      </div>`).join('')}</div>`;
+  }
+}
+
+function borrarHistorial(id) {
+  state.historialPrestamos = state.historialPrestamos.filter(p => p.id !== id);
+  save(); renderPrestamos(); toast('Registro eliminado');
+}
+
+/* ============================================================
+   MANTENIMIENTO
+   ============================================================ */
+function renderMantenimiento() {
+  const prox = proxMantenimiento(60);
+  const enMant = enMantenimiento();
+  const todos = state.herramientas
+    .filter(h => h.proximoMantenimiento || (h.mantenimientos && h.mantenimientos.length))
+    .sort((a, b) => {
+      if (!a.proximoMantenimiento) return 1;
+      if (!b.proximoMantenimiento) return -1;
+      return a.proximoMantenimiento.localeCompare(b.proximoMantenimiento);
+    });
+
+  // Historial global de mantenimientos
+  const histGlobal = [];
+  state.herramientas.forEach(h => (h.mantenimientos || []).forEach(m => histGlobal.push({ ...m, herramienta: h.nombre, herramientaId: h.id })));
+  histGlobal.sort((a, b) => b.fecha.localeCompare(a.fecha));
+
+  $('#view').innerHTML = `
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+      <div class="stat" style="--accent:var(--warning)">
+        <div class="stat-label">🧰 En mantenimiento</div>
+        <div class="stat-value">${enMant.length}</div>
+        <div class="stat-sub">herramientas fuera de servicio</div>
+      </div>
+      <div class="stat" style="--accent:var(--danger)">
+        <div class="stat-label">⏰ Revisiones vencidas</div>
+        <div class="stat-value">${prox.filter(h => diasHasta(h.proximoMantenimiento) < 0).length}</div>
+        <div class="stat-sub">requieren atención</div>
+      </div>
+      <div class="stat" style="--accent:var(--info)">
+        <div class="stat-label">📅 Próximas (60 días)</div>
+        <div class="stat-value">${prox.length}</div>
+        <div class="stat-sub">programadas</div>
+      </div>
+      <div class="stat" style="--accent:#7c3aed">
+        <div class="stat-label">📜 Registros totales</div>
+        <div class="stat-value">${histGlobal.length}</div>
+        <div class="stat-sub">intervenciones realizadas</div>
+      </div>
+    </div>
+
+    <div class="section-title">🔔 Revisiones programadas</div>
+    ${todos.length ? `<div class="list">${todos.map(h => {
+      const d = h.proximoMantenimiento ? diasHasta(h.proximoMantenimiento) : null;
+      const venc = d !== null && d < 0;
+      const cerca = d !== null && d >= 0 && d <= 15;
+      const est = h.prestamo ? 'prestada' : h.estado;
+      return `
+      <div class="row" style="${venc ? 'border-color:var(--danger)' : cerca ? 'border-color:var(--warning)' : ''}">
+        <div class="tool-ico">${iconoCat(h.categoria)}</div>
+        <div class="row-main">
+          <div class="row-title">${esc(h.nombre)} <span class="badge-est ${ESTADOS[est].cls}" style="margin-left:6px">${ESTADOS[est].label}</span></div>
+          <div class="row-sub">
+            ${h.proximoMantenimiento
+              ? (venc ? `<span style="color:var(--danger);font-weight:700">⏰ Revisión vencida hace ${Math.abs(d)} días (${fmtFecha(h.proximoMantenimiento)})</span>`
+                      : `<span style="${cerca ? 'color:var(--warning);font-weight:700' : ''}">📅 Próxima revisión: ${fmtFecha(h.proximoMantenimiento)} (en ${d} días)</span>`)
+              : '<span style="color:var(--text-2)">Sin próxima revisión programada</span>'}
+            · ${(h.mantenimientos || []).length} intervención(es) registrada(s)
+          </div>
+        </div>
+        <div class="row-actions">
+          <button class="btn btn-sm btn-primary" onclick="registrarMantenimiento('${h.id}')">🧰 Registrar</button>
+          <button class="btn btn-sm btn-ghost" onclick="programarRevision('${h.id}')">📅 Programar</button>
+        </div>
+      </div>`;
+    }).join('')}</div>`
+    : `<div class="empty"><div class="em">🧰</div><h3>Sin mantenimientos programados</h3><p>Programa revisiones periódicas para alargar la vida de tus herramientas y evitar averías.</p></div>`}
+
+    <div class="section-title">📜 Historial de intervenciones</div>
+    ${histGlobal.length ? `<div class="list">${histGlobal.slice(0, 40).map(m => `
+      <div class="row">
+        <div class="tool-ico" style="background:var(--surface-2)">🔧</div>
+        <div class="row-main">
+          <div class="row-title">${esc(m.herramienta)} — <span style="font-weight:600;color:var(--primary)">${esc(m.tipo)}</span></div>
+          <div class="row-sub">${fmtFecha(m.fecha)}${m.descripcion ? ' · ' + esc(m.descripcion) : ''}${num(m.coste) ? ' · ' + fmtMoney(m.coste) : ''}</div>
+        </div>
+        <div class="row-actions">
+          <button class="btn btn-sm btn-ghost" onclick="borrarMantenimiento('${m.herramientaId}','${m.id}')" style="color:var(--danger)">🗑️</button>
+        </div>
+      </div>`).join('')}</div>`
+    : '<p style="color:var(--text-2);font-size:13.5px">Aún no hay intervenciones registradas.</p>'}
+  `;
+}
+
+function registrarMantenimiento(id) {
+  const h = getH(id);
+  if (!h) return;
+  showModal({
+    title: 'Registrar mantenimiento',
+    body: `
+      <p style="font-size:14px;margin-bottom:14px;color:var(--text-2)">Herramienta: <b style="color:var(--text)">${esc(h.nombre)}</b></p>
+      <div class="form-grid">
+        <label>Tipo de intervención
+          <select id="m-tipo">
+            <option>Revisión</option>
+            <option>Limpieza</option>
+            <option>Reparación</option>
+            <option>Calibración</option>
+            <option>Sustitución de pieza</option>
+            <option>Puesta a punto</option>
+            <option>Otro</option>
+          </select>
+        </label>
+        <label>Fecha
+          <input id="m-fecha" type="date" value="${hoy()}">
+        </label>
+        <label class="full">Descripción
+          <textarea id="m-desc" rows="3" placeholder="Qué se ha hecho, piezas sustituidas, observaciones..."></textarea>
+        </label>
+        <label>Coste (€)
+          <input id="m-coste" type="number" min="0" step="0.01" placeholder="0.00">
+        </label>
+        <label>Estado final
+          <select id="m-estado">
+            <option value="disponible">Disponible</option>
+            <option value="mantenimiento">Sigue en mantenimiento</option>
+            <option value="averiada">Averiada</option>
+          </select>
+        </label>
+        <label class="full">Programar próxima revisión
+          <input id="m-prox" type="date" value="${addDays(hoy(), 180)}">
+          <span class="hint">Deja vacío si no quieres programar la siguiente</span>
+        </label>
+      </div>`,
+    saveText: 'Guardar intervención',
+    onSave: () => {
+      const reg = {
+        id: uid('m'),
+        fecha: $('#m-fecha').value || hoy(),
+        tipo: $('#m-tipo').value,
+        descripcion: $('#m-desc').value.trim(),
+        coste: num($('#m-coste').value)
+      };
+      if (!h.mantenimientos) h.mantenimientos = [];
+      h.mantenimientos.push(reg);
+      h.estado = $('#m-estado').value;
+      const prox = $('#m-prox').value;
+      if (prox) h.proximoMantenimiento = prox;
+      log('mantenimiento', `${reg.tipo} de «${h.nombre}»${reg.coste ? ' (' + fmtMoney(reg.coste) + ')' : ''}`);
+      save(); render(); toast('Mantenimiento registrado');
+    }
+  });
+}
+
+function programarRevision(id) {
+  const h = getH(id);
+  if (!h) return;
+  showModal({
+    title: 'Programar revisión',
+    body: `
+      <p style="font-size:14px;margin-bottom:14px;color:var(--text-2)">Herramienta: <b style="color:var(--text)">${esc(h.nombre)}</b></p>
+      <div class="form-grid">
+        <label class="full">Fecha de la próxima revisión
+          <input id="r-fecha" type="date" value="${h.proximoMantenimiento || addDays(hoy(), 180)}">
+        </label>
+        <label class="full" style="flex-direction:row;align-items:center;gap:8px;font-weight:500">
+          <input type="checkbox" id="r-quitar" style="width:auto"> Quitar la programación (sin próxima revisión)
+        </label>
+      </div>`,
+    saveText: 'Guardar',
+    onSave: () => {
+      if ($('#r-quitar').checked) h.proximoMantenimiento = '';
+      else h.proximoMantenimiento = $('#r-fecha').value;
+      save(); render(); toast('Programación actualizada');
+    }
+  });
+}
+
+function borrarMantenimiento(hid, mid) {
+  const h = getH(hid);
+  if (!h) return;
+  h.mantenimientos = (h.mantenimientos || []).filter(m => m.id !== mid);
+  save(); render(); toast('Registro eliminado');
+}
+
+/* ============================================================
+   UBICACIONES Y CATEGORÍAS
+   ============================================================ */
+function renderUbicaciones() {
+  const countUbi = {};
+  state.herramientas.forEach(h => { const u = h.ubicacion || 'Sin ubicación'; countUbi[u] = (countUbi[u] || 0) + 1; });
+  const countCat = {};
+  state.herramientas.forEach(h => { countCat[h.categoria] = (countCat[h.categoria] || 0) + 1; });
+
+  $('#view').innerHTML = `
+    <div class="section-title">📍 Ubicaciones de almacenamiento
+      <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="nuevaUbicacion()">＋ Añadir ubicación</button>
+    </div>
+    ${state.ubicaciones.length ? `<div class="loc-grid">${state.ubicaciones.map(u => `
+      <div class="loc">
+        <div class="loc-ico">📍</div>
+        <div class="loc-info">
+          <div class="loc-name">${esc(u)}</div>
+          <div class="loc-count">${countUbi[u] || 0} herramienta(s)</div>
+        </div>
+        <button class="btn-icon" onclick="editarUbicacion('${esc(u).replace(/'/g, "\\'")}')" title="Renombrar">✏️</button>
+        <button class="btn-icon" onclick="borrarUbicacion('${esc(u).replace(/'/g, "\\'")}')" title="Eliminar" style="color:var(--danger)">🗑️</button>
+      </div>`).join('')}</div>`
+    : '<p style="color:var(--text-2);font-size:13.5px">No hay ubicaciones definidas.</p>'}
+
+    ${countUbi['Sin ubicación'] ? `<div class="alert alert-i" style="margin-top:16px"><span>ℹ️</span><div>Hay <b>${countUbi['Sin ubicación']}</b> herramienta(s) sin ubicación asignada. Edítalas para asignarles un sitio.</div></div>` : ''}
+
+    <div class="section-title" style="margin-top:34px">🏷️ Categorías
+      <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="nuevaCategoria()">＋ Añadir categoría</button>
+    </div>
+    <div class="loc-grid">
+      ${state.categorias.map(c => `
+        <div class="loc">
+          <div class="loc-ico">${iconoCat(c)}</div>
+          <div class="loc-info">
+            <div class="loc-name">${esc(c)}</div>
+            <div class="loc-count">${countCat[c] || 0} herramienta(s)</div>
+          </div>
+          <button class="btn-icon" onclick="editarCategoria('${esc(c).replace(/'/g, "\\'")}')" title="Renombrar">✏️</button>
+          <button class="btn-icon" onclick="borrarCategoria('${esc(c).replace(/'/g, "\\'")}')" title="Eliminar" style="color:var(--danger)">🗑️</button>
+        </div>`).join('')}
+    </div>
+  `;
+}
+
+function nuevaUbicacion() {
+  showModal({
+    title: 'Nueva ubicación',
+    body: `<div class="form-grid"><label class="full">Nombre de la ubicación
+      <input id="u-nombre" placeholder="Ej: Estantería C, Caja roja, Pared sur..."></label></div>`,
+    saveText: 'Añadir',
+    onSave: () => {
+      const n = $('#u-nombre').value.trim();
+      if (!n) { toast('Escribe un nombre', 'err'); return false; }
+      if (state.ubicaciones.includes(n)) { toast('Ya existe esa ubicación', 'err'); return false; }
+      state.ubicaciones.push(n); state.ubicaciones.sort((a, b) => a.localeCompare(b, 'es'));
+      save(); render(); toast('Ubicación añadida');
+    }
+  });
+}
+function editarUbicacion(antigua) {
+  showModal({
+    title: 'Renombrar ubicación',
+    body: `<div class="form-grid"><label class="full">Nuevo nombre
+      <input id="u-nombre" value="${esc(antigua)}"></label></div>`,
+    saveText: 'Guardar',
+    onSave: () => {
+      const n = $('#u-nombre').value.trim();
+      if (!n) { toast('Escribe un nombre', 'err'); return false; }
+      const i = state.ubicaciones.indexOf(antigua);
+      if (i > -1) state.ubicaciones[i] = n;
+      state.herramientas.forEach(h => { if (h.ubicacion === antigua) h.ubicacion = n; });
+      state.ubicaciones.sort((a, b) => a.localeCompare(b, 'es'));
+      save(); render(); toast('Ubicación renombrada');
+    }
+  });
+}
+function borrarUbicacion(nombre) {
+  const n = state.herramientas.filter(h => h.ubicacion === nombre).length;
+  showModal({
+    title: 'Eliminar ubicación',
+    body: `<p style="font-size:14.5px">¿Eliminar la ubicación <b>${esc(nombre)}</b>?</p>
+           ${n ? `<div class="alert alert-w" style="margin-top:12px"><span>⚠️</span><div>${n} herramienta(s) quedarán sin ubicación asignada.</div></div>` : ''}`,
+    saveText: 'Eliminar',
+    onSave: () => {
+      state.ubicaciones = state.ubicaciones.filter(u => u !== nombre);
+      state.herramientas.forEach(h => { if (h.ubicacion === nombre) h.ubicacion = ''; });
+      save(); render(); toast('Ubicación eliminada');
+    }
+  });
+}
+
+function nuevaCategoria() {
+  showModal({
+    title: 'Nueva categoría',
+    body: `<div class="form-grid"><label class="full">Nombre de la categoría
+      <input id="c-nombre" placeholder="Ej: Neumática, Soldadura, Corte..."></label></div>`,
+    saveText: 'Añadir',
+    onSave: () => {
+      const n = $('#c-nombre').value.trim();
+      if (!n) { toast('Escribe un nombre', 'err'); return false; }
+      if (state.categorias.includes(n)) { toast('Ya existe esa categoría', 'err'); return false; }
+      state.categorias.push(n); state.categorias.sort((a, b) => a.localeCompare(b, 'es'));
+      save(); render(); toast('Categoría añadida');
+    }
+  });
+}
+function editarCategoria(antigua) {
+  showModal({
+    title: 'Renombrar categoría',
+    body: `<div class="form-grid"><label class="full">Nuevo nombre
+      <input id="c-nombre" value="${esc(antigua)}"></label></div>`,
+    saveText: 'Guardar',
+    onSave: () => {
+      const n = $('#c-nombre').value.trim();
+      if (!n) { toast('Escribe un nombre', 'err'); return false; }
+      const i = state.categorias.indexOf(antigua);
+      if (i > -1) state.categorias[i] = n;
+      state.herramientas.forEach(h => { if (h.categoria === antigua) h.categoria = n; });
+      state.categorias.sort((a, b) => a.localeCompare(b, 'es'));
+      save(); render(); toast('Categoría renombrada');
+    }
+  });
+}
+function borrarCategoria(nombre) {
+  const n = state.herramientas.filter(h => h.categoria === nombre).length;
+  showModal({
+    title: 'Eliminar categoría',
+    body: `<p style="font-size:14.5px">¿Eliminar la categoría <b>${esc(nombre)}</b>?</p>
+           ${n ? `<div class="alert alert-w" style="margin-top:12px"><span>⚠️</span><div>${n} herramienta(s) pasarán a la categoría <b>Otros</b>.</div></div>` : ''}`,
+    saveText: 'Eliminar',
+    onSave: () => {
+      state.categorias = state.categorias.filter(c => c !== nombre);
+      state.herramientas.forEach(h => { if (h.categoria === nombre) h.categoria = 'Otros'; });
+      if (!state.categorias.includes('Otros')) state.categorias.push('Otros');
+      save(); render(); toast('Categoría eliminada');
+    }
+  });
+}
+
+/* ============================================================
+   AJUSTES
+   ============================================================ */
+function renderAjustes() {
+  const tam = (() => {
+    try { return (new Blob([localStorage.getItem(LS_KEY) || '']).size / 1024).toFixed(1); }
+    catch { return '—'; }
+  })();
+
+  $('#view').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px;max-width:1000px">
+
+      <div class="card card-pad">
+        <div class="card-title">🏠 Identidad del taller</div>
+        <div class="form-grid">
+          <label class="full">Nombre del taller
+            <input id="a-taller" value="${esc(state.ajustes.taller)}" placeholder="Mi Taller">
+          </label>
+        </div>
+        <button class="btn btn-primary" style="margin-top:14px" onclick="guardarAjustes()">Guardar</button>
+      </div>
+
+      <div class="card card-pad">
+        <div class="card-title">🎨 Apariencia</div>
+        <p style="font-size:13.5px;color:var(--text-2);margin-bottom:12px">Elige el tema de la interfaz.</p>
+        <div style="display:flex;gap:9px">
+          <button class="btn ${state.ajustes.tema === 'claro' ? 'btn-primary' : 'btn-ghost'}" onclick="setTema('claro')">☀️ Claro</button>
+          <button class="btn ${state.ajustes.tema === 'oscuro' ? 'btn-primary' : 'btn-ghost'}" onclick="setTema('oscuro')">🌙 Oscuro</button>
+        </div>
+      </div>
+
+      <div class="card card-pad">
+        <div class="card-title">💾 Copia de seguridad</div>
+        <p style="font-size:13.5px;color:var(--text-2);margin-bottom:14px">
+          Tus datos se guardan en este navegador (${tam} KB). Exporta periódicamente para no perderlos.
+        </p>
+        <div style="display:flex;gap:9px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="exportarJSON()">⬇️ Exportar JSON</button>
+          <button class="btn btn-ghost" onclick="exportarCSV()">📊 Exportar CSV</button>
+          <button class="btn btn-ghost" onclick="$('#inputImport').click()">⬆️ Importar JSON</button>
+        </div>
+        <input type="file" id="inputImport" accept=".json" style="display:none">
+        <p style="font-size:12px;color:var(--text-2);margin-top:12px">Al importar se reemplazarán todos los datos actuales.</p>
+      </div>
+
+      <div class="card card-pad">
+        <div class="card-title">📈 Estadísticas</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13.5px">
+          ${statMini('Referencias', state.herramientas.length)}
+          ${statMini('Unidades', totalUnidades())}
+          ${statMini('Categorías', state.categorias.length)}
+          ${statMini('Ubicaciones', state.ubicaciones.length)}
+          ${statMini('Préstamos históricos', state.historialPrestamos.length)}
+          ${statMini('Intervenciones', state.herramientas.reduce((s, h) => s + (h.mantenimientos || []).length, 0))}
+        </div>
+      </div>
+
+      <div class="card card-pad" style="border-color:var(--danger)">
+        <div class="card-title" style="color:var(--danger)">⚠️ Zona peligrosa</div>
+        <p style="font-size:13.5px;color:var(--text-2);margin-bottom:14px">
+          Estas acciones no se pueden deshacer. Asegúrate de tener una copia de seguridad.
+        </p>
+        <div style="display:flex;gap:9px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="cargarDemo()">🔄 Cargar datos de ejemplo</button>
+          <button class="btn btn-danger" onclick="borrarTodo()">🗑️ Borrar todos los datos</button>
+        </div>
+      </div>
+
+    </div>
+  `;
+
+  $('#inputImport').onchange = importarJSON;
+}
+function statMini(k, v) {
+  return `<div style="background:var(--surface-2);padding:10px 12px;border-radius:9px">
+    <div style="font-size:11.5px;color:var(--text-2);font-weight:600">${esc(k)}</div>
+    <div style="font-size:18px;font-weight:700;margin-top:2px">${v}</div>
+  </div>`;
+}
+
+function guardarAjustes() {
+  const n = $('#a-taller').value.trim() || 'Mi Taller';
+  state.ajustes.taller = n;
+  save(); render(); toast('Ajustes guardados');
+}
+function setTema(t) {
+  state.ajustes.tema = t;
+  save(); render();
+}
+
+/* ---------- Exportar / Importar ---------- */
+function descargar(nombre, contenido, tipo) {
+  const blob = new Blob([contenido], { type: tipo });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function exportarJSON() {
+  const data = JSON.stringify(state, null, 2);
+  descargar(`tallerpro_${hoy()}.json`, data, 'application/json');
+  toast('Copia de seguridad exportada');
+}
+function exportarCSV() {
+  const cab = ['Nombre','Categoría','Marca','Modelo','Nº Serie','Cantidad','Precio','Fecha compra','Ubicación','Estado','Prestada a','Devolución prevista','Próximo mantenimiento','Notas'];
+  const filas = state.herramientas.map(h => [
+    h.nombre, h.categoria, h.marca, h.modelo, h.serie, h.cantidad || 1, h.precio || 0,
+    h.fechaCompra, h.ubicacion, h.prestamo ? 'prestada' : h.estado,
+    h.prestamo ? h.prestamo.persona : '', h.prestamo ? h.prestamo.fechaPrevista : '',
+    h.proximoMantenimiento, h.notas
+  ]);
+  const csv = [cab, ...filas].map(f => f.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
+  descargar(`inventario_${hoy()}.csv`, '\uFEFF' + csv, 'text/csv;charset=utf-8');
+  toast('CSV exportado');
+}
+function importarJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const d = JSON.parse(ev.target.result);
+      if (!d || !Array.isArray(d.herramientas)) throw new Error('Formato inválido');
+      showModal({
+        title: 'Confirmar importación',
+        body: `<p style="font-size:14.5px">El archivo contiene <b>${d.herramientas.length}</b> herramientas.</p>
+               <div class="alert alert-w" style="margin-top:12px"><span>⚠️</span><div>Se reemplazarán todos los datos actuales de este navegador.</div></div>`,
+        saveText: 'Importar y reemplazar',
+        onSave: () => {
+          state = {
+            herramientas: d.herramientas || [],
+            categorias: d.categorias || state.categorias,
+            ubicaciones: d.ubicaciones || state.ubicaciones,
+            historialPrestamos: d.historialPrestamos || [],
+            actividad: d.actividad || [],
+            ajustes: { ...state.ajustes, ...(d.ajustes || {}) }
+          };
+          log('sistema', 'Datos importados desde archivo');
+          save(); render(); toast('Datos importados correctamente');
+        }
+      });
+    } catch (err) {
+      toast('Archivo inválido: ' + err.message, 'err');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+}
+function cargarDemo() {
+  showModal({
+    title: 'Cargar datos de ejemplo',
+    body: `<p style="font-size:14.5px">Se reemplazarán todos los datos actuales por un inventario de ejemplo de 15 herramientas.</p>
+           <div class="alert alert-w" style="margin-top:12px"><span>⚠️</span><div>Esta acción no se puede deshacer.</div></div>`,
+    saveText: 'Cargar ejemplo',
+    onSave: () => { seed(); render(); toast('Datos de ejemplo cargados'); }
+  });
+}
+function borrarTodo() {
+  showModal({
+    title: 'Borrar todos los datos',
+    body: `<p style="font-size:14.5px">¿Seguro que quieres borrar <b>todo</b> el inventario, préstamos e historial?</p>
+           <div class="alert alert-d" style="margin-top:12px"><span>⚠️</span><div>Esta acción es irreversible. Exporta antes una copia si la necesitas.</div></div>`,
+    saveText: 'Sí, borrar todo',
+    onSave: () => {
+      state = {
+        herramientas: [], categorias: ['Manuales','Eléctricas','Medición','Automoción','Jardinería','Fijación','Seguridad','Soldadura','Neumática','Pintura','Otros'],
+        ubicaciones: [], historialPrestamos: [], actividad: [],
+        ajustes: { ...state.ajustes }
+      };
+      save(); render(); toast('Todos los datos han sido borrados');
+    }
+  });
+}
+
+/* ============================================================
+   NAVEGACIÓN Y EVENTOS
+   ============================================================ */
+$$('.nav-item').forEach(btn => {
+  btn.onclick = () => {
+    currentView = btn.dataset.view;
+    filtros = { q: '', cat: '', est: '', ubi: '', orden: filtros.orden };
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (window.innerWidth <= 900) closeSidebar();
+  };
+});
+$('#btnNueva').onclick = () => nuevaHerramienta();
+$('#btnTheme').onclick = () => setTema(state.ajustes.tema === 'oscuro' ? 'claro' : 'oscuro');
+$('#hamburger').onclick = () => {
+  $('#sidebar').classList.toggle('open');
+  $('#backdrop').classList.toggle('open');
+};
+function closeSidebar() {
+  $('#sidebar').classList.remove('open');
+  $('#backdrop').classList.remove('open');
+}
+$('#backdrop').onclick = closeSidebar;
+
+/* Atajos de teclado */
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea, select')) return;
+  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); nuevaHerramienta(); }
+  if (e.key === '/') { e.preventDefault(); if (currentView !== 'herramientas') { currentView = 'herramientas'; render(); } const q = $('#f-q'); if (q) q.focus(); }
+});
+
+/* ============================================================
+   INICIALIZACIÓN
+   ============================================================ */
+(function init() {
+  if (!load()) { seed(); }
+  if (!state.ajustes) state.ajustes = { taller: 'Mi Taller', tema: 'claro' };
+  render();
+})();
+</script>
+</body>
+</html>
