@@ -7,8 +7,8 @@
   const TP = window.TP = {};
 
   /* ============ 1. CONFIGURACIÓN (RELLENA ESTO) ============ */
-  const SUPABASE_URL      = 'https://TU-PROYECTO.supabase.co';
-  const SUPABASE_ANON_KEY = 'TU-ANON-KEY-AQUI';
+  const SUPABASE_URL      = 'https://mwzhyozqmsqmfpgtzeek.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13emh5b3pxbXNxbWZwZ3R6ZWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMjE3ODEsImV4cCI6MjEwNTc5Nzc4MX0.U03Ec0QqhWznmy9_pyyjvp0yS9vzuPy9FY01UvfZDs0';
   const BUCKET_FOTOS      = 'taller-fotos';   // nombre exacto del bucket en Supabase Storage
 
   /* ============ 2. Cliente Supabase ============ */
