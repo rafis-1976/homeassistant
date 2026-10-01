@@ -12,7 +12,6 @@ TP.onReady = async function () {
   $v.innerHTML = '<p style="color:var(--text-2);padding:20px">Cargando préstamos…</p>';
 
   try {
-    // Consulta con JOIN para traer el nombre y categoría de la herramienta
     const [{ data: activos }, { data: historial }] = await Promise.all([
       TP.sb.from('taller_prestamos')
         .select('*, taller_herramientas ( id, nombre, categoria )')
@@ -24,7 +23,7 @@ TP.onReady = async function () {
         .order('fecha_devolucion', { ascending: false })
     ]);
 
-    const act  = (activos || []).map(p => ({
+    const act = (activos || []).map(p => ({
       id: p.herramienta_id,
       nombre: p.taller_herramientas?.nombre || '(eliminada)',
       categoria: p.taller_herramientas?.categoria || 'Otros',
