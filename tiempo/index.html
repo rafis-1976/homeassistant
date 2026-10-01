@@ -574,10 +574,10 @@ button{cursor:pointer;border:none;background:none}
      RADAR
      ============================================================ */
   function crearBasemap() {
-  // OpenStreetMap estándar — no requiere API key
   return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    maxZoom: 19
+    maxZoom: 22,
+    maxNativeZoom: 19
   });
 }
 
