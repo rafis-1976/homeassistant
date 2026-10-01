@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TallerPro — Gestión de Herramientas</title>
+<title>TallerPro — Gestión de Herramientas (SQLite)</title>
 <style>
 /* ============ RESET & VARIABLES ============ */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -39,6 +39,21 @@ button{cursor:pointer;border:none;background:none}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:20px}
 ::-webkit-scrollbar-track{background:transparent}
 
+/* ============ LOADER ============ */
+#loader{
+  position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:18px;z-index:1000;
+}
+.spinner{
+  width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--primary);
+  border-radius:50%;animation:spin .9s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loader h2{font-size:18px;font-weight:700;letter-spacing:-.3px}
+#loader p{font-size:13px;color:var(--text-2);max-width:320px;text-align:center}
+#loader.err .spinner{border-top-color:var(--danger);animation:none;border-color:var(--danger-soft)}
+#loader.err h2{color:var(--danger)}
+
 /* ============ LAYOUT ============ */
 .app{display:flex;min-height:100vh}
 .sidebar{
@@ -65,6 +80,12 @@ button{cursor:pointer;border:none;background:none}
 .nav-item .badge{margin-left:auto;background:var(--danger);color:#fff;font-size:11px;font-weight:700;
   padding:1px 7px;border-radius:20px;min-width:20px;text-align:center}
 .sidebar-footer{padding-top:12px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text-2);text-align:center}
+.db-badge{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;
+  padding:2px 8px;border-radius:20px;background:var(--success-soft);color:var(--success);
+  margin-top:8px;letter-spacing:.3px}
+.db-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;
+  animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar{
@@ -150,7 +171,6 @@ select.filter:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--prima
 .badge-est::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
 .est-disponible{background:var(--success-soft);color:var(--success)}
 .est-prestada{background:var(--info-soft);color:var(--info)}
-.est-mantenimiento{background:var(--warning-soft);color:var(--warning)}
 .est-averiada{background:var(--danger-soft);color:var(--danger)}
 .tool-actions{display:flex;gap:6px;flex-wrap:wrap;padding-top:11px;border-top:1px solid var(--border);margin-top:auto}
 .tool-actions .btn{flex:1;min-width:0}
@@ -270,7 +290,15 @@ select.filter:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--prima
 </style>
 </head>
 <body>
-<div class="app">
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="spinner"></div>
+  <h2 id="loaderTitle">Cargando base de datos SQLite…</h2>
+  <p id="loaderMsg">Inicializando motor SQL en el navegador (sql.js / WebAssembly).</p>
+</div>
+
+<div class="app" id="app" style="display:none">
   <aside class="sidebar" id="sidebar">
     <div class="brand">
       <div class="brand-icon">🛠️</div>
@@ -283,11 +311,13 @@ select.filter:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--prima
       <button class="nav-item active" data-view="dashboard"><span class="ico">📊</span> Panel</button>
       <button class="nav-item" data-view="herramientas"><span class="ico">🔧</span> Herramientas</button>
       <button class="nav-item" data-view="prestamos"><span class="ico">🤝</span> Préstamos<span class="badge" id="navBadge" style="display:none">0</span></button>
-      <button class="nav-item" data-view="mantenimiento"><span class="ico">🧰</span> Mantenimiento</button>
       <button class="nav-item" data-view="ubicaciones"><span class="ico">📍</span> Ubicaciones</button>
       <button class="nav-item" data-view="ajustes"><span class="ico">⚙️</span> Ajustes</button>
     </nav>
-    <div class="sidebar-footer">TallerPro · v1.0</div>
+    <div class="sidebar-footer">
+      TallerPro · v2.0<br>
+      <span class="db-badge" id="dbBadge">SQLite activo</span>
+    </div>
   </aside>
   <div class="backdrop" id="backdrop"></div>
 
@@ -323,12 +353,12 @@ select.filter:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--prima
 
 <div class="toasts" id="toasts"></div>
 
-<datalist id="dl-categorias"></datalist>
-<datalist id="dl-ubicaciones"></datalist>
+<!-- SQL.js (SQLite en WebAssembly) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.min.js"></script>
 
 <script>
 /* ============================================================
-   TallerPro — Gestión de herramientas de taller
+   TallerPro v2.0 — SQLite (sql.js) + sin mantenimiento
    ============================================================ */
 
 /* ---------- Utilidades ---------- */
@@ -344,10 +374,9 @@ const fmtMoney = n => new Intl.NumberFormat('es-ES', { style: 'currency', curren
 const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 
 const ESTADOS = {
-  disponible:    { label: 'Disponible',      cls: 'est-disponible' },
-  prestada:      { label: 'Prestada',        cls: 'est-prestada' },
-  mantenimiento: { label: 'En mantenimiento',cls: 'est-mantenimiento' },
-  averiada:      { label: 'Averiada',        cls: 'est-averiada' }
+  disponible: { label: 'Disponible', cls: 'est-disponible' },
+  prestada:   { label: 'Prestada',   cls: 'est-prestada' },
+  averiada:   { label: 'Averiada',   cls: 'est-averiada' }
 };
 const ICONOS_CAT = {
   'Manuales':'🔨','Eléctricas':'⚡','Medición':'📏','Automoción':'🚗','Jardinería':'🌿',
@@ -355,43 +384,234 @@ const ICONOS_CAT = {
 };
 const iconoCat = c => ICONOS_CAT[c] || '🧰';
 
-/* ---------- Estado ---------- */
-const LS_KEY = 'tallerpro_v1';
-let state = {
-  herramientas: [],
-  categorias: ['Manuales','Eléctricas','Medición','Automoción','Jardinería','Fijación','Seguridad','Soldadura','Neumática','Pintura','Otros'],
-  ubicaciones: ['Estantería A','Estantería B','Cajonera','Pared norte','Armario','Zona de trabajo'],
-  historialPrestamos: [],
-  actividad: [],
-  ajustes: { taller: 'Mi Taller', tema: 'claro' }
-};
+/* ---------- Estado global ---------- */
+let db = null;
 let currentView = 'dashboard';
 let filtros = { q: '', cat: '', est: '', ubi: '', orden: 'nombre' };
 let tabPrestamos = 'activos';
+let ajustes = { taller: 'Mi Taller', tema: 'claro' };
+const LS_DATA = 'tallerpro_sqlite_v2';
+const LS_CFG  = 'tallerpro_cfg_v2';
 
-/* ---------- Persistencia ---------- */
-function save() {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-  catch (e) { toast('No se pudo guardar (almacenamiento lleno)', 'err'); }
+/* ============================================================
+   MOTOR SQL — helpers
+   ============================================================ */
+function dbRun(sql, params = []) {
+  const stmt = db.prepare(sql);
+  try { stmt.bind(params); stmt.step(); }
+  finally { stmt.free(); }
+  scheduleSave();
 }
-function load() {
+function dbAll(sql, params = []) {
+  const stmt = db.prepare(sql);
   try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const d = JSON.parse(raw);
-      state = { ...state, ...d, ajustes: { ...state.ajustes, ...(d.ajustes || {}) } };
-      return true;
-    }
-  } catch (e) { console.warn(e); }
-  return false;
+    stmt.bind(params);
+    const rows = [];
+    while (stmt.step()) rows.push(stmt.getAsObject());
+    return rows;
+  } finally { stmt.free(); }
+}
+function dbGet(sql, params = []) { return dbAll(sql, params)[0] || null; }
+function dbExec(sql) { db.exec(sql); scheduleSave(); }
+
+/* Persistencia en localStorage (base64 de la BD) */
+let saveTimer = null;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(persistDB, 250);
+}
+function persistDB() {
+  try {
+    const data = db.export();          // Uint8Array
+    let s = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < data.length; i += chunk)
+      s += String.fromCharCode.apply(null, data.subarray(i, i + chunk));
+    localStorage.setItem(LS_DATA, btoa(s));
+  } catch (e) {
+    console.warn('No se pudo guardar la BD', e);
+    toast('Aviso: no se pudo guardar la base de datos', 'err');
+  }
+}
+function loadPersisted() {
+  const b64 = localStorage.getItem(LS_DATA);
+  if (!b64) return null;
+  try {
+    const bin = atob(b64);
+    const u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return u8;
+  } catch (e) { console.warn('BD guardada corrupta', e); return null; }
+}
+
+/* ---------- Esquema SQL ---------- */
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS categorias (
+  nombre TEXT PRIMARY KEY
+);
+CREATE TABLE IF NOT EXISTS ubicaciones (
+  nombre TEXT PRIMARY KEY
+);
+CREATE TABLE IF NOT EXISTS herramientas (
+  id           TEXT PRIMARY KEY,
+  nombre       TEXT NOT NULL,
+  categoria    TEXT NOT NULL DEFAULT 'Otros',
+  marca        TEXT DEFAULT '',
+  modelo       TEXT DEFAULT '',
+  serie        TEXT DEFAULT '',
+  cantidad     INTEGER NOT NULL DEFAULT 1,
+  precio       REAL NOT NULL DEFAULT 0,
+  fecha_compra TEXT DEFAULT '',
+  ubicacion    TEXT DEFAULT '',
+  estado       TEXT NOT NULL DEFAULT 'disponible',  -- disponible | averiada
+  notas        TEXT DEFAULT '',
+  creado       INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_herr_cat  ON herramientas(categoria);
+CREATE INDEX IF NOT EXISTS idx_herr_ubi  ON herramientas(ubicacion);
+CREATE INDEX IF NOT EXISTS idx_herr_est  ON herramientas(estado);
+
+CREATE TABLE IF NOT EXISTS prestamos (
+  id               TEXT PRIMARY KEY,
+  herramienta_id   TEXT NOT NULL,
+  persona          TEXT NOT NULL,
+  telefono         TEXT DEFAULT '',
+  fecha_prestamo   TEXT NOT NULL,
+  fecha_prevista   TEXT DEFAULT '',
+  fecha_devolucion TEXT DEFAULT '',
+  retraso          INTEGER DEFAULT 0,
+  notas            TEXT DEFAULT '',
+  activo           INTEGER NOT NULL DEFAULT 1,
+  FOREIGN KEY (herramienta_id) REFERENCES herramientas(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_prest_herr   ON prestamos(herramienta_id);
+CREATE INDEX IF NOT EXISTS idx_prest_activo ON prestamos(activo);
+
+CREATE TABLE IF NOT EXISTS actividad (
+  id     TEXT PRIMARY KEY,
+  fecha  TEXT NOT NULL,
+  tipo   TEXT NOT NULL,
+  texto  TEXT NOT NULL
+);
+`;
+
+/* ============================================================
+   CONSULTAS FRECUENTES
+   ============================================================ */
+
+// Devuelve herramientas junto con su préstamo activo (si lo hay)
+const SQL_HERR_CON_PRESTAMO = `
+SELECT h.*,
+       p.id             AS p_id,
+       p.persona        AS p_persona,
+       p.telefono       AS p_telefono,
+       p.fecha_prestamo AS p_fecha,
+       p.fecha_prevista AS p_fecha_prevista,
+       p.notas          AS p_notas
+FROM herramientas h
+LEFT JOIN prestamos p ON p.herramienta_id = h.id AND p.activo = 1
+`;
+
+function mapHerramienta(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    nombre: row.nombre,
+    categoria: row.categoria,
+    marca: row.marca,
+    modelo: row.modelo,
+    serie: row.serie,
+    cantidad: row.cantidad,
+    precio: row.precio,
+    fechaCompra: row.fecha_compra,
+    ubicacion: row.ubicacion,
+    estado: row.estado,
+    notas: row.notas,
+    creado: row.creado,
+    prestamo: row.p_id ? {
+      id: row.p_id,
+      persona: row.p_persona,
+      telefono: row.p_telefono,
+      fecha: row.p_fecha,
+      fechaPrevista: row.p_fecha_prevista,
+      notas: row.p_notas
+    } : null
+  };
+}
+
+const getH = id => mapHerramienta(dbGet(SQL_HERR_CON_PRESTAMO + ' WHERE h.id = ?', [id]));
+const listH = () => dbAll(SQL_HERR_CON_PRESTAMO + ' ORDER BY h.nombre COLLATE NOCASE').map(mapHerramienta);
+const activos = () => dbAll(SQL_HERR_CON_PRESTAMO + ' WHERE p.id IS NOT NULL ORDER BY p.fecha_prevista').map(mapHerramienta);
+const getCats = () => dbAll('SELECT nombre FROM categorias ORDER BY nombre COLLATE NOCASE').map(r => r.nombre);
+const getUbis = () => dbAll('SELECT nombre FROM ubicaciones ORDER BY nombre COLLATE NOCASE').map(r => r.nombre);
+const getHistPrest = () => dbAll(`
+  SELECT p.*, h.nombre AS herramienta
+  FROM prestamos p LEFT JOIN herramientas h ON h.id = p.herramienta_id
+  WHERE p.activo = 0
+  ORDER BY p.fecha_devolucion DESC, p.fecha_prestamo DESC
+`);
+
+function vencidos() {
+  return activos().filter(h => h.prestamo.fechaPrevista && diasHasta(h.prestamo.fechaPrevista) < 0);
 }
 function log(tipo, texto) {
-  state.actividad.unshift({ id: uid('a'), fecha: new Date().toISOString(), tipo, texto });
-  if (state.actividad.length > 300) state.actividad.length = 300;
+  dbRun('INSERT INTO actividad (id, fecha, tipo, texto) VALUES (?,?,?,?)',
+        [uid('a'), new Date().toISOString(), tipo, texto]);
+  // Limitar a 300 registros
+  dbRun(`DELETE FROM actividad WHERE id NOT IN (
+           SELECT id FROM actividad ORDER BY fecha DESC LIMIT 300)`);
 }
 
-/* ---------- Datos de ejemplo ---------- */
-function seed() {
+/* ============================================================
+   TOAST / MODAL
+   ============================================================ */
+function toast(msg, tipo = 'ok') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (tipo === 'err' ? 'err' : 'ok');
+  el.innerHTML = `<span>${tipo === 'err' ? '⚠️' : '✅'}</span><span>${esc(msg)}</span>`;
+  $('#toasts').appendChild(el);
+  setTimeout(() => {
+    el.style.transition = 'opacity .3s, transform .3s';
+    el.style.opacity = '0'; el.style.transform = 'translateX(30px)';
+    setTimeout(() => el.remove(), 320);
+  }, 2600);
+}
+
+let modalSaveHandler = null;
+function showModal({ title, body, saveText = 'Guardar', onSave, hideSave = false }) {
+  $('#modalTitle').textContent = title;
+  $('#modalBody').innerHTML = body;
+  $('#modalSave').textContent = saveText;
+  $('#modalSave').style.display = hideSave ? 'none' : '';
+  modalSaveHandler = onSave;
+  $('#overlay').classList.add('open');
+  setTimeout(() => { const f = $('#modalBody input, #modalBody select, #modalBody textarea'); if (f) f.focus(); }, 60);
+}
+function closeModal() { $('#overlay').classList.remove('open'); modalSaveHandler = null; }
+$('#modalClose').onclick = closeModal;
+$('#modalCancel').onclick = closeModal;
+$('#overlay').onclick = e => { if (e.target === $('#overlay')) closeModal(); };
+$('#modalSave').onclick = () => {
+  if (typeof modalSaveHandler === 'function') {
+    if (modalSaveHandler() !== false) closeModal();
+  } else closeModal();
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ============================================================
+   SEED — datos de ejemplo
+   ============================================================ */
+function seedIfEmpty() {
+  const n = dbGet('SELECT COUNT(*) AS c FROM herramientas').c;
+  if (n > 0) return;
+
+  dbExec('BEGIN TRANSACTION');
+
+  const cats = ['Manuales','Eléctricas','Medición','Automoción','Jardinería','Fijación','Seguridad','Soldadura','Neumática','Pintura','Otros'];
+  const ubis = ['Estantería A','Estantería B','Cajonera','Pared norte','Armario','Zona de trabajo'];
+  cats.forEach(c => dbRun('INSERT OR IGNORE INTO categorias (nombre) VALUES (?)', [c]));
+  ubis.forEach(u => dbRun('INSERT OR IGNORE INTO ubicaciones (nombre) VALUES (?)', [u]));
+
   const base = [
     ['Taladro percutor 18V','Eléctricas','Bosch','GSB 18V-55','Estantería A',149.9,'2022-11-03'],
     ['Juego de llaves combinadas','Manuales','Stanley','12 pzs','Cajonera',49.5,'2021-05-18'],
@@ -409,168 +629,118 @@ function seed() {
     ['Nivel láser autonivelante','Medición','Bosch','GLL 2-15','Estantería A',109,'2023-09-01'],
     ['Hidrolimpiadora 130 bar','Jardinería','Kärcher','K5','Pared norte',229,'2021-07-19']
   ];
-  state.herramientas = base.map(([nombre, categoria, marca, modelo, ubicacion, precio, fechaCompra], i) => ({
-    id: uid('h'),
-    nombre, categoria, marca, modelo,
-    serie: '', cantidad: 1, precio, fechaCompra, ubicacion,
-    estado: 'disponible', proximoMantenimiento: '', notas: '',
-    prestamo: null, mantenimientos: [],
-    creado: Date.now() - (base.length - i) * 1000
-  }));
-  // Un par de ejemplos con estado distinto
-  state.herramientas[3].estado = 'prestada';
-  state.herramientas[3].prestamo = {
-    persona: 'Carlos Ruiz', telefono: '600 123 456',
-    fecha: addDays(hoy(), -12), fechaPrevista: addDays(hoy(), -3), notas: 'Para reforma en su garaje'
-  };
-  state.herramientas[2].proximoMantenimiento = addDays(hoy(), 12);
-  state.herramientas[6].proximoMantenimiento = addDays(hoy(), -5);
-  state.herramientas[6].mantenimientos.push({
-    id: uid('m'), fecha: addDays(hoy(), -180), tipo: 'Revisión',
-    descripcion: 'Cambio de escobillas y limpieza general', coste: 12
+
+  const ids = [];
+  base.forEach(([nombre, categoria, marca, modelo, ubicacion, precio, fechaCompra], i) => {
+    const id = uid('h');
+    ids.push(id);
+    dbRun(`INSERT INTO herramientas
+      (id,nombre,categoria,marca,modelo,serie,cantidad,precio,fecha_compra,ubicacion,estado,notas,creado)
+      VALUES (?,?,?,?,?,'',1,?,?,?,'disponible','',?)`,
+      [id, nombre, categoria, marca, modelo, precio, fechaCompra, ubicacion, Date.now() - (base.length - i) * 1000]);
   });
-  state.herramientas[9].estado = 'mantenimiento';
-  log('sistema', 'Datos de ejemplo cargados');
-  save();
-}
 
-/* ---------- Toast ---------- */
-function toast(msg, tipo = 'ok') {
-  const el = document.createElement('div');
-  el.className = 'toast ' + (tipo === 'err' ? 'err' : 'ok');
-  el.innerHTML = `<span>${tipo === 'err' ? '⚠️' : '✅'}</span><span>${esc(msg)}</span>`;
-  $('#toasts').appendChild(el);
-  setTimeout(() => {
-    el.style.transition = 'opacity .3s, transform .3s';
-    el.style.opacity = '0';
-    el.style.transform = 'translateX(30px)';
-    setTimeout(() => el.remove(), 320);
-  }, 2600);
-}
+  // Un par de ejemplos con estado distinto
+  // id[3] = Amoladora — prestada
+  dbRun('UPDATE herramientas SET estado = ? WHERE id = ?', ['disponible', ids[3]]);
+  dbRun(`INSERT INTO prestamos (id,herramienta_id,persona,telefono,fecha_prestamo,fecha_prevista,fecha_devolucion,retraso,notas,activo)
+         VALUES (?,?,?,?,?,?,'',0,?,1)`,
+        [uid('p'), ids[3], 'Carlos Ruiz', '600 123 456', addDays(hoy(), -12), addDays(hoy(), -3), 'Para reforma en su garaje']);
 
-/* ---------- Modal ---------- */
-let modalSaveHandler = null;
-function showModal({ title, body, saveText = 'Guardar', onSave, hideSave = false }) {
-  $('#modalTitle').textContent = title;
-  $('#modalBody').innerHTML = body;
-  $('#modalSave').textContent = saveText;
-  $('#modalSave').style.display = hideSave ? 'none' : '';
-  modalSaveHandler = onSave;
-  $('#overlay').classList.add('open');
-  setTimeout(() => { const f = $('#modalBody input, #modalBody select, #modalBody textarea'); if (f) f.focus(); }, 60);
-}
-function closeModal() {
-  $('#overlay').classList.remove('open');
-  modalSaveHandler = null;
-}
-$('#modalClose').onclick = closeModal;
-$('#modalCancel').onclick = closeModal;
-$('#overlay').onclick = e => { if (e.target === $('#overlay')) closeModal(); };
-$('#modalSave').onclick = () => {
-  if (typeof modalSaveHandler === 'function') {
-    if (modalSaveHandler() !== false) closeModal();
-  } else closeModal();
-};
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  // id[9] = Taladro de columna — averiada
+  dbRun('UPDATE herramientas SET estado = ? WHERE id = ?', ['averiada', ids[9]]);
 
-/* ---------- Helpers de datos ---------- */
-const getH = id => state.herramientas.find(h => h.id === id);
-const activos = () => state.herramientas.filter(h => h.prestamo);
-const enMantenimiento = () => state.herramientas.filter(h => h.estado === 'mantenimiento' || h.estado === 'averiada');
-const valorTotal = () => state.herramientas.reduce((s, h) => s + num(h.precio) * (num(h.cantidad) || 1), 0);
-const totalUnidades = () => state.herramientas.reduce((s, h) => s + (num(h.cantidad) || 1), 0);
-function vencidos() {
-  return activos().filter(h => h.prestamo.fechaPrevista && diasHasta(h.prestamo.fechaPrevista) < 0);
-}
-function proxMantenimiento(dias = 30) {
-  return state.herramientas
-    .filter(h => h.proximoMantenimiento && diasHasta(h.proximoMantenimiento) <= dias)
-    .sort((a, b) => a.proximoMantenimiento.localeCompare(b.proximoMantenimiento));
+  dbExec('COMMIT');
+
+  dbRun('INSERT INTO actividad (id,fecha,tipo,texto) VALUES (?,?,?,?)',
+        [uid('a'), new Date().toISOString(), 'sistema', 'Base de datos inicializada con datos de ejemplo']);
+  persistDB();
 }
 
 /* ============================================================
    RENDER PRINCIPAL
    ============================================================ */
 function render() {
-  document.documentElement.dataset.theme = state.ajustes.tema;
-  $('#brandSub').textContent = state.ajustes.taller || 'Mi Taller';
-  $('#btnTheme').textContent = state.ajustes.tema === 'oscuro' ? '☀️' : '🌙';
+  document.documentElement.dataset.theme = ajustes.tema;
+  $('#brandSub').textContent = ajustes.taller || 'Mi Taller';
+  $('#btnTheme').textContent = ajustes.tema === 'oscuro' ? '☀️' : '🌙';
 
-  // Badge de préstamos vencidos
   const v = vencidos().length;
   const badge = $('#navBadge');
   if (v > 0) { badge.style.display = ''; badge.textContent = v; }
   else badge.style.display = 'none';
 
-  // Datalists
-  $('#dl-categorias').innerHTML = state.categorias.map(c => `<option value="${esc(c)}">`).join('');
-  $('#dl-ubicaciones').innerHTML = state.ubicaciones.map(u => `<option value="${esc(u)}">`).join('');
-
   const titles = {
-    dashboard: ['Panel', 'Resumen de tu taller'],
+    dashboard:    ['Panel', 'Resumen de tu taller'],
     herramientas: ['Herramientas', 'Inventario completo'],
-    prestamos: ['Préstamos', 'Herramientas fuera del taller'],
-    mantenimiento: ['Mantenimiento', 'Revisiones y reparaciones'],
-    ubicaciones: ['Ubicaciones y categorías', 'Organiza tu taller'],
-    ajustes: ['Ajustes', 'Configuración y datos']
+    prestamos:    ['Préstamos', 'Herramientas fuera del taller'],
+    ubicaciones:  ['Ubicaciones y categorías', 'Organiza tu taller'],
+    ajustes:      ['Ajustes', 'Configuración y datos']
   };
   $('#viewTitle').textContent = titles[currentView][0];
-  $('#viewSub').textContent = titles[currentView][1];
-
+  $('#viewSub').textContent   = titles[currentView][1];
   $$('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === currentView));
 
-  const views = {
-    dashboard: renderDashboard,
+  ({
+    dashboard:    renderDashboard,
     herramientas: renderHerramientas,
-    prestamos: renderPrestamos,
-    mantenimiento: renderMantenimiento,
-    ubicaciones: renderUbicaciones,
-    ajustes: renderAjustes
-  };
-  views[currentView]();
+    prestamos:    renderPrestamos,
+    ubicaciones:  renderUbicaciones,
+    ajustes:      renderAjustes
+  })[currentView]();
 }
 
 /* ============================================================
    VISTA: DASHBOARD
    ============================================================ */
 function renderDashboard() {
-  const total = state.herramientas.length;
-  const und = totalUnidades();
-  const prest = activos().length;
-  const mant = enMantenimiento().length;
-  const disp = state.herramientas.filter(h => h.estado === 'disponible' && !h.prestamo).length;
-  const valor = valorTotal();
+  const total = dbGet('SELECT COUNT(*) AS c FROM herramientas').c;
+  const und   = dbGet('SELECT COALESCE(SUM(cantidad),0) AS c FROM herramientas').c;
+  const prest = dbGet('SELECT COUNT(*) AS c FROM prestamos WHERE activo = 1').c;
+  const aver  = dbGet("SELECT COUNT(*) AS c FROM herramientas WHERE estado = 'averiada'").c;
+  const disp  = dbGet(`SELECT COUNT(*) AS c FROM herramientas h
+                       LEFT JOIN prestamos p ON p.herramienta_id = h.id AND p.activo = 1
+                       WHERE p.id IS NULL AND h.estado = 'disponible'`).c;
+  const valor = dbGet('SELECT COALESCE(SUM(precio * cantidad),0) AS v FROM herramientas').v;
+
   const venc = vencidos();
-  const prox = proxMantenimiento(30);
 
-  // Conteo por categoría
-  const porCat = {};
-  state.herramientas.forEach(h => { porCat[h.categoria] = (porCat[h.categoria] || 0) + 1; });
-  const cats = Object.entries(porCat).sort((a, b) => b[1] - a[1]).slice(0, 7);
-  const maxCat = Math.max(1, ...cats.map(c => c[1]));
+  // Conteo por categoría (SQL)
+  const cats = dbAll(`
+    SELECT categoria AS c, COUNT(*) AS n
+    FROM herramientas GROUP BY categoria ORDER BY n DESC LIMIT 7
+  `);
+  const maxCat = Math.max(1, ...cats.map(x => x.n));
 
-  // Conteo por estado
-  const porEst = { disponible: 0, prestada: 0, mantenimiento: 0, averiada: 0 };
-  state.herramientas.forEach(h => {
-    const e = h.prestamo ? 'prestada' : h.estado;
-    porEst[e] = (porEst[e] || 0) + 1;
-  });
+  // Conteo por estado (derivado en SQL)
+  const porEst = dbAll(`
+    SELECT
+      CASE WHEN p.id IS NOT NULL THEN 'prestada' ELSE h.estado END AS est,
+      COUNT(*) AS n
+    FROM herramientas h
+    LEFT JOIN prestamos p ON p.herramienta_id = h.id AND p.activo = 1
+    GROUP BY est
+  `);
+  const estMap = { disponible: 0, prestada: 0, averiada: 0 };
+  porEst.forEach(r => estMap[r.est] = r.n);
+
+  // Conteo por ubicación
+  const ubis = dbAll(`
+    SELECT COALESCE(NULLIF(ubicacion,''),'Sin ubicación') AS u, COUNT(*) AS n
+    FROM herramientas GROUP BY u ORDER BY n DESC LIMIT 8
+  `);
+  const maxU = Math.max(1, ...ubis.map(x => x.n));
+
+  // Actividad reciente
+  const acts = dbAll('SELECT * FROM actividad ORDER BY fecha DESC LIMIT 7');
 
   let alertas = '';
-  if (venc.length) {
-    alertas += venc.map(h => `<div class="alert alert-d"><span>⏰</span><div><b>Préstamo vencido:</b> ${esc(h.nombre)} — ${esc(h.prestamo.persona)} (${Math.abs(diasHasta(h.prestamo.fechaPrevista))} días de retraso)</div></div>`).join('');
-  }
-  prox.filter(h => diasHasta(h.proximoMantenimiento) <= 15).forEach(h => {
-    const d = diasHasta(h.proximoMantenimiento);
-    const txt = d < 0 ? `vencido hace ${Math.abs(d)} días` : d === 0 ? 'hoy' : `en ${d} días`;
-    alertas += `<div class="alert alert-w"><span>🧰</span><div><b>Mantenimiento:</b> ${esc(h.nombre)} — ${txt} (${fmtFecha(h.proximoMantenimiento)})</div></div>`;
+  venc.forEach(h => {
+    alertas += `<div class="alert alert-d"><span>⏰</span><div><b>Préstamo vencido:</b> ${esc(h.nombre)} — ${esc(h.prestamo.persona)} (${Math.abs(diasHasta(h.prestamo.fechaPrevista))} días de retraso)</div></div>`;
   });
-  if (state.herramientas.some(h => h.estado === 'averiada')) {
-    const n = state.herramientas.filter(h => h.estado === 'averiada').length;
-    alertas += `<div class="alert alert-d"><span>🔴</span><div><b>${n} herramienta${n > 1 ? 's' : ''} averiada${n > 1 ? 's' : ''}</b> — revisa la sección de mantenimiento</div></div>`;
+  if (aver > 0) {
+    alertas += `<div class="alert alert-d"><span>🔴</span><div><b>${aver} herramienta${aver > 1 ? 's' : ''} averiada${aver > 1 ? 's' : ''}</b> — revisa el estado en el inventario</div></div>`;
   }
-
-  const recientes = state.actividad.slice(0, 7);
 
   $('#view').innerHTML = `
     <div class="stats">
@@ -589,10 +759,10 @@ function renderDashboard() {
         <div class="stat-value">${prest}</div>
         <div class="stat-sub">${venc.length ? `<span style="color:var(--danger);font-weight:700">${venc.length} vencida(s)</span>` : 'fuera del taller'}</div>
       </div>
-      <div class="stat" style="--accent:var(--warning)">
-        <div class="stat-label">🧰 Mantenimiento</div>
-        <div class="stat-value">${mant}</div>
-        <div class="stat-sub">${prox.length} próximas revisiones</div>
+      <div class="stat" style="--accent:var(--danger)">
+        <div class="stat-label">🔴 Averiadas</div>
+        <div class="stat-value">${aver}</div>
+        <div class="stat-sub">fuera de servicio</div>
       </div>
       <div class="stat" style="--accent:#7c3aed">
         <div class="stat-label">💰 Valor inventario</div>
@@ -606,7 +776,7 @@ function renderDashboard() {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
       <div class="card card-pad">
         <div class="card-title">📊 Herramientas por categoría</div>
-        ${cats.length ? cats.map(([c, n]) => `
+        ${cats.length ? cats.map(({ c, n }) => `
           <div class="bar-row">
             <div class="bar-label">${iconoCat(c)} ${esc(c)}</div>
             <div class="bar-track"><div class="bar-fill" style="width:${(n / maxCat) * 100}%"></div></div>
@@ -616,9 +786,9 @@ function renderDashboard() {
 
       <div class="card card-pad">
         <div class="card-title">🎯 Estado del inventario</div>
-        ${Object.entries(porEst).map(([k, n]) => {
+        ${Object.entries(estMap).map(([k, n]) => {
           const pct = total ? (n / total) * 100 : 0;
-          const col = { disponible: 'var(--success)', prestada: 'var(--info)', mantenimiento: 'var(--warning)', averiada: 'var(--danger)' }[k];
+          const col = { disponible: 'var(--success)', prestada: 'var(--info)', averiada: 'var(--danger)' }[k];
           return `<div class="bar-row">
             <div class="bar-label">${ESTADOS[k].label}</div>
             <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div>
@@ -629,7 +799,7 @@ function renderDashboard() {
 
       <div class="card card-pad">
         <div class="card-title">🕓 Actividad reciente</div>
-        ${recientes.length ? recientes.map(a => `
+        ${acts.length ? acts.map(a => `
           <div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
             <span style="opacity:.7">${iconoAct(a.tipo)}</span>
             <div style="flex:1;min-width:0">
@@ -641,51 +811,56 @@ function renderDashboard() {
 
       <div class="card card-pad">
         <div class="card-title">📍 Herramientas por ubicación</div>
-        ${(() => {
-          const porUbi = {};
-          state.herramientas.forEach(h => { const u = h.ubicacion || 'Sin ubicación'; porUbi[u] = (porUbi[u] || 0) + 1; });
-          const arr = Object.entries(porUbi).sort((a, b) => b[1] - a[1]).slice(0, 8);
-          const mx = Math.max(1, ...arr.map(a => a[1]));
-          return arr.length ? arr.map(([u, n]) => `
-            <div class="bar-row">
-              <div class="bar-label">📍 ${esc(u)}</div>
-              <div class="bar-track"><div class="bar-fill" style="width:${(n / mx) * 100}%;background:var(--info)"></div></div>
-              <div class="bar-val">${n}</div>
-            </div>`).join('') : '<p style="color:var(--text-2);font-size:13px">Sin datos</p>';
-        })()}
+        ${ubis.length ? ubis.map(({ u, n }) => `
+          <div class="bar-row">
+            <div class="bar-label">📍 ${esc(u)}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${(n / maxU) * 100}%;background:var(--info)"></div></div>
+            <div class="bar-val">${n}</div>
+          </div>`).join('') : '<p style="color:var(--text-2);font-size:13px">Sin datos</p>'}
       </div>
     </div>
   `;
 }
 function iconoAct(t) {
-  return { alta: '➕', edicion: '✏️', baja: '🗑️', prestamo: '🤝', devolucion: '↩️', mantenimiento: '🧰', sistema: '💾' }[t] || '•';
+  return { alta: '➕', edicion: '✏️', baja: '🗑️', prestamo: '🤝', devolucion: '↩️', sistema: '💾' }[t] || '•';
 }
 
 /* ============================================================
    VISTA: HERRAMIENTAS
    ============================================================ */
 function renderHerramientas() {
-  const q = filtros.q.trim().toLowerCase();
-  let list = state.herramientas.filter(h => {
-    const txt = `${h.nombre} ${h.marca} ${h.modelo} ${h.serie} ${h.categoria} ${h.ubicacion} ${h.notas}`.toLowerCase();
-    if (q && !txt.includes(q)) return false;
-    if (filtros.cat && h.categoria !== filtros.cat) return false;
-    if (filtros.est) {
-      const e = h.prestamo ? 'prestada' : h.estado;
-      if (e !== filtros.est) return false;
-    }
-    if (filtros.ubi && h.ubicacion !== filtros.ubi) return false;
-    return true;
-  });
+  const cats = getCats();
+  const ubis = getUbis();
 
-  list.sort((a, b) => {
-    switch (filtros.orden) {
-      case 'reciente': return (b.creado || 0) - (a.creado || 0);
-      case 'precio': return num(b.precio) - num(a.precio);
-      case 'categoria': return a.categoria.localeCompare(b.categoria) || a.nombre.localeCompare(b.nombre);
-      default: return a.nombre.localeCompare(b.nombre, 'es');
-    }
-  });
+  // Filtros (en SQL con parámetros)
+  const where = [];
+  const params = [];
+  if (filtros.q) {
+    where.push(`(h.nombre LIKE ? OR h.marca LIKE ? OR h.modelo LIKE ? OR h.serie LIKE ? OR h.notas LIKE ?)`);
+    const like = '%' + filtros.q + '%';
+    params.push(like, like, like, like, like);
+  }
+  if (filtros.cat) { where.push('h.categoria = ?'); params.push(filtros.cat); }
+  if (filtros.ubi) { where.push('h.ubicacion = ?'); params.push(filtros.ubi); }
+  if (filtros.est) {
+    if (filtros.est === 'prestada') where.push('p.id IS NOT NULL');
+    else if (filtros.est === 'disponible') where.push("p.id IS NULL AND h.estado = 'disponible'");
+    else if (filtros.est === 'averiada')    where.push("h.estado = 'averiada'");
+  }
+  const orderMap = {
+    nombre:   'h.nombre COLLATE NOCASE ASC',
+    reciente: 'h.creado DESC',
+    precio:   'h.precio DESC',
+    categoria:'h.categoria COLLATE NOCASE ASC, h.nombre COLLATE NOCASE ASC'
+  };
+  const orderSQL = orderMap[filtros.orden] || orderMap.nombre;
+
+  const sql = SQL_HERR_CON_PRESTAMO
+    + (where.length ? ' WHERE ' + where.join(' AND ') : '')
+    + ' ORDER BY ' + orderSQL;
+  const list = dbAll(sql, params).map(mapHerramienta);
+
+  const totalReg = dbGet('SELECT COUNT(*) AS c FROM herramientas').c;
 
   $('#view').innerHTML = `
     <div class="toolbar">
@@ -695,7 +870,7 @@ function renderHerramientas() {
       </div>
       <select class="filter" id="f-cat">
         <option value="">Todas las categorías</option>
-        ${state.categorias.map(c => `<option value="${esc(c)}" ${filtros.cat === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+        ${cats.map(c => `<option value="${esc(c)}" ${filtros.cat === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
       </select>
       <select class="filter" id="f-est">
         <option value="">Todos los estados</option>
@@ -703,7 +878,7 @@ function renderHerramientas() {
       </select>
       <select class="filter" id="f-ubi">
         <option value="">Todas las ubicaciones</option>
-        ${state.ubicaciones.map(u => `<option value="${esc(u)}" ${filtros.ubi === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}
+        ${ubis.map(u => `<option value="${esc(u)}" ${filtros.ubi === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}
       </select>
       <select class="filter" id="f-orden">
         <option value="nombre" ${filtros.orden === 'nombre' ? 'selected' : ''}>Ordenar: Nombre</option>
@@ -712,16 +887,16 @@ function renderHerramientas() {
         <option value="categoria" ${filtros.orden === 'categoria' ? 'selected' : ''}>Ordenar: Categoría</option>
       </select>
       ${(filtros.q || filtros.cat || filtros.est || filtros.ubi) ? '<button class="btn btn-ghost btn-sm" id="f-clear">✕ Limpiar</button>' : ''}
-      <span style="margin-left:auto;color:var(--text-2);font-size:13px;font-weight:600">${list.length} de ${state.herramientas.length}</span>
+      <span style="margin-left:auto;color:var(--text-2);font-size:13px;font-weight:600">${list.length} de ${totalReg}</span>
     </div>
     <div id="lista-herr"></div>
   `;
 
   const cont = $('#lista-herr');
   if (!list.length) {
-    cont.innerHTML = state.herramientas.length
+    cont.innerHTML = totalReg
       ? `<div class="empty"><div class="em">🔍</div><h3>Sin resultados</h3><p>No hay herramientas que coincidan con los filtros aplicados.</p></div>`
-      : `<div class="empty"><div class="em">🧰</div><h3>Tu taller está vacío</h3><p>Añade tu primera herramienta para empezar a controlar tu inventario, préstamos y mantenimiento.</p><button class="btn btn-primary" onclick="nuevaHerramienta()">＋ Añadir herramienta</button></div>`;
+      : `<div class="empty"><div class="em">🧰</div><h3>Tu taller está vacío</h3><p>Añade tu primera herramienta para empezar a controlar tu inventario y préstamos.</p><button class="btn btn-primary" onclick="nuevaHerramienta()">＋ Añadir herramienta</button></div>`;
     bindFiltros();
     return;
   }
@@ -731,9 +906,8 @@ function renderHerramientas() {
 }
 
 function cardHerramienta(h) {
-  const est = h.prestamo ? 'prestada' : h.estado;
+  const est = h.prestamo ? 'prestada' : (h.estado === 'averiada' ? 'averiada' : 'disponible');
   const venc = h.prestamo && h.prestamo.fechaPrevista && diasHasta(h.prestamo.fechaPrevista) < 0;
-  const proxMant = h.proximoMantenimiento ? diasHasta(h.proximoMantenimiento) : null;
 
   return `
   <div class="tool">
@@ -749,7 +923,6 @@ function cardHerramienta(h) {
       ${h.ubicacion ? `<span class="chip">📍 ${esc(h.ubicacion)}</span>` : ''}
       ${(num(h.cantidad) || 1) > 1 ? `<span class="chip">×${h.cantidad}</span>` : ''}
       ${num(h.precio) > 0 ? `<span class="chip">${fmtMoney(h.precio)}</span>` : ''}
-      ${proxMant !== null ? `<span class="chip" style="${proxMant < 0 ? 'background:var(--danger-soft);color:var(--danger)' : proxMant <= 30 ? 'background:var(--warning-soft);color:var(--warning)' : ''}">🧰 ${proxMant < 0 ? 'Revisión vencida' : fmtFecha(h.proximoMantenimiento)}</span>` : ''}
     </div>
     ${h.prestamo ? `
       <div style="background:var(--info-soft);color:var(--info);padding:9px 12px;border-radius:9px;font-size:12.5px">
@@ -823,14 +996,9 @@ function formHerramienta(h = {}) {
     <label>Fecha de compra
       <input id="f-fechaCompra" type="date" value="${esc(h.fechaCompra || '')}">
     </label>
-    <label>Próximo mantenimiento
-      <input id="f-proximoMantenimiento" type="date" value="${esc(h.proximoMantenimiento || '')}">
-      <span class="hint">Recibirás aviso cuando se acerque la fecha</span>
-    </label>
     <label>Estado
       <select id="f-estado" ${prestada ? 'disabled' : ''}>
         <option value="disponible" ${(!prestada && (h.estado || 'disponible') === 'disponible') ? 'selected' : ''}>Disponible</option>
-        <option value="mantenimiento" ${(!prestada && h.estado === 'mantenimiento') ? 'selected' : ''}>En mantenimiento</option>
         <option value="averiada" ${(!prestada && h.estado === 'averiada') ? 'selected' : ''}>Averiada</option>
         ${prestada ? '<option value="prestada" selected>Prestada</option>' : ''}
       </select>
@@ -845,10 +1013,10 @@ function formHerramienta(h = {}) {
 function leerFormulario(h) {
   const nombre = $('#f-nombre').value.trim();
   if (!nombre) { toast('El nombre es obligatorio', 'err'); return null; }
-  const cat = $('#f-categoria').value.trim() || 'Otros';
+  const cat = ($('#f-categoria').value.trim()) || 'Otros';
   const ubi = $('#f-ubicacion').value.trim();
-  if (!state.categorias.includes(cat)) state.categorias.push(cat);
-  if (ubi && !state.ubicaciones.includes(ubi)) state.ubicaciones.push(ubi);
+  dbRun('INSERT OR IGNORE INTO categorias (nombre) VALUES (?)', [cat]);
+  if (ubi) dbRun('INSERT OR IGNORE INTO ubicaciones (nombre) VALUES (?)', [ubi]);
   return {
     nombre,
     categoria: cat,
@@ -858,7 +1026,6 @@ function leerFormulario(h) {
     cantidad: Math.max(1, parseInt($('#f-cantidad').value) || 1),
     precio: num($('#f-precio').value),
     fechaCompra: $('#f-fechaCompra').value,
-    proximoMantenimiento: $('#f-proximoMantenimiento').value,
     ubicacion: ubi,
     estado: h.prestamo ? h.estado : $('#f-estado').value,
     notas: $('#f-notas').value.trim()
@@ -873,10 +1040,15 @@ function nuevaHerramienta() {
     onSave: () => {
       const datos = leerFormulario({});
       if (!datos) return false;
-      const nueva = { id: uid('h'), ...datos, prestamo: null, mantenimientos: [], creado: Date.now() };
-      state.herramientas.push(nueva);
-      log('alta', `Añadida «${nueva.nombre}» al inventario`);
-      save(); render(); toast('Herramienta añadida');
+      const id = uid('h');
+      dbRun(`INSERT INTO herramientas
+        (id,nombre,categoria,marca,modelo,serie,cantidad,precio,fecha_compra,ubicacion,estado,notas,creado)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [id, datos.nombre, datos.categoria, datos.marca, datos.modelo, datos.serie,
+         datos.cantidad, datos.precio, datos.fechaCompra, datos.ubicacion, datos.estado,
+         datos.notas, Date.now()]);
+      log('alta', `Añadida «${datos.nombre}» al inventario`);
+      render(); toast('Herramienta añadida');
     }
   });
 }
@@ -889,11 +1061,15 @@ function editarHerramienta(id) {
     body: formHerramienta(h),
     saveText: 'Guardar cambios',
     onSave: () => {
-      const datos = leerFormulario(h);
-      if (!datos) return false;
-      Object.assign(h, datos);
-      log('edicion', `Editada «${h.nombre}»`);
-      save(); render(); toast('Cambios guardados');
+      const d = leerFormulario(h);
+      if (!d) return false;
+      dbRun(`UPDATE herramientas SET
+        nombre=?, categoria=?, marca=?, modelo=?, serie=?, cantidad=?, precio=?,
+        fecha_compra=?, ubicacion=?, estado=?, notas=? WHERE id=?`,
+        [d.nombre, d.categoria, d.marca, d.modelo, d.serie, d.cantidad, d.precio,
+         d.fechaCompra, d.ubicacion, d.estado, d.notas, id]);
+      log('edicion', `Editada «${d.nombre}»`);
+      render(); toast('Cambios guardados');
     }
   });
 }
@@ -904,13 +1080,13 @@ function eliminarHerramienta(id) {
   showModal({
     title: 'Eliminar herramienta',
     body: `<p style="font-size:14.5px;line-height:1.6">¿Seguro que quieres eliminar <b>${esc(h.nombre)}</b> del inventario?</p>
-           <p style="margin-top:10px;color:var(--text-2);font-size:13px">Se perderá también su historial de mantenimiento. Esta acción no se puede deshacer.</p>
-           ${h.prestamo ? '<div class="alert alert-w d" style="margin-top:14px"><span>⚠️</span><div>Esta herramienta está actualmente prestada a <b>' + esc(h.prestamo.persona) + '</b>.</div></div>' : ''}`,
+           <p style="margin-top:10px;color:var(--text-2);font-size:13px">También se eliminarán sus préstamos e historial asociado. Esta acción no se puede deshacer.</p>
+           ${h.prestamo ? '<div class="alert alert-w" style="margin-top:14px"><span>⚠️</span><div>Esta herramienta está actualmente prestada a <b>' + esc(h.prestamo.persona) + '</b>.</div></div>' : ''}`,
     saveText: 'Sí, eliminar',
     onSave: () => {
-      state.herramientas = state.herramientas.filter(x => x.id !== id);
+      dbRun('DELETE FROM herramientas WHERE id = ?', [id]);
       log('baja', `Eliminada «${h.nombre}»`);
-      save(); render(); toast('Herramienta eliminada');
+      render(); toast('Herramienta eliminada');
     }
   });
 }
@@ -921,9 +1097,13 @@ function eliminarHerramienta(id) {
 function verDetalle(id) {
   const h = getH(id);
   if (!h) return;
-  const est = h.prestamo ? 'prestada' : h.estado;
-  const mant = (h.mantenimientos || []).slice().sort((a, b) => b.fecha.localeCompare(a.fecha));
-  const costeTotal = mant.reduce((s, m) => s + num(m.coste), 0);
+  const est = h.prestamo ? 'prestada' : (h.estado === 'averiada' ? 'averiada' : 'disponible');
+
+  // Historial de préstamos (devueltos)
+  const historial = dbAll(`
+    SELECT * FROM prestamos WHERE herramienta_id = ? AND activo = 0
+    ORDER BY fecha_devolucion DESC, fecha_prestamo DESC
+  `, [id]);
 
   const body = `
     <div style="display:flex;gap:14px;align-items:center;margin-bottom:18px">
@@ -942,8 +1122,6 @@ function verDetalle(id) {
       ${filaDetalle('Cantidad', h.cantidad || 1)}
       ${filaDetalle('Precio', num(h.precio) ? fmtMoney(h.precio) : '—')}
       ${filaDetalle('Fecha de compra', h.fechaCompra ? fmtFecha(h.fechaCompra) : '—')}
-      ${filaDetalle('Próximo mantenimiento', h.proximoMantenimiento ? fmtFecha(h.proximoMantenimiento) : '—')}
-      ${filaDetalle('Coste mantenimiento', costeTotal ? fmtMoney(costeTotal) : '—')}
     </div>
 
     ${h.notas ? `<div style="margin-top:15px;padding:12px 14px;background:var(--surface-2);border-radius:10px;font-size:13px;color:var(--text-2)">${esc(h.notas)}</div>` : ''}
@@ -956,16 +1134,16 @@ function verDetalle(id) {
         ${h.prestamo.notas ? '<br><i>' + esc(h.prestamo.notas) + '</i>' : ''}
       </div>` : ''}
 
-    <div class="section-title" style="font-size:13.5px;margin-top:20px">🧰 Historial de mantenimiento (${mant.length})</div>
-    ${mant.length ? mant.map(m => `
+    <div class="section-title" style="font-size:13.5px;margin-top:20px">📜 Historial de préstamos (${historial.length})</div>
+    ${historial.length ? historial.map(p => `
       <div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
         <div style="display:flex;justify-content:space-between;gap:10px">
-          <b>${esc(m.tipo)}</b>
-          <span style="color:var(--text-2);font-size:12.5px">${fmtFecha(m.fecha)}</span>
+          <b>${esc(p.persona)}</b>
+          <span style="color:var(--text-2);font-size:12.5px">Devuelto: ${fmtFecha(p.fecha_devolucion)}</span>
         </div>
-        ${m.descripcion ? `<div style="color:var(--text-2);margin-top:2px">${esc(m.descripcion)}</div>` : ''}
-        ${num(m.coste) ? `<div style="color:var(--text-2);font-size:12.5px;margin-top:2px">Coste: ${fmtMoney(m.coste)}</div>` : ''}
-      </div>`).join('') : '<p style="color:var(--text-2);font-size:13px">Sin registros de mantenimiento</p>'}
+        <div style="color:var(--text-2);margin-top:2px">Prestado ${fmtFecha(p.fecha_prestamo)}${p.fecha_prevista ? ' → Previsto ' + fmtFecha(p.fecha_prevista) : ''}${p.retraso ? ' · <span style="color:var(--danger)">' + p.retraso + ' días de retraso</span>' : ''}</div>
+        ${p.notas ? `<div style="color:var(--text-2);font-style:italic;margin-top:2px">${esc(p.notas)}</div>` : ''}
+      </div>`).join('') : '<p style="color:var(--text-2);font-size:13px">Sin préstamos registrados</p>'}
   `;
 
   showModal({
@@ -988,6 +1166,7 @@ function filaDetalle(k, v) {
 function prestar(id) {
   const h = getH(id);
   if (!h) return;
+  if (h.prestamo) { toast('Ya está prestada', 'err'); return; }
   showModal({
     title: 'Prestar: ' + h.nombre,
     body: `
@@ -1009,16 +1188,13 @@ function prestar(id) {
     onSave: () => {
       const persona = $('#p-persona').value.trim();
       if (!persona) { toast('Indica el nombre de la persona', 'err'); return false; }
-      h.prestamo = {
-        persona,
-        telefono: $('#p-tel').value.trim(),
-        fecha: hoy(),
-        fechaPrevista: $('#p-fecha').value || addDays(hoy(), 7),
-        notas: $('#p-notas').value.trim()
-      };
-      h.estado = 'prestada';
+      dbRun(`INSERT INTO prestamos
+        (id, herramienta_id, persona, telefono, fecha_prestamo, fecha_prevista, fecha_devolucion, retraso, notas, activo)
+        VALUES (?,?,?,?,?,?,'',0,?,1)`,
+        [uid('p'), id, persona, $('#p-tel').value.trim(), hoy(),
+         $('#p-fecha').value || addDays(hoy(), 7), $('#p-notas').value.trim()]);
       log('prestamo', `«${h.nombre}» prestada a ${persona}`);
-      save(); render(); toast('Préstamo registrado');
+      render(); toast('Préstamo registrado');
     }
   });
 }
@@ -1037,7 +1213,6 @@ function devolver(id) {
         <label class="full">Estado en que se devuelve
           <select id="d-estado">
             <option value="disponible">Correcto — disponible</option>
-            <option value="mantenimiento">Necesita mantenimiento</option>
             <option value="averiada">Averiada</option>
           </select>
         </label>
@@ -1049,29 +1224,21 @@ function devolver(id) {
     onSave: () => {
       const nuevoEstado = $('#d-estado').value;
       const obs = $('#d-notas').value.trim();
-      state.historialPrestamos.unshift({
-        id: uid('hp'),
-        herramientaId: h.id,
-        herramienta: h.nombre,
-        persona: p.persona,
-        telefono: p.telefono,
-        fechaPrestamo: p.fecha,
-        fechaPrevista: p.fechaPrevista,
-        fechaDevolucion: hoy(),
-        retraso: retraso < 0 ? Math.abs(retraso) : 0,
-        notas: obs
-      });
-      h.prestamo = null;
-      h.estado = nuevoEstado;
+      dbRun(`UPDATE prestamos SET
+        activo = 0, fecha_devolucion = ?, retraso = ?,
+        notas = CASE WHEN ? <> '' THEN ? ELSE notas END
+        WHERE id = ?`,
+        [hoy(), retraso < 0 ? Math.abs(retraso) : 0, obs, obs, p.id]);
+      dbRun('UPDATE herramientas SET estado = ? WHERE id = ?', [nuevoEstado, id]);
       log('devolucion', `«${h.nombre}» devuelta por ${p.persona}${obs ? ' — ' + obs : ''}`);
-      save(); render(); toast('Devolución registrada');
+      render(); toast('Devolución registrada');
     }
   });
 }
 
 function renderPrestamos() {
-  const act = activos().sort((a, b) => (a.prestamo.fechaPrevista || '').localeCompare(b.prestamo.fechaPrevista || ''));
-  const hist = state.historialPrestamos;
+  const act = activos();
+  const hist = getHistPrest();
 
   $('#view').innerHTML = `
     <div class="tabs">
@@ -1125,8 +1292,8 @@ function renderPrestamos() {
       <div class="row">
         <div class="tool-ico" style="background:var(--success-soft)">↩️</div>
         <div class="row-main">
-          <div class="row-title">${esc(p.herramienta)}</div>
-          <div class="row-sub"><b>${esc(p.persona)}</b> · Prestada ${fmtFecha(p.fechaPrestamo)} → Devuelta ${fmtFecha(p.fechaDevolucion)}</div>
+          <div class="row-title">${esc(p.herramienta || '(eliminada)')}</div>
+          <div class="row-sub"><b>${esc(p.persona)}</b> · Prestada ${fmtFecha(p.fecha_prestamo)} → Devuelta ${fmtFecha(p.fecha_devolucion)}</div>
           ${p.retraso ? `<div class="row-sub" style="color:var(--danger)">⏰ Con ${p.retraso} días de retraso</div>` : ''}
           ${p.notas ? `<div class="row-sub" style="font-style:italic">${esc(p.notas)}</div>` : ''}
         </div>
@@ -1138,227 +1305,57 @@ function renderPrestamos() {
 }
 
 function borrarHistorial(id) {
-  state.historialPrestamos = state.historialPrestamos.filter(p => p.id !== id);
-  save(); renderPrestamos(); toast('Registro eliminado');
-}
-
-/* ============================================================
-   MANTENIMIENTO
-   ============================================================ */
-function renderMantenimiento() {
-  const prox = proxMantenimiento(60);
-  const enMant = enMantenimiento();
-  const todos = state.herramientas
-    .filter(h => h.proximoMantenimiento || (h.mantenimientos && h.mantenimientos.length))
-    .sort((a, b) => {
-      if (!a.proximoMantenimiento) return 1;
-      if (!b.proximoMantenimiento) return -1;
-      return a.proximoMantenimiento.localeCompare(b.proximoMantenimiento);
-    });
-
-  // Historial global de mantenimientos
-  const histGlobal = [];
-  state.herramientas.forEach(h => (h.mantenimientos || []).forEach(m => histGlobal.push({ ...m, herramienta: h.nombre, herramientaId: h.id })));
-  histGlobal.sort((a, b) => b.fecha.localeCompare(a.fecha));
-
-  $('#view').innerHTML = `
-    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
-      <div class="stat" style="--accent:var(--warning)">
-        <div class="stat-label">🧰 En mantenimiento</div>
-        <div class="stat-value">${enMant.length}</div>
-        <div class="stat-sub">herramientas fuera de servicio</div>
-      </div>
-      <div class="stat" style="--accent:var(--danger)">
-        <div class="stat-label">⏰ Revisiones vencidas</div>
-        <div class="stat-value">${prox.filter(h => diasHasta(h.proximoMantenimiento) < 0).length}</div>
-        <div class="stat-sub">requieren atención</div>
-      </div>
-      <div class="stat" style="--accent:var(--info)">
-        <div class="stat-label">📅 Próximas (60 días)</div>
-        <div class="stat-value">${prox.length}</div>
-        <div class="stat-sub">programadas</div>
-      </div>
-      <div class="stat" style="--accent:#7c3aed">
-        <div class="stat-label">📜 Registros totales</div>
-        <div class="stat-value">${histGlobal.length}</div>
-        <div class="stat-sub">intervenciones realizadas</div>
-      </div>
-    </div>
-
-    <div class="section-title">🔔 Revisiones programadas</div>
-    ${todos.length ? `<div class="list">${todos.map(h => {
-      const d = h.proximoMantenimiento ? diasHasta(h.proximoMantenimiento) : null;
-      const venc = d !== null && d < 0;
-      const cerca = d !== null && d >= 0 && d <= 15;
-      const est = h.prestamo ? 'prestada' : h.estado;
-      return `
-      <div class="row" style="${venc ? 'border-color:var(--danger)' : cerca ? 'border-color:var(--warning)' : ''}">
-        <div class="tool-ico">${iconoCat(h.categoria)}</div>
-        <div class="row-main">
-          <div class="row-title">${esc(h.nombre)} <span class="badge-est ${ESTADOS[est].cls}" style="margin-left:6px">${ESTADOS[est].label}</span></div>
-          <div class="row-sub">
-            ${h.proximoMantenimiento
-              ? (venc ? `<span style="color:var(--danger);font-weight:700">⏰ Revisión vencida hace ${Math.abs(d)} días (${fmtFecha(h.proximoMantenimiento)})</span>`
-                      : `<span style="${cerca ? 'color:var(--warning);font-weight:700' : ''}">📅 Próxima revisión: ${fmtFecha(h.proximoMantenimiento)} (en ${d} días)</span>`)
-              : '<span style="color:var(--text-2)">Sin próxima revisión programada</span>'}
-            · ${(h.mantenimientos || []).length} intervención(es) registrada(s)
-          </div>
-        </div>
-        <div class="row-actions">
-          <button class="btn btn-sm btn-primary" onclick="registrarMantenimiento('${h.id}')">🧰 Registrar</button>
-          <button class="btn btn-sm btn-ghost" onclick="programarRevision('${h.id}')">📅 Programar</button>
-        </div>
-      </div>`;
-    }).join('')}</div>`
-    : `<div class="empty"><div class="em">🧰</div><h3>Sin mantenimientos programados</h3><p>Programa revisiones periódicas para alargar la vida de tus herramientas y evitar averías.</p></div>`}
-
-    <div class="section-title">📜 Historial de intervenciones</div>
-    ${histGlobal.length ? `<div class="list">${histGlobal.slice(0, 40).map(m => `
-      <div class="row">
-        <div class="tool-ico" style="background:var(--surface-2)">🔧</div>
-        <div class="row-main">
-          <div class="row-title">${esc(m.herramienta)} — <span style="font-weight:600;color:var(--primary)">${esc(m.tipo)}</span></div>
-          <div class="row-sub">${fmtFecha(m.fecha)}${m.descripcion ? ' · ' + esc(m.descripcion) : ''}${num(m.coste) ? ' · ' + fmtMoney(m.coste) : ''}</div>
-        </div>
-        <div class="row-actions">
-          <button class="btn btn-sm btn-ghost" onclick="borrarMantenimiento('${m.herramientaId}','${m.id}')" style="color:var(--danger)">🗑️</button>
-        </div>
-      </div>`).join('')}</div>`
-    : '<p style="color:var(--text-2);font-size:13.5px">Aún no hay intervenciones registradas.</p>'}
-  `;
-}
-
-function registrarMantenimiento(id) {
-  const h = getH(id);
-  if (!h) return;
-  showModal({
-    title: 'Registrar mantenimiento',
-    body: `
-      <p style="font-size:14px;margin-bottom:14px;color:var(--text-2)">Herramienta: <b style="color:var(--text)">${esc(h.nombre)}</b></p>
-      <div class="form-grid">
-        <label>Tipo de intervención
-          <select id="m-tipo">
-            <option>Revisión</option>
-            <option>Limpieza</option>
-            <option>Reparación</option>
-            <option>Calibración</option>
-            <option>Sustitución de pieza</option>
-            <option>Puesta a punto</option>
-            <option>Otro</option>
-          </select>
-        </label>
-        <label>Fecha
-          <input id="m-fecha" type="date" value="${hoy()}">
-        </label>
-        <label class="full">Descripción
-          <textarea id="m-desc" rows="3" placeholder="Qué se ha hecho, piezas sustituidas, observaciones..."></textarea>
-        </label>
-        <label>Coste (€)
-          <input id="m-coste" type="number" min="0" step="0.01" placeholder="0.00">
-        </label>
-        <label>Estado final
-          <select id="m-estado">
-            <option value="disponible">Disponible</option>
-            <option value="mantenimiento">Sigue en mantenimiento</option>
-            <option value="averiada">Averiada</option>
-          </select>
-        </label>
-        <label class="full">Programar próxima revisión
-          <input id="m-prox" type="date" value="${addDays(hoy(), 180)}">
-          <span class="hint">Deja vacío si no quieres programar la siguiente</span>
-        </label>
-      </div>`,
-    saveText: 'Guardar intervención',
-    onSave: () => {
-      const reg = {
-        id: uid('m'),
-        fecha: $('#m-fecha').value || hoy(),
-        tipo: $('#m-tipo').value,
-        descripcion: $('#m-desc').value.trim(),
-        coste: num($('#m-coste').value)
-      };
-      if (!h.mantenimientos) h.mantenimientos = [];
-      h.mantenimientos.push(reg);
-      h.estado = $('#m-estado').value;
-      const prox = $('#m-prox').value;
-      if (prox) h.proximoMantenimiento = prox;
-      log('mantenimiento', `${reg.tipo} de «${h.nombre}»${reg.coste ? ' (' + fmtMoney(reg.coste) + ')' : ''}`);
-      save(); render(); toast('Mantenimiento registrado');
-    }
-  });
-}
-
-function programarRevision(id) {
-  const h = getH(id);
-  if (!h) return;
-  showModal({
-    title: 'Programar revisión',
-    body: `
-      <p style="font-size:14px;margin-bottom:14px;color:var(--text-2)">Herramienta: <b style="color:var(--text)">${esc(h.nombre)}</b></p>
-      <div class="form-grid">
-        <label class="full">Fecha de la próxima revisión
-          <input id="r-fecha" type="date" value="${h.proximoMantenimiento || addDays(hoy(), 180)}">
-        </label>
-        <label class="full" style="flex-direction:row;align-items:center;gap:8px;font-weight:500">
-          <input type="checkbox" id="r-quitar" style="width:auto"> Quitar la programación (sin próxima revisión)
-        </label>
-      </div>`,
-    saveText: 'Guardar',
-    onSave: () => {
-      if ($('#r-quitar').checked) h.proximoMantenimiento = '';
-      else h.proximoMantenimiento = $('#r-fecha').value;
-      save(); render(); toast('Programación actualizada');
-    }
-  });
-}
-
-function borrarMantenimiento(hid, mid) {
-  const h = getH(hid);
-  if (!h) return;
-  h.mantenimientos = (h.mantenimientos || []).filter(m => m.id !== mid);
-  save(); render(); toast('Registro eliminado');
+  dbRun('DELETE FROM prestamos WHERE id = ? AND activo = 0', [id]);
+  renderPrestamos(); toast('Registro eliminado');
 }
 
 /* ============================================================
    UBICACIONES Y CATEGORÍAS
    ============================================================ */
 function renderUbicaciones() {
-  const countUbi = {};
-  state.herramientas.forEach(h => { const u = h.ubicacion || 'Sin ubicación'; countUbi[u] = (countUbi[u] || 0) + 1; });
-  const countCat = {};
-  state.herramientas.forEach(h => { countCat[h.categoria] = (countCat[h.categoria] || 0) + 1; });
+  const cats = dbAll(`
+    SELECT c.nombre AS nombre,
+           (SELECT COUNT(*) FROM herramientas h WHERE h.categoria = c.nombre) AS n
+    FROM categorias c ORDER BY c.nombre COLLATE NOCASE
+  `);
+  const ubis = dbAll(`
+    SELECT u.nombre AS nombre,
+           (SELECT COUNT(*) FROM herramientas h WHERE h.ubicacion = u.nombre) AS n
+    FROM ubicaciones u ORDER BY u.nombre COLLATE NOCASE
+  `);
+  const sinUbi = dbGet("SELECT COUNT(*) AS c FROM herramientas WHERE ubicacion = '' OR ubicacion IS NULL").c;
 
   $('#view').innerHTML = `
     <div class="section-title">📍 Ubicaciones de almacenamiento
       <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="nuevaUbicacion()">＋ Añadir ubicación</button>
     </div>
-    ${state.ubicaciones.length ? `<div class="loc-grid">${state.ubicaciones.map(u => `
+    ${ubis.length ? `<div class="loc-grid">${ubis.map(u => `
       <div class="loc">
         <div class="loc-ico">📍</div>
         <div class="loc-info">
-          <div class="loc-name">${esc(u)}</div>
-          <div class="loc-count">${countUbi[u] || 0} herramienta(s)</div>
+          <div class="loc-name">${esc(u.nombre)}</div>
+          <div class="loc-count">${u.n} herramienta(s)</div>
         </div>
-        <button class="btn-icon" onclick="editarUbicacion('${esc(u).replace(/'/g, "\\'")}')" title="Renombrar">✏️</button>
-        <button class="btn-icon" onclick="borrarUbicacion('${esc(u).replace(/'/g, "\\'")}')" title="Eliminar" style="color:var(--danger)">🗑️</button>
+        <button class="btn-icon" onclick="editarUbicacion('${esc(u.nombre).replace(/'/g, "\\'")}')" title="Renombrar">✏️</button>
+        <button class="btn-icon" onclick="borrarUbicacion('${esc(u.nombre).replace(/'/g, "\\'")}')" title="Eliminar" style="color:var(--danger)">🗑️</button>
       </div>`).join('')}</div>`
     : '<p style="color:var(--text-2);font-size:13.5px">No hay ubicaciones definidas.</p>'}
 
-    ${countUbi['Sin ubicación'] ? `<div class="alert alert-i" style="margin-top:16px"><span>ℹ️</span><div>Hay <b>${countUbi['Sin ubicación']}</b> herramienta(s) sin ubicación asignada. Edítalas para asignarles un sitio.</div></div>` : ''}
+    ${sinUbi ? `<div class="alert alert-i" style="margin-top:16px"><span>ℹ️</span><div>Hay <b>${sinUbi}</b> herramienta(s) sin ubicación asignada. Edítalas para asignarles un sitio.</div></div>` : ''}
 
     <div class="section-title" style="margin-top:34px">🏷️ Categorías
       <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="nuevaCategoria()">＋ Añadir categoría</button>
     </div>
     <div class="loc-grid">
-      ${state.categorias.map(c => `
+      ${cats.map(c => `
         <div class="loc">
-          <div class="loc-ico">${iconoCat(c)}</div>
+          <div class="loc-ico">${iconoCat(c.nombre)}</div>
           <div class="loc-info">
-            <div class="loc-name">${esc(c)}</div>
-            <div class="loc-count">${countCat[c] || 0} herramienta(s)</div>
+            <div class="loc-name">${esc(c.nombre)}</div>
+            <div class="loc-count">${c.n} herramienta(s)</div>
           </div>
-          <button class="btn-icon" onclick="editarCategoria('${esc(c).replace(/'/g, "\\'")}')" title="Renombrar">✏️</button>
-          <button class="btn-icon" onclick="borrarCategoria('${esc(c).replace(/'/g, "\\'")}')" title="Eliminar" style="color:var(--danger)">🗑️</button>
+          <button class="btn-icon" onclick="editarCategoria('${esc(c.nombre).replace(/'/g, "\\'")}')" title="Renombrar">✏️</button>
+          <button class="btn-icon" onclick="borrarCategoria('${esc(c.nombre).replace(/'/g, "\\'")}')" title="Eliminar" style="color:var(--danger)">🗑️</button>
         </div>`).join('')}
     </div>
   `;
@@ -1373,9 +1370,10 @@ function nuevaUbicacion() {
     onSave: () => {
       const n = $('#u-nombre').value.trim();
       if (!n) { toast('Escribe un nombre', 'err'); return false; }
-      if (state.ubicaciones.includes(n)) { toast('Ya existe esa ubicación', 'err'); return false; }
-      state.ubicaciones.push(n); state.ubicaciones.sort((a, b) => a.localeCompare(b, 'es'));
-      save(); render(); toast('Ubicación añadida');
+      const ex = dbGet('SELECT 1 AS x FROM ubicaciones WHERE nombre = ?', [n]);
+      if (ex) { toast('Ya existe esa ubicación', 'err'); return false; }
+      dbRun('INSERT INTO ubicaciones (nombre) VALUES (?)', [n]);
+      render(); toast('Ubicación añadida');
     }
   });
 }
@@ -1388,25 +1386,27 @@ function editarUbicacion(antigua) {
     onSave: () => {
       const n = $('#u-nombre').value.trim();
       if (!n) { toast('Escribe un nombre', 'err'); return false; }
-      const i = state.ubicaciones.indexOf(antigua);
-      if (i > -1) state.ubicaciones[i] = n;
-      state.herramientas.forEach(h => { if (h.ubicacion === antigua) h.ubicacion = n; });
-      state.ubicaciones.sort((a, b) => a.localeCompare(b, 'es'));
-      save(); render(); toast('Ubicación renombrada');
+      dbExec('BEGIN');
+      dbRun('UPDATE ubicaciones SET nombre = ? WHERE nombre = ?', [n, antigua]);
+      dbRun('UPDATE herramientas SET ubicacion = ? WHERE ubicacion = ?', [n, antigua]);
+      dbExec('COMMIT');
+      render(); toast('Ubicación renombrada');
     }
   });
 }
 function borrarUbicacion(nombre) {
-  const n = state.herramientas.filter(h => h.ubicacion === nombre).length;
+  const n = dbGet('SELECT COUNT(*) AS c FROM herramientas WHERE ubicacion = ?', [nombre]).c;
   showModal({
     title: 'Eliminar ubicación',
     body: `<p style="font-size:14.5px">¿Eliminar la ubicación <b>${esc(nombre)}</b>?</p>
            ${n ? `<div class="alert alert-w" style="margin-top:12px"><span>⚠️</span><div>${n} herramienta(s) quedarán sin ubicación asignada.</div></div>` : ''}`,
     saveText: 'Eliminar',
     onSave: () => {
-      state.ubicaciones = state.ubicaciones.filter(u => u !== nombre);
-      state.herramientas.forEach(h => { if (h.ubicacion === nombre) h.ubicacion = ''; });
-      save(); render(); toast('Ubicación eliminada');
+      dbExec('BEGIN');
+      dbRun('DELETE FROM ubicaciones WHERE nombre = ?', [nombre]);
+      dbRun('UPDATE herramientas SET ubicacion = ? WHERE ubicacion = ?', ['', nombre]);
+      dbExec('COMMIT');
+      render(); toast('Ubicación eliminada');
     }
   });
 }
@@ -1420,9 +1420,9 @@ function nuevaCategoria() {
     onSave: () => {
       const n = $('#c-nombre').value.trim();
       if (!n) { toast('Escribe un nombre', 'err'); return false; }
-      if (state.categorias.includes(n)) { toast('Ya existe esa categoría', 'err'); return false; }
-      state.categorias.push(n); state.categorias.sort((a, b) => a.localeCompare(b, 'es'));
-      save(); render(); toast('Categoría añadida');
+      if (dbGet('SELECT 1 AS x FROM categorias WHERE nombre = ?', [n])) { toast('Ya existe esa categoría', 'err'); return false; }
+      dbRun('INSERT INTO categorias (nombre) VALUES (?)', [n]);
+      render(); toast('Categoría añadida');
     }
   });
 }
@@ -1435,26 +1435,28 @@ function editarCategoria(antigua) {
     onSave: () => {
       const n = $('#c-nombre').value.trim();
       if (!n) { toast('Escribe un nombre', 'err'); return false; }
-      const i = state.categorias.indexOf(antigua);
-      if (i > -1) state.categorias[i] = n;
-      state.herramientas.forEach(h => { if (h.categoria === antigua) h.categoria = n; });
-      state.categorias.sort((a, b) => a.localeCompare(b, 'es'));
-      save(); render(); toast('Categoría renombrada');
+      dbExec('BEGIN');
+      dbRun('UPDATE categorias SET nombre = ? WHERE nombre = ?', [n, antigua]);
+      dbRun('UPDATE herramientas SET categoria = ? WHERE categoria = ?', [n, antigua]);
+      dbExec('COMMIT');
+      render(); toast('Categoría renombrada');
     }
   });
 }
 function borrarCategoria(nombre) {
-  const n = state.herramientas.filter(h => h.categoria === nombre).length;
+  const n = dbGet('SELECT COUNT(*) AS c FROM herramientas WHERE categoria = ?', [nombre]).c;
   showModal({
     title: 'Eliminar categoría',
     body: `<p style="font-size:14.5px">¿Eliminar la categoría <b>${esc(nombre)}</b>?</p>
            ${n ? `<div class="alert alert-w" style="margin-top:12px"><span>⚠️</span><div>${n} herramienta(s) pasarán a la categoría <b>Otros</b>.</div></div>` : ''}`,
     saveText: 'Eliminar',
     onSave: () => {
-      state.categorias = state.categorias.filter(c => c !== nombre);
-      state.herramientas.forEach(h => { if (h.categoria === nombre) h.categoria = 'Otros'; });
-      if (!state.categorias.includes('Otros')) state.categorias.push('Otros');
-      save(); render(); toast('Categoría eliminada');
+      dbRun("INSERT OR IGNORE INTO categorias (nombre) VALUES ('Otros')");
+      dbExec('BEGIN');
+      dbRun('DELETE FROM categorias WHERE nombre = ?', [nombre]);
+      dbRun("UPDATE herramientas SET categoria = 'Otros' WHERE categoria = ?", [nombre]);
+      dbExec('COMMIT');
+      render(); toast('Categoría eliminada');
     }
   });
 }
@@ -1464,9 +1466,18 @@ function borrarCategoria(nombre) {
    ============================================================ */
 function renderAjustes() {
   const tam = (() => {
-    try { return (new Blob([localStorage.getItem(LS_KEY) || '']).size / 1024).toFixed(1); }
+    try { return ((localStorage.getItem(LS_DATA) || '').length / 1024).toFixed(1); }
     catch { return '—'; }
   })();
+
+  const stats = {
+    refs:    dbGet('SELECT COUNT(*) AS c FROM herramientas').c,
+    unds:    dbGet('SELECT COALESCE(SUM(cantidad),0) AS c FROM herramientas').c,
+    cats:    dbGet('SELECT COUNT(*) AS c FROM categorias').c,
+    ubis:    dbGet('SELECT COUNT(*) AS c FROM ubicaciones').c,
+    prest:   dbGet('SELECT COUNT(*) AS c FROM prestamos').c,
+    act:     dbGet('SELECT COUNT(*) AS c FROM actividad').c
+  };
 
   $('#view').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px;max-width:1000px">
@@ -1475,7 +1486,7 @@ function renderAjustes() {
         <div class="card-title">🏠 Identidad del taller</div>
         <div class="form-grid">
           <label class="full">Nombre del taller
-            <input id="a-taller" value="${esc(state.ajustes.taller)}" placeholder="Mi Taller">
+            <input id="a-taller" value="${esc(ajustes.taller)}" placeholder="Mi Taller">
           </label>
         </div>
         <button class="btn btn-primary" style="margin-top:14px" onclick="guardarAjustes()">Guardar</button>
@@ -1485,34 +1496,38 @@ function renderAjustes() {
         <div class="card-title">🎨 Apariencia</div>
         <p style="font-size:13.5px;color:var(--text-2);margin-bottom:12px">Elige el tema de la interfaz.</p>
         <div style="display:flex;gap:9px">
-          <button class="btn ${state.ajustes.tema === 'claro' ? 'btn-primary' : 'btn-ghost'}" onclick="setTema('claro')">☀️ Claro</button>
-          <button class="btn ${state.ajustes.tema === 'oscuro' ? 'btn-primary' : 'btn-ghost'}" onclick="setTema('oscuro')">🌙 Oscuro</button>
+          <button class="btn ${ajustes.tema === 'claro' ? 'btn-primary' : 'btn-ghost'}" onclick="setTema('claro')">☀️ Claro</button>
+          <button class="btn ${ajustes.tema === 'oscuro' ? 'btn-primary' : 'btn-ghost'}" onclick="setTema('oscuro')">🌙 Oscuro</button>
         </div>
       </div>
 
       <div class="card card-pad">
-        <div class="card-title">💾 Copia de seguridad</div>
+        <div class="card-title">🗄️ Base de datos SQLite</div>
         <p style="font-size:13.5px;color:var(--text-2);margin-bottom:14px">
-          Tus datos se guardan en este navegador (${tam} KB). Exporta periódicamente para no perderlos.
+          Motor <b>sql.js</b> (SQLite compilado a WebAssembly). Los datos se persisten en este navegador
+          (${tam} KB en localStorage).
         </p>
-        <div style="display:flex;gap:9px;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="exportarJSON()">⬇️ Exportar JSON</button>
-          <button class="btn btn-ghost" onclick="exportarCSV()">📊 Exportar CSV</button>
-          <button class="btn btn-ghost" onclick="$('#inputImport').click()">⬆️ Importar JSON</button>
+        <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px">
+          <button class="btn btn-primary" onclick="exportarSQLite()">⬇️ Exportar .sqlite</button>
+          <button class="btn btn-ghost" onclick="exportarSQL()">📄 Exportar SQL (dump)</button>
         </div>
-        <input type="file" id="inputImport" accept=".json" style="display:none">
-        <p style="font-size:12px;color:var(--text-2);margin-top:12px">Al importar se reemplazarán todos los datos actuales.</p>
+        <div style="display:flex;gap:9px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="exportarCSV()">📊 Exportar CSV</button>
+          <button class="btn btn-ghost" onclick="$('#inputImport').click()">⬆️ Importar .sqlite</button>
+        </div>
+        <input type="file" id="inputImport" accept=".sqlite,.db,.sqlite3,application/octet-stream" style="display:none">
+        <p style="font-size:12px;color:var(--text-2);margin-top:12px">Al importar se reemplazará la base de datos actual.</p>
       </div>
 
       <div class="card card-pad">
         <div class="card-title">📈 Estadísticas</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13.5px">
-          ${statMini('Referencias', state.herramientas.length)}
-          ${statMini('Unidades', totalUnidades())}
-          ${statMini('Categorías', state.categorias.length)}
-          ${statMini('Ubicaciones', state.ubicaciones.length)}
-          ${statMini('Préstamos históricos', state.historialPrestamos.length)}
-          ${statMini('Intervenciones', state.herramientas.reduce((s, h) => s + (h.mantenimientos || []).length, 0))}
+          ${statMini('Referencias', stats.refs)}
+          ${statMini('Unidades', stats.unds)}
+          ${statMini('Categorías', stats.cats)}
+          ${statMini('Ubicaciones', stats.ubis)}
+          ${statMini('Préstamos totales', stats.prest)}
+          ${statMini('Eventos de actividad', stats.act)}
         </div>
       </div>
 
@@ -1530,7 +1545,7 @@ function renderAjustes() {
     </div>
   `;
 
-  $('#inputImport').onchange = importarJSON;
+  $('#inputImport').onchange = importarSQLite;
 }
 function statMini(k, v) {
   return `<div style="background:var(--surface-2);padding:10px 12px;border-radius:9px">
@@ -1540,18 +1555,19 @@ function statMini(k, v) {
 }
 
 function guardarAjustes() {
-  const n = $('#a-taller').value.trim() || 'Mi Taller';
-  state.ajustes.taller = n;
-  save(); render(); toast('Ajustes guardados');
+  ajustes.taller = $('#a-taller').value.trim() || 'Mi Taller';
+  localStorage.setItem(LS_CFG, JSON.stringify(ajustes));
+  render(); toast('Ajustes guardados');
 }
 function setTema(t) {
-  state.ajustes.tema = t;
-  save(); render();
+  ajustes.tema = t;
+  localStorage.setItem(LS_CFG, JSON.stringify(ajustes));
+  render();
 }
 
 /* ---------- Exportar / Importar ---------- */
 function descargar(nombre, contenido, tipo) {
-  const blob = new Blob([contenido], { type: tipo });
+  const blob = contenido instanceof Blob ? contenido : new Blob([contenido], { type: tipo });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = nombre;
@@ -1559,63 +1575,97 @@ function descargar(nombre, contenido, tipo) {
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function exportarJSON() {
-  const data = JSON.stringify(state, null, 2);
-  descargar(`tallerpro_${hoy()}.json`, data, 'application/json');
-  toast('Copia de seguridad exportada');
+function exportarSQLite() {
+  const data = db.export();
+  descargar(`tallerpro_${hoy()}.sqlite`, new Blob([data], { type: 'application/x-sqlite3' }));
+  toast('Base de datos exportada');
+}
+function exportarSQL() {
+  const tablas = ['categorias','ubicaciones','herramientas','prestamos','actividad'];
+  let out = '-- TallerPro SQL dump\n-- ' + new Date().toISOString() + '\n\n';
+  out += SCHEMA.replace(/CREATE INDEX[^;]+;/g, '').trim() + '\n\n';
+  tablas.forEach(t => {
+    const rows = dbAll(`SELECT * FROM ${t}`);
+    if (!rows.length) return;
+    out += `-- Datos de ${t}\n`;
+    rows.forEach(r => {
+      const cols = Object.keys(r);
+      const vals = cols.map(c => {
+        const v = r[c];
+        if (v === null || v === undefined) return 'NULL';
+        if (typeof v === 'number') return String(v);
+        return "'" + String(v).replace(/'/g, "''") + "'";
+      });
+      out += `INSERT INTO ${t} (${cols.join(',')}) VALUES (${vals.join(',')});\n`;
+    });
+    out += '\n';
+  });
+  descargar(`tallerpro_${hoy()}.sql`, out, 'application/sql');
+  toast('Dump SQL exportado');
 }
 function exportarCSV() {
-  const cab = ['Nombre','Categoría','Marca','Modelo','Nº Serie','Cantidad','Precio','Fecha compra','Ubicación','Estado','Prestada a','Devolución prevista','Próximo mantenimiento','Notas'];
-  const filas = state.herramientas.map(h => [
-    h.nombre, h.categoria, h.marca, h.modelo, h.serie, h.cantidad || 1, h.precio || 0,
-    h.fechaCompra, h.ubicacion, h.prestamo ? 'prestada' : h.estado,
-    h.prestamo ? h.prestamo.persona : '', h.prestamo ? h.prestamo.fechaPrevista : '',
-    h.proximoMantenimiento, h.notas
-  ]);
+  const rows = dbAll(SQL_HERR_CON_PRESTAMO + ' ORDER BY h.nombre COLLATE NOCASE');
+  const cab = ['Nombre','Categoría','Marca','Modelo','Nº Serie','Cantidad','Precio','Fecha compra','Ubicación','Estado','Prestada a','Devolución prevista','Notas'];
+  const filas = rows.map(r => {
+    const m = mapHerramienta(r);
+    const est = m.prestamo ? 'prestada' : (m.estado === 'averiada' ? 'averiada' : 'disponible');
+    return [m.nombre, m.categoria, m.marca, m.modelo, m.serie, m.cantidad, m.precio, m.fechaCompra,
+            m.ubicacion, est, m.prestamo ? m.prestamo.persona : '', m.prestamo ? m.prestamo.fechaPrevista : '', m.notas];
+  });
   const csv = [cab, ...filas].map(f => f.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
   descargar(`inventario_${hoy()}.csv`, '\uFEFF' + csv, 'text/csv;charset=utf-8');
   toast('CSV exportado');
 }
-function importarJSON(e) {
+function importarSQLite(e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
     try {
-      const d = JSON.parse(ev.target.result);
-      if (!d || !Array.isArray(d.herramientas)) throw new Error('Formato inválido');
+      const u8 = new Uint8Array(ev.target.result);
+      // Comprobación básica de cabecera SQLite: "SQLite format 3\0"
+      const cab = new TextDecoder().decode(u8.slice(0, 15));
+      if (!cab.startsWith('SQLite format 3')) throw new Error('No es un archivo SQLite válido');
       showModal({
         title: 'Confirmar importación',
-        body: `<p style="font-size:14.5px">El archivo contiene <b>${d.herramientas.length}</b> herramientas.</p>
-               <div class="alert alert-w" style="margin-top:12px"><span>⚠️</span><div>Se reemplazarán todos los datos actuales de este navegador.</div></div>`,
+        body: `<p style="font-size:14.5px">Se reemplazará toda la base de datos actual por el archivo <b>${esc(file.name)}</b>.</p>
+               <div class="alert alert-w" style="margin-top:12px"><span>⚠️</span><div>Esta acción no se puede deshacer.</div></div>`,
         saveText: 'Importar y reemplazar',
         onSave: () => {
-          state = {
-            herramientas: d.herramientas || [],
-            categorias: d.categorias || state.categorias,
-            ubicaciones: d.ubicaciones || state.ubicaciones,
-            historialPrestamos: d.historialPrestamos || [],
-            actividad: d.actividad || [],
-            ajustes: { ...state.ajustes, ...(d.ajustes || {}) }
-          };
-          log('sistema', 'Datos importados desde archivo');
-          save(); render(); toast('Datos importados correctamente');
+          const nuevo = new SQL.Database(u8);
+          db.close();
+          db = nuevo;
+          // Asegurar que las tablas existen
+          db.exec(SCHEMA);
+          persistDB();
+          render(); toast('Base de datos importada correctamente');
         }
       });
     } catch (err) {
-      toast('Archivo inválido: ' + err.message, 'err');
+      toast('Error al importar: ' + err.message, 'err');
     }
     e.target.value = '';
   };
-  reader.readAsText(file);
+  reader.readAsArrayBuffer(file);
 }
 function cargarDemo() {
   showModal({
     title: 'Cargar datos de ejemplo',
-    body: `<p style="font-size:14.5px">Se reemplazarán todos los datos actuales por un inventario de ejemplo de 15 herramientas.</p>
+    body: `<p style="font-size:14.5px">Se reemplazará todo el contenido actual por un inventario de ejemplo de 15 herramientas.</p>
            <div class="alert alert-w" style="margin-top:12px"><span>⚠️</span><div>Esta acción no se puede deshacer.</div></div>`,
     saveText: 'Cargar ejemplo',
-    onSave: () => { seed(); render(); toast('Datos de ejemplo cargados'); }
+    onSave: () => {
+      db.exec(`
+        DROP TABLE IF EXISTS prestamos;
+        DROP TABLE IF EXISTS herramientas;
+        DROP TABLE IF EXISTS categorias;
+        DROP TABLE IF EXISTS ubicaciones;
+        DROP TABLE IF EXISTS actividad;
+      `);
+      db.exec(SCHEMA);
+      seedIfEmpty();
+      render(); toast('Datos de ejemplo cargados');
+    }
   });
 }
 function borrarTodo() {
@@ -1625,12 +1675,17 @@ function borrarTodo() {
            <div class="alert alert-d" style="margin-top:12px"><span>⚠️</span><div>Esta acción es irreversible. Exporta antes una copia si la necesitas.</div></div>`,
     saveText: 'Sí, borrar todo',
     onSave: () => {
-      state = {
-        herramientas: [], categorias: ['Manuales','Eléctricas','Medición','Automoción','Jardinería','Fijación','Seguridad','Soldadura','Neumática','Pintura','Otros'],
-        ubicaciones: [], historialPrestamos: [], actividad: [],
-        ajustes: { ...state.ajustes }
-      };
-      save(); render(); toast('Todos los datos han sido borrados');
+      db.exec(`
+        DELETE FROM prestamos;
+        DELETE FROM herramientas;
+        DELETE FROM actividad;
+        DELETE FROM ubicaciones;
+        DELETE FROM categorias;
+      `);
+      ['Manuales','Eléctricas','Medición','Automoción','Jardinería','Fijación','Seguridad','Soldadura','Neumática','Pintura','Otros']
+        .forEach(c => dbRun('INSERT INTO categorias (nombre) VALUES (?)', [c]));
+      persistDB();
+      render(); toast('Todos los datos han sido borrados');
     }
   });
 }
@@ -1648,7 +1703,7 @@ $$('.nav-item').forEach(btn => {
   };
 });
 $('#btnNueva').onclick = () => nuevaHerramienta();
-$('#btnTheme').onclick = () => setTema(state.ajustes.tema === 'oscuro' ? 'claro' : 'oscuro');
+$('#btnTheme').onclick = () => setTema(ajustes.tema === 'oscuro' ? 'claro' : 'oscuro');
 $('#hamburger').onclick = () => {
   $('#sidebar').classList.toggle('open');
   $('#backdrop').classList.toggle('open');
@@ -1659,21 +1714,63 @@ function closeSidebar() {
 }
 $('#backdrop').onclick = closeSidebar;
 
-/* Atajos de teclado */
 document.addEventListener('keydown', e => {
   if (e.target.matches('input, textarea, select')) return;
   if (e.key === 'n' || e.key === 'N') { e.preventDefault(); nuevaHerramienta(); }
-  if (e.key === '/') { e.preventDefault(); if (currentView !== 'herramientas') { currentView = 'herramientas'; render(); } const q = $('#f-q'); if (q) q.focus(); }
+  if (e.key === '/') {
+    e.preventDefault();
+    if (currentView !== 'herramientas') { currentView = 'herramientas'; render(); }
+    const q = $('#f-q'); if (q) q.focus();
+  }
 });
 
 /* ============================================================
    INICIALIZACIÓN
    ============================================================ */
-(function init() {
-  if (!load()) { seed(); }
-  if (!state.ajustes) state.ajustes = { taller: 'Mi Taller', tema: 'claro' };
-  render();
-})();
+async function init() {
+  try {
+    if (typeof initSqlJs !== 'function') throw new Error('No se pudo cargar sql.js (comprueba tu conexión a internet)');
+
+    $('#loaderMsg').textContent = 'Inicializando motor SQLite…';
+    const SQL = await initSqlJs({
+      locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`
+    });
+
+    $('#loaderMsg').textContent = 'Abriendo base de datos…';
+    const persisted = loadPersisted();
+    db = persisted ? new SQL.Database(persisted) : new SQL.Database();
+
+    // Asegurar esquema (por si la BD guardada es antigua o vacía)
+    db.exec(SCHEMA);
+
+    // Cargar ajustes
+    try {
+      const cfg = JSON.parse(localStorage.getItem(LS_CFG) || '{}');
+      ajustes = { ...ajustes, ...cfg };
+    } catch {}
+
+    // Sembrar si está vacía
+    seedIfEmpty();
+
+    // Mostrar app
+    $('#loader').style.display = 'none';
+    $('#app').style.display = '';
+    render();
+
+    // Guardar al cerrar
+    window.addEventListener('beforeunload', () => { try { persistDB(); } catch {} });
+
+  } catch (err) {
+    console.error(err);
+    $('#loader').classList.add('err');
+    $('#loaderTitle').textContent = 'Error al iniciar SQLite';
+    $('#loaderMsg').innerHTML = esc(err.message) +
+      '<br><br>Esta aplicación necesita conexión a internet la primera vez para descargar <b>sql.js</b> desde el CDN.' +
+      '<br><br><button class="btn btn-primary" onclick="location.reload()" style="margin-top:8px">Reintentar</button>';
+  }
+}
+
+init();
 </script>
 </body>
 </html>
