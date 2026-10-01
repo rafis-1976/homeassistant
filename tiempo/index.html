@@ -132,7 +132,7 @@ button{cursor:pointer;border:none;background:none}
 @media(max-width:640px){#radar-map{height:300px}}
 
 .leaflet-container{font-family:inherit;background:var(--surface-2)}
-[data-theme="oscuro"] .leaflet-tile-container img{filter:brightness(.85) contrast(1.1)}
+[data-theme="oscuro"] .leaflet-tile-container img{filter:brightness(.75) contrast(1.1) saturate(.85)}
 .leaflet-control-attribution{background:rgba(255,255,255,.85)!important;color:#333!important;font-size:10px!important}
 [data-theme="oscuro"] .leaflet-control-attribution{background:rgba(23,27,35,.85)!important;color:#9aa3b2!important}
 [data-theme="oscuro"] .leaflet-control-attribution a{color:#4d84ff!important}
@@ -240,7 +240,7 @@ button{cursor:pointer;border:none;background:none}
   </div>
 
   <div class="footer">
-    Datos: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · Radar: <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a>
+    Datos: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · Radar: <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a> · Mapa: <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>
   </div>
 </div>
 
@@ -257,15 +257,8 @@ button{cursor:pointer;border:none;background:none}
   const hoyISO = () => new Date().toISOString().slice(0, 10);
 
   /* ============================================================
-     FETCH RESILIENTE: timeout + reintentos con backoff
+     FETCH RESILIENTE
      ============================================================ */
-  /**
-   * Hace un fetch con:
-   *  - timeout de `timeoutMs` ms (AbortController)
-   *  - reintenta hasta `intentos` veces si el código HTTP es 408/425/429/500/502/503/504
-   *  - espera exponencial entre intentos (500ms, 1s, 2s)
-   * Devuelve el objeto Response o lanza un Error con mensaje claro.
-   */
   async function fetchResiliente(url, opciones = {}, {
     timeoutMs = 12000,
     intentos = 3,
@@ -278,27 +271,18 @@ button{cursor:pointer;border:none;background:none}
       try {
         const r = await fetch(url, { ...opciones, signal: ctrl.signal });
         clearTimeout(tid);
-
         if (r.ok) return r;
-
         if (!reintentarCodigos.includes(r.status)) {
-          // Error definitivo: no reintentamos
           throw new Error(`HTTP ${r.status} — el servidor rechazó la petición`);
         }
-
-        // Reintentable
         ultimoError = new Error(`HTTP ${r.status}`);
         console.warn(`⚠️ ${url} → HTTP ${r.status}, reintentando (${intento + 1}/${intentos})…`);
       } catch (e) {
         clearTimeout(tid);
-        if (e.name === 'AbortError') {
-          ultimoError = new Error('Timeout: el servidor tardó demasiado en responder');
-        } else {
-          ultimoError = e;
-        }
+        if (e.name === 'AbortError') ultimoError = new Error('Timeout: el servidor tardó demasiado');
+        else ultimoError = e;
         console.warn(`⚠️ ${url} → ${ultimoError.message}, reintentando (${intento + 1}/${intentos})…`);
       }
-      // Espera exponencial entre intentos
       if (intento < intentos - 1) {
         const espera = 500 * Math.pow(2, intento) + Math.random() * 300;
         await new Promise(res => setTimeout(res, espera));
@@ -307,16 +291,15 @@ button{cursor:pointer;border:none;background:none}
     throw ultimoError || new Error('No se pudo conectar con el servidor');
   }
 
-  /* ---------- Caché local (para sobrevivir a un 503 puntual) ---------- */
+  /* ---------- Caché local ---------- */
   const CACHE_KEY = 'tiempo_cache_v1';
   function guardarCache(key, data) {
     try {
       const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
       cache[key] = { data, ts: Date.now() };
-      // Limitar a 8 entradas
       const entradas = Object.entries(cache).sort((a, b) => b[1].ts - a[1].ts).slice(0, 8);
       localStorage.setItem(CACHE_KEY, JSON.stringify(Object.fromEntries(entradas)));
-    } catch (e) { /* localStorage lleno o bloqueado */ }
+    } catch (e) {}
   }
   function leerCache(key, maxEdadMs = 30 * 60 * 1000) {
     try {
@@ -333,7 +316,7 @@ button{cursor:pointer;border:none;background:none}
     lat: null, lon: null,
     lugar: 'Ubicación desconocida', region: '', pais: '',
     datos: null, cargando: false, error: null,
-    avisoStale: null,   // mensaje si estamos mostrando caché antigua
+    avisoStale: null,
     tema: localStorage.getItem('tiempo_tema') || 'claro'
   };
 
@@ -341,7 +324,7 @@ button{cursor:pointer;border:none;background:none}
     map: null, baseLayer: null, radarLayer: null, marcador: null,
     frames: [], index: 0, playing: false, velocidad: 600, timer: null,
     host: 'https://tilecache.rainviewer.com',
-    inicializado: false, error: null, aviso: null
+    inicializado: false, error: null
   };
 
   /* ---------- Tema ---------- */
@@ -404,7 +387,7 @@ button{cursor:pointer;border:none;background:none}
   }
 
   /* ============================================================
-     GEOLOCALIZACIÓN + reverse geocoding con 2 proveedores
+     GEOLOCALIZACIÓN + reverse geocoding (Nominatim)
      ============================================================ */
   function geolocalizar() {
     if (!navigator.geolocation) {
@@ -420,7 +403,6 @@ button{cursor:pointer;border:none;background:none}
         console.log('✅ Ubicación obtenida:', pos.coords.latitude, pos.coords.longitude);
         state.lat = pos.coords.latitude;
         state.lon = pos.coords.longitude;
-        // Nombre del lugar: intento en paralelo, pero sin bloquear si falla
         await reverseGeocode(state.lat, state.lon);
         await cargarTiempo();
       },
@@ -437,34 +419,22 @@ button{cursor:pointer;border:none;background:none}
     );
   }
 
-  /**
-   * Reverse geocoding con 2 proveedores en cascada:
-   *   1. Nominatim de OpenStreetMap (muy estable)
-   *   2. Geocoding de Open-Meteo con la ciudad más cercana (fallback simple)
-   * Si los dos fallan, dejamos "Tu ubicación" y seguimos (no es crítico).
-   */
   async function reverseGeocode(lat, lon) {
-    // Proveedor 1: Nominatim (OSM)
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=es`;
-      const r = await fetchResiliente(url, {
-        headers: { 'Accept': 'application/json' }
-      }, { intentos: 2, timeoutMs: 8000 });
+      const r = await fetchResiliente(url, { headers: { 'Accept': 'application/json' } }, { intentos: 2, timeoutMs: 8000 });
       const d = await r.json();
       const a = d.address || {};
       state.lugar = a.city || a.town || a.village || a.municipality || a.county || d.name || 'Tu ubicación';
       state.region = a.state || a.region || '';
       state.pais = a.country || '';
-      console.log('✅ Reverse geocoding OK (Nominatim):', state.lugar);
-      return;
+      console.log('✅ Reverse geocoding OK:', state.lugar);
     } catch (e) {
-      console.warn('⚠️ Nominatim falló:', e.message);
+      console.warn('⚠️ Reverse geocoding falló:', e.message);
+      state.lugar = 'Tu ubicación';
+      state.region = '';
+      state.pais = '';
     }
-
-    // Proveedor 2: fallback simple — no crítico, dejamos coordenadas
-    state.lugar = 'Tu ubicación';
-    state.region = '';
-    state.pais = '';
   }
 
   /* ============================================================
@@ -480,10 +450,7 @@ button{cursor:pointer;border:none;background:none}
       const d = await r.json();
       sugerenciasActuales = d.results || [];
       renderSugerencias();
-    } catch (e) {
-      console.warn('⚠️ Búsqueda falló:', e.message);
-      // No mostramos error global, simplemente no hay sugerencias
-    }
+    } catch (e) { console.warn('⚠️ Búsqueda falló:', e.message); }
   }
 
   function renderSugerencias() {
@@ -522,7 +489,7 @@ button{cursor:pointer;border:none;background:none}
   }
 
   /* ============================================================
-     CARGA DEL TIEMPO (con caché y reintentos)
+     CARGA DEL TIEMPO
      ============================================================ */
   async function cargarTiempo() {
     if (state.lat == null || state.lon == null) return;
@@ -552,11 +519,9 @@ button{cursor:pointer;border:none;background:none}
       mostrarRadarYArrancar();
     } catch (e) {
       console.error('❌ Error cargando tiempo:', e);
-
-      // Intentar caché como último recurso
-      const cache = leerCache(cacheKey, 6 * 60 * 60 * 1000); // 6 h
+      const cache = leerCache(cacheKey, 6 * 60 * 60 * 1000);
       if (cache) {
-        console.warn('📦 Usando caché antigua:', new Date(cache.ts).toLocaleString('es-ES'));
+        console.warn('📦 Usando caché antigua');
         state.datos = cache.data;
         state.cargando = false;
         state.avisoStale = `Sin conexión con el servicio meteorológico. Mostrando datos de ${new Date(cache.ts).toLocaleString('es-ES', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}.`;
@@ -573,13 +538,16 @@ button{cursor:pointer;border:none;background:none}
   /* ============================================================
      RADAR
      ============================================================ */
+
+  /* Mapa base OpenStreetMap con zoom ampliado */
   function crearBasemap() {
-  return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    maxZoom: 22,
-    maxNativeZoom: 19
-  });
-}
+    return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 21,
+      maxNativeZoom: 19,
+      crossOrigin: true
+    });
+  }
 
   function mostrarRadarYArrancar() {
     const card = $('#radar-card');
@@ -596,7 +564,6 @@ button{cursor:pointer;border:none;background:none}
       radar.map.setView([state.lat, state.lon], radar.map.getZoom() || 8);
       actualizarMarcador();
       try { radar.map.invalidateSize(); } catch {}
-      // Si falló antes, reintentar cargar los frames
       if (!radar.frames.length) {
         cargarFramesRadar().then(() => {
           if (radar.frames.length) aplicarFotograma(radar.index || 0);
@@ -609,8 +576,20 @@ button{cursor:pointer;border:none;background:none}
       console.log('🗺️ Creando mapa...');
       radar.map = L.map('radar-map', {
         center: [state.lat, state.lon],
-        zoom: 8, zoomControl: true, preferCanvas: true
+        zoom: 8,
+        minZoom: 3,
+        maxZoom: 21,
+        zoomControl: true,
+        preferCanvas: true,
+        worldCopyJump: true,
+        wheelPxPerZoomLevel: 90,
+        scrollWheelZoom: true,
+        touchZoom: true,
+        doubleClickZoom: true,
+        boxZoom: true,
+        keyboard: true
       });
+      radar.map.setMaxZoom(21);
       radar.baseLayer = crearBasemap();
       radar.baseLayer.addTo(radar.map);
       actualizarMarcador();
@@ -650,7 +629,6 @@ button{cursor:pointer;border:none;background:none}
     const st = $('#radar-status');
     if (st) { st.className = 'radar-status cargando'; st.innerHTML = '<span class="dot"></span> Cargando radar…'; }
 
-    // Caché: si en los últimos 5 min ya obtuvimos frames válidos, reutilizar
     const cache = leerCache('radar_frames', 5 * 60 * 1000);
 
     try {
@@ -693,7 +671,6 @@ button{cursor:pointer;border:none;background:none}
         st.className = 'radar-status error';
         st.innerHTML = '<span class="dot"></span> Radar no disponible temporalmente';
       }
-      // No rompemos la app: el resto sigue funcionando sin radar
     }
   }
 
@@ -776,9 +753,7 @@ button{cursor:pointer;border:none;background:none}
         <div class="state">
           <div class="em">${esRed ? '📡' : '⚠️'}</div>
           <h3>${esRed ? 'Servicio no disponible' : 'Error'}</h3>
-          <p>${esRed
-            ? 'El servidor meteorológico está saturado en este momento. Vuelve a intentarlo en unos segundos.'
-            : esc(state.error)}</p>
+          <p>${esRed ? 'El servidor meteorológico está saturado en este momento. Vuelve a intentarlo en unos segundos.' : esc(state.error)}</p>
           <button class="btn btn-primary" onclick="location.reload()">Reintentar</button>
         </div>`;
       return;
