@@ -540,13 +540,17 @@ button{cursor:pointer;border:none;background:none}
      ============================================================ */
 
   /* Mapa base OpenStreetMap con zoom ampliado */
-  function crearBasemap() {
+  const JAWG_TOKEN = 'bQUll5WQyxb42bBkNkHy4ppYPX7ImVhmIh8xOMh3TPJCh5ACW8iyaGmMqJQSULfN'; // ← pega aquí tu token
+const JAWG_ESTILO = 'jawg-light';          // estilo por defecto (claro)
+
+function crearBasemap() {
+  const estilo = state.tema === 'oscuro' ? 'jawg-dark' : JAWG_ESTILO;
   return L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    `https://tile.jawg.io/${estilo}/{z}/{x}/{y}{r}.png?access-token=${JAWG_TOKEN}`,
     {
-      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-      maxZoom: 24,
-      maxNativeZoom: 19
+      attribution: '&copy; <a href="https://www.jawg.io" target="_blank">Jawg Maps</a> | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+      maxZoom: 22,
+      maxNativeZoom: 22
     }
   );
 }
