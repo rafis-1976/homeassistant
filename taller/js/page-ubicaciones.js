@@ -10,7 +10,6 @@ TP.onReady = async function () {
   $v.innerHTML = '<p style="color:var(--text-2);padding:20px">Cargando…</p>';
 
   try {
-    // Todo en paralelo
     const [
       { data: catRows },
       { data: ubiRows },
@@ -25,7 +24,6 @@ TP.onReady = async function () {
     const listaUbis = ubiRows || [];
     const herramientas = herrs || [];
 
-    // Contar en cliente
     const cuentaCat = {};
     herramientas.forEach(h => { cuentaCat[h.categoria] = (cuentaCat[h.categoria] || 0) + 1; });
     const cuentaUbi = {};
@@ -101,11 +99,8 @@ TP.editarUbicacion = function (antigua) {
     onSave: async () => {
       const n = TP.$('#u-nombre').value.trim();
       if (!n) { TP.toast('Escribe un nombre', 'err'); return false; }
-      // 1. Insertar la nueva
-      await TP.sb.from('taller_ubicaciones').insert({ nombre: n });
-      // 2. Actualizar herramientas
+      await TP.sb.from('taller_ubicaciones').upsert({ nombre: n });
       await TP.sb.from('taller_herramientas').update({ ubicacion: n }).eq('ubicacion', antigua);
-      // 3. Borrar la antigua
       await TP.sb.from('taller_ubicaciones').delete().eq('nombre', antigua);
       await TP.onReady();
       TP.toast('Ubicación renombrada');
@@ -158,7 +153,7 @@ TP.editarCategoria = function (antigua) {
     onSave: async () => {
       const n = TP.$('#c-nombre').value.trim();
       if (!n) { TP.toast('Escribe un nombre', 'err'); return false; }
-      await TP.sb.from('taller_categorias').insert({ nombre: n });
+      await TP.sb.from('taller_categorias').upsert({ nombre: n });
       await TP.sb.from('taller_herramientas').update({ categoria: n }).eq('categoria', antigua);
       await TP.sb.from('taller_categorias').delete().eq('nombre', antigua);
       await TP.onReady();
