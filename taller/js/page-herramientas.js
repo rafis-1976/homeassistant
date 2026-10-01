@@ -1,20 +1,20 @@
-/* ============================================================
-   Página: Herramientas — datos desde Supabase
-   ============================================================ */
-TP.pageTitle = 'Herramientas';
-TP.pageSub   = 'Inventario completo';
-TP.navId     = 'herramientas';
-
-let filtros = { q: '', cat: '', est: '', ubi: '', orden: 'nombre' };
-let cacheHerrs = [];
-
 function cardHerramienta(h) {
   const est  = h.prestamo ? 'prestada' : (h.estado === 'averiada' ? 'averiada' : 'disponible');
   const venc = h.prestamo && h.prestamo.fechaPrevista && TP.diasHasta(h.prestamo.fechaPrevista) < 0;
+
+  // Miniatura: si tiene foto, la mostramos; si no, el icono de la categoría
+  const miniatura = h.fotoUrl
+    ? `<div class="tool-ico" style="padding:0;overflow:hidden">
+         <img src="${TP.esc(h.fotoUrl)}" alt="" loading="lazy"
+              style="width:100%;height:100%;object-fit:cover"
+              onerror="this.parentElement.innerHTML='${TP.iconoCat(h.categoria)}';this.parentElement.style.fontSize='20px'">
+       </div>`
+    : `<div class="tool-ico">${TP.iconoCat(h.categoria)}</div>`;
+
   return `
   <div class="tool">
     <div class="tool-top">
-      <div class="tool-ico">${TP.iconoCat(h.categoria)}</div>
+      ${miniatura}
       <div style="flex:1;min-width:0">
         <div class="tool-name">${TP.esc(h.nombre)}</div>
         <div class="tool-meta">${[h.marca, h.modelo].filter(Boolean).map(TP.esc).join(' · ') || TP.esc(h.categoria)}</div>
@@ -44,130 +44,3 @@ function cardHerramienta(h) {
     </div>
   </div>`;
 }
-
-function aplicarFiltros(lista) {
-  let out = lista.slice();
-  const q = filtros.q.trim().toLowerCase();
-  if (q) {
-    out = out.filter(h =>
-      `${h.nombre} ${h.marca} ${h.modelo} ${h.serie} ${h.notas}`.toLowerCase().includes(q)
-    );
-  }
-  if (filtros.cat) out = out.filter(h => h.categoria === filtros.cat);
-  if (filtros.ubi) out = out.filter(h => h.ubicacion === filtros.ubi);
-  if (filtros.est) {
-    out = out.filter(h => {
-      const est = h.prestamo ? 'prestada' : h.estado;
-      return est === filtros.est;
-    });
-  }
-  const cmp = {
-    nombre:   (a, b) => a.nombre.localeCompare(b.nombre, 'es'),
-    reciente: (a, b) => (b.creado || '') > (a.creado || '') ? 1 : -1,
-    precio:   (a, b) => (b.precio || 0) - (a.precio || 0),
-    categoria:(a, b) => a.categoria.localeCompare(b.categoria, 'es') || a.nombre.localeCompare(b.nombre, 'es')
-  };
-  out.sort(cmp[filtros.orden] || cmp.nombre);
-  return out;
-}
-
-function renderListaHerramientas() {
-  const cont = TP.$('#lista-herr');
-  if (!cont) return;
-  const list = aplicarFiltros(cacheHerrs);
-  const totalReg = cacheHerrs.length;
-
-  if (!list.length) {
-    cont.innerHTML = totalReg
-      ? `<div class="empty"><div class="em">🔍</div><h3>Sin resultados</h3><p>No hay herramientas que coincidan con los filtros aplicados.</p></div>`
-      : `<div class="empty"><div class="em">🧰</div><h3>Tu taller está vacío</h3><p>Añade tu primera herramienta para empezar a controlar tu inventario y préstamos.</p><button class="btn btn-primary" onclick="TP.nuevaHerramienta()">＋ Añadir herramienta</button></div>`;
-    const cnt = TP.$('#contador-herr');
-    if (cnt) cnt.textContent = `0 de ${totalReg}`;
-    return;
-  }
-  cont.innerHTML = `<div class="grid">${list.map(cardHerramienta).join('')}</div>`;
-
-  const cnt = TP.$('#contador-herr');
-  if (cnt) cnt.textContent = `${list.length} de ${totalReg}`;
-}
-
-TP.onReady = async function () {
-  const $v = TP.$('#view');
-  $v.innerHTML = '<p style="color:var(--text-2);padding:20px">Cargando herramientas…</p>';
-
-  try {
-    const [
-      { data: herrs, error: e1 },
-      { data: prestamos },
-      cats,
-      ubis
-    ] = await Promise.all([
-      TP.sb.from('taller_herramientas').select('*'),
-      TP.sb.from('taller_prestamos').select('*').eq('activo', true),
-      TP.getCats(),
-      TP.getUbis()
-    ]);
-    if (e1) throw e1;
-
-    const prestMap = {};
-    (prestamos || []).forEach(p => { prestMap[p.herramienta_id] = p; });
-
-    cacheHerrs = (herrs || []).map(h => TP.mapHerramienta(h, prestMap[h.id] || null));
-
-    $v.innerHTML = `
-      <div class="toolbar">
-        <div class="search">
-          <span class="ico">🔍</span>
-          <input id="f-q" placeholder="Buscar por nombre, marca, modelo..." value="${TP.esc(filtros.q)}">
-        </div>
-        <select class="filter" id="f-cat">
-          <option value="">Todas las categorías</option>
-          ${cats.map(c => `<option value="${TP.esc(c)}" ${filtros.cat === c ? 'selected' : ''}>${TP.esc(c)}</option>`).join('')}
-        </select>
-        <select class="filter" id="f-est">
-          <option value="">Todos los estados</option>
-          ${Object.entries(TP.ESTADOS).map(([k, v]) => `<option value="${k}" ${filtros.est === k ? 'selected' : ''}>${v.label}</option>`).join('')}
-        </select>
-        <select class="filter" id="f-ubi">
-          <option value="">Todas las ubicaciones</option>
-          ${ubis.map(u => `<option value="${TP.esc(u)}" ${filtros.ubi === u ? 'selected' : ''}>${TP.esc(u)}</option>`).join('')}
-        </select>
-        <select class="filter" id="f-orden">
-          <option value="nombre" ${filtros.orden==='nombre'?'selected':''}>Ordenar: Nombre</option>
-          <option value="reciente" ${filtros.orden==='reciente'?'selected':''}>Ordenar: Más reciente</option>
-          <option value="precio" ${filtros.orden==='precio'?'selected':''}>Ordenar: Precio</option>
-          <option value="categoria" ${filtros.orden==='categoria'?'selected':''}>Ordenar: Categoría</option>
-        </select>
-        ${(filtros.q || filtros.cat || filtros.est || filtros.ubi) ? '<button class="btn btn-ghost btn-sm" id="f-clear">✕ Limpiar</button>' : ''}
-        <span id="contador-herr" style="margin-left:auto;color:var(--text-2);font-size:13px;font-weight:600"></span>
-      </div>
-      <div id="lista-herr"></div>`;
-
-    renderListaHerramientas();
-
-    const q = TP.$('#f-q');
-    if (q) {
-      q.oninput = e => {
-        filtros.q = e.target.value;
-        clearTimeout(window._tq);
-        window._tq = setTimeout(() => {
-          const pos = e.target.selectionStart;
-          renderListaHerramientas();
-          const nq = TP.$('#f-q'); if (nq) { nq.focus(); nq.setSelectionRange(pos, pos); }
-        }, 200);
-      };
-    }
-    const bind = (id, key) => { const el = TP.$(id); if (el) el.onchange = e => { filtros[key] = e.target.value; renderListaHerramientas(); }; };
-    bind('#f-cat','cat'); bind('#f-est','est'); bind('#f-ubi','ubi'); bind('#f-orden','orden');
-    const cl = TP.$('#f-clear');
-    if (cl) cl.onclick = () => {
-      filtros.q=''; filtros.cat=''; filtros.est=''; filtros.ubi='';
-      TP.onReady();
-    };
-  } catch (err) {
-    console.error(err);
-    $v.innerHTML = `<div class="empty"><div class="em">⚠️</div><h3>Error al cargar</h3><p>${TP.esc(err.message)}</p></div>`;
-  }
-};
-
-TP.boot();
