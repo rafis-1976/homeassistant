@@ -132,10 +132,39 @@ button{cursor:pointer;border:none;background:none}
 @media(max-width:640px){#radar-map{height:300px}}
 
 .leaflet-container{font-family:inherit;background:var(--surface-2)}
-[data-theme="oscuro"] .leaflet-tile-container img{filter:brightness(.75) contrast(1.1) saturate(.85)}
 .leaflet-control-attribution{background:rgba(255,255,255,.85)!important;color:#333!important;font-size:10px!important}
 [data-theme="oscuro"] .leaflet-control-attribution{background:rgba(23,27,35,.85)!important;color:#9aa3b2!important}
 [data-theme="oscuro"] .leaflet-control-attribution a{color:#4d84ff!important}
+
+/* Indicador de zoom en el mapa */
+.leaflet-control-zoom-indicator{
+  background:var(--surface);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:6px 10px;
+  font-size:12.5px;
+  font-weight:600;
+  font-family:inherit;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  box-shadow:0 2px 8px rgba(0,0,0,.12);
+  cursor:default;
+  user-select:none;
+  margin:10px;
+}
+.leaflet-control-zoom-indicator .zi-icon{font-size:12px;opacity:.7}
+.leaflet-control-zoom-indicator .zi-label{color:var(--text-2);font-weight:500}
+.leaflet-control-zoom-indicator .zi-value{
+  color:var(--primary);
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+  min-width:20px;
+  text-align:right;
+}
+[data-theme="oscuro"] .leaflet-control-zoom-indicator{background:#171b23;border-color:#2a313d}
+[data-theme="oscuro"] .leaflet-control-zoom-indicator .zi-value{color:#4d84ff}
 
 .radar-controls{padding:14px 18px 16px;display:flex;flex-direction:column;gap:11px}
 .radar-controls-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -240,7 +269,7 @@ button{cursor:pointer;border:none;background:none}
   </div>
 
   <div class="footer">
-    Datos: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · Radar: <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a> · Mapa: <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>
+    Datos: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · Radar: <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a> · Mapa: <a href="https://www.jawg.io" target="_blank" rel="noopener">JAWG Maps</a>
   </div>
 </div>
 
@@ -257,7 +286,18 @@ button{cursor:pointer;border:none;background:none}
   const hoyISO = () => new Date().toISOString().slice(0, 10);
 
   /* ============================================================
-     FETCH RESILIENTE
+     CONFIGURACIÓN DE JAWG MAPS
+     ============================================================ */
+  // ⚠️ SUSTITUYE ESTE TOKEN por el tuyo de https://app.jawg.io
+  const JAWG_TOKEN = 'bQUll5WQyxb42bBkNkHy4ppYPX7ImVhmIh8xOMh3TPJCh5ACW8iyaGmMqJQSULfN';
+
+  // Estilos disponibles: 'jawg-light' | 'jawg-dark' | 'jawg-sunny'
+  //                     'jawg-streets' | 'jawg-terrain' | 'jawg-lagoon'
+  const JAWG_ESTILO_CLARO  = 'jawg-light';
+  const JAWG_ESTILO_OSCURO = 'jawg-dark';
+
+  /* ============================================================
+     FETCH RESILIENTE: timeout + reintentos con backoff
      ============================================================ */
   async function fetchResiliente(url, opciones = {}, {
     timeoutMs = 12000,
@@ -536,25 +576,24 @@ button{cursor:pointer;border:none;background:none}
   }
 
   /* ============================================================
+     MAPA BASE — JAWG Maps
+     ============================================================ */
+  function crearBasemap() {
+    const estilo = state.tema === 'oscuro' ? JAWG_ESTILO_OSCURO : JAWG_ESTILO_CLARO;
+    return L.tileLayer(
+      `https://tile.jawg.io/${estilo}/{z}/{x}/{y}{r}.png?access-token=${JAWG_TOKEN}`,
+      {
+        attribution: '&copy; <a href="https://www.jawg.io" target="_blank">Jawg Maps</a> | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+        maxZoom: 22,
+        maxNativeZoom: 22,
+        crossOrigin: true
+      }
+    );
+  }
+
+  /* ============================================================
      RADAR
      ============================================================ */
-
-  /* Mapa base OpenStreetMap con zoom ampliado */
-  const JAWG_TOKEN = 'bQUll5WQyxb42bBkNkHy4ppYPX7ImVhmIh8xOMh3TPJCh5ACW8iyaGmMqJQSULfN'; // ← pega aquí tu token
-const JAWG_ESTILO = 'jawg-streets';          // estilo por defecto (claro)
-
-function crearBasemap() {
-  const estilo = state.tema === 'oscuro' ? 'jawg-dark' : JAWG_ESTILO;
-  return L.tileLayer(
-    `https://tile.jawg.io/${estilo}/{z}/{x}/{y}{r}.png?access-token=${JAWG_TOKEN}`,
-    {
-      attribution: '&copy; <a href="https://www.jawg.io" target="_blank">Jawg Maps</a> | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
-      maxZoom: 12,
-      maxNativeZoom: 22
-    }
-  );
-}
-
   function mostrarRadarYArrancar() {
     const card = $('#radar-card');
     if (!card) return;
@@ -579,12 +618,12 @@ function crearBasemap() {
     }
 
     try {
-      console.log('🗺️ Creando mapa...');
+      console.log('🗺️ Creando mapa JAWG...');
       radar.map = L.map('radar-map', {
         center: [state.lat, state.lon],
         zoom: 8,
         minZoom: 3,
-        maxZoom: 21,
+        maxZoom: 22,
         zoomControl: true,
         preferCanvas: true,
         worldCopyJump: true,
@@ -595,9 +634,31 @@ function crearBasemap() {
         boxZoom: true,
         keyboard: true
       });
-      radar.map.setMaxZoom(21);
+      radar.map.setMaxZoom(22);
+
       radar.baseLayer = crearBasemap();
       radar.baseLayer.addTo(radar.map);
+
+      // ---- Control personalizado: indicador de zoom ----
+      const ZoomIndicator = L.Control.extend({
+        options: { position: 'bottomright' },
+        onAdd: function () {
+          const div = L.DomUtil.create('div', 'leaflet-control-zoom-indicator');
+          div.title = 'Nivel de zoom actual';
+          div.innerHTML = '<span class="zi-icon">🔍</span><span class="zi-label">Zoom</span><span class="zi-value" id="zoom-value">' + radar.map.getZoom() + '</span>';
+          L.DomEvent.disableClickPropagation(div);
+          L.DomEvent.disableScrollPropagation(div);
+          return div;
+        }
+      });
+      radar.map.addControl(new ZoomIndicator());
+
+      // Actualizar el número al cambiar el zoom
+      radar.map.on('zoomend', () => {
+        const el = document.getElementById('zoom-value');
+        if (el) el.textContent = radar.map.getZoom();
+      });
+
       actualizarMarcador();
       radar.inicializado = true;
 
@@ -930,6 +991,14 @@ function crearBasemap() {
     setTema(state.tema);
     wire();
     render();
+
+    // Aviso si el token de JAWG no se ha sustituido
+    if (JAWG_TOKEN === 'TU_ACCESS_TOKEN_AQUI') {
+      console.warn('⚠️ JAWG: no has configurado tu token. El mapa no cargará.');
+    } else {
+      console.log('✅ JAWG: token configurado');
+    }
+
     if (typeof L === 'undefined') console.warn('⚠️ Leaflet no cargó');
     else console.log('✅ Leaflet cargado');
 
