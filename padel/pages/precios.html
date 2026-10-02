@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Precios e Informes — Padel Manager</title>
   <link rel="stylesheet" href="../css/theme.css">
 </head>
@@ -13,16 +14,18 @@
 
       <div class="card" style="margin-bottom:16px;">
         <h2>Tarifas</h2>
-        <table class="tabla">
-          <thead><tr><th>Tipo</th><th>Precio/hora</th><th>Precio/alumno</th><th>Activa</th></tr></thead>
-          <tbody id="tbody-tarifas"></tbody>
-        </table>
+        <div class="tabla-wrapper">
+          <table class="tabla">
+            <thead><tr><th>Tipo</th><th>Precio/hora</th><th>Precio/alumno</th><th>Activa</th></tr></thead>
+            <tbody id="tbody-tarifas"></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="card" style="margin-bottom:16px;">
         <h2>Informe mensual</h2>
-        <div style="display:flex;gap:12px;align-items:end;margin-bottom:12px;">
-          <label>Mes <input type="month" id="mes" style="width:200px;"></label>
+        <div style="display:flex;gap:12px;align-items:end;margin-bottom:12px;flex-wrap:wrap;">
+          <label style="flex:1;min-width:180px;">Mes <input type="month" id="mes"></label>
           <button class="btn-primary" id="btn-generar">Generar informe</button>
           <button class="btn-secondary" id="btn-exportar">Exportar PDF</button>
         </div>
@@ -31,12 +34,14 @@
 
       <div class="card">
         <h2>Pagos</h2>
-        <table class="tabla">
-          <thead>
-            <tr><th>Fecha</th><th>Alumno</th><th>Concepto</th><th>Importe</th><th>Estado</th><th>Método</th><th></th></tr>
-          </thead>
-          <tbody id="tbody-pagos"></tbody>
-        </table>
+        <div class="tabla-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr><th>Fecha</th><th>Alumno</th><th>Concepto</th><th>Importe</th><th>Estado</th><th>Método</th><th></th></tr>
+            </thead>
+            <tbody id="tbody-pagos"></tbody>
+          </table>
+        </div>
       </div>
     </main>
   </div>
@@ -76,7 +81,7 @@
           <td><span class="badge badge-${p.estado}">${p.estado}</span></td>
           <td>${p.metodo}</td>
           <td>
-            <select data-pago-estado="${p.id}" style="width:auto;padding:4px;">
+            <select data-pago-estado="${p.id}" style="width:auto;padding:4px;min-height:32px;font-size:14px;">
               <option value="pendiente" ${p.estado==='pendiente'?'selected':''}>Pendiente</option>
               <option value="pagado" ${p.estado==='pagado'?'selected':''}>Pagado</option>
               <option value="parcial" ${p.estado==='parcial'?'selected':''}>Parcial</option>
@@ -126,18 +131,20 @@
       informeActual = { mes, total, numClases: realizadas.length, anuladas: anuladas.length, porTipo }
 
       document.getElementById('resumen').innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
           <div class="card"><div style="font-size:1.6rem;color:var(--pista-azul-hielo);font-weight:700;">${total.toFixed(2)} €</div><div style="color:var(--texto-secundario);font-size:0.85rem;">Ingresos totales</div></div>
           <div class="card"><div style="font-size:1.6rem;color:var(--pista-azul-hielo);font-weight:700;">${realizadas.length}</div><div style="color:var(--texto-secundario);font-size:0.85rem;">Clases realizadas</div></div>
           <div class="card"><div style="font-size:1.6rem;color:#e74c3c;font-weight:700;">${anuladas.length}</div><div style="color:var(--texto-secundario);font-size:0.85rem;">Clases anuladas</div></div>
         </div>
         <h3 style="margin-top:16px;font-size:1rem;">Por tipo de clase</h3>
-        <table class="tabla">
-          <thead><tr><th>Tipo</th><th>Ingresos</th></tr></thead>
-          <tbody>${Object.entries(porTipo).map(([k, v]) => `
-            <tr><td>${k}</td><td>${v.toFixed(2)} €</td></tr>
-          `).join('')}</tbody>
-        </table>
+        <div class="tabla-wrapper">
+          <table class="tabla">
+            <thead><tr><th>Tipo</th><th>Ingresos</th></tr></thead>
+            <tbody>${Object.entries(porTipo).map(([k, v]) => `
+              <tr><td>${k}</td><td>${v.toFixed(2)} €</td></tr>
+            `).join('')}</tbody>
+          </table>
+        </div>
       `
     }
 
