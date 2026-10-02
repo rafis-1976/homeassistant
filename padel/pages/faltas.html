@@ -60,13 +60,24 @@
 
     const modal = document.getElementById('modal-falta')
 
+    // Cargar alumnos (sin apellidos)
     const { data: alumnos } = await supabase
-      .from(TABLES.alumnos).select('id, nombre, apellidos').order('apellidos')
-    document.getElementById('alumno_id').innerHTML = (alumnos || [])
-      .map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos}</option>`).join('')
+      .from(TABLES.alumnos)
+      .select('id, nombre')
+      .eq('activo', true)
+      .order('nombre')
 
+    document.getElementById('alumno_id').innerHTML =
+      (alumnos || []).map(a => `<option value="${a.id}">${a.nombre}</option>`).join('')
+      || '<option value="">— Sin alumnos —</option>'
+
+    // Cargar clases
     const { data: clases } = await supabase
-      .from(TABLES.clases).select('id, titulo, fecha').order('fecha', { ascending: false }).limit(100)
+      .from(TABLES.clases)
+      .select('id, titulo, fecha')
+      .order('fecha', { ascending: false })
+      .limit(100)
+
     document.getElementById('clase_id').innerHTML =
       '<option value="">— Sin clase asociada —</option>' +
       (clases || []).map(c => `<option value="${c.id}">${c.fecha} — ${c.titulo}</option>`).join('')
@@ -74,13 +85,13 @@
     async function cargarFaltas() {
       const { data } = await supabase
         .from(TABLES.faltas)
-        .select('*, padel_alumnos(nombre, apellidos), padel_clases(titulo, fecha)')
+        .select('*, padel_alumnos(nombre), padel_clases(titulo, fecha)')
         .order('fecha_registro', { ascending: false })
 
       document.getElementById('tbody-faltas').innerHTML = (data || []).map(f => `
         <tr>
           <td>${f.fecha_registro?.split('T')[0]}</td>
-          <td>${f.padel_alumnos?.nombre} ${f.padel_alumnos?.apellidos}</td>
+          <td>${f.padel_alumnos?.nombre || '—'}</td>
           <td>${f.padel_clases ? f.padel_clases.fecha + ' — ' + f.padel_clases.titulo : '—'}</td>
           <td><span class="badge ${f.tipo === 'justificada' ? 'badge-realizada' : 'badge-anulada'}">${f.tipo}</span></td>
           <td class="wrap">${f.descripcion || '—'}</td>
@@ -104,8 +115,11 @@
 
     document.getElementById('form-falta').addEventListener('submit', async (e) => {
       e.preventDefault()
+      const alumnoId = document.getElementById('alumno_id').value
+      if (!alumnoId) { alert('Selecciona un alumno'); return }
+
       await supabase.from(TABLES.faltas).insert({
-        alumno_id: document.getElementById('alumno_id').value,
+        alumno_id: alumnoId,
         clase_id: document.getElementById('clase_id').value || null,
         tipo: document.getElementById('tipo').value,
         descripcion: document.getElementById('descripcion').value || null
