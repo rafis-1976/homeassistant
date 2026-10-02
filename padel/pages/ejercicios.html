@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Diseñador de Ejercicios — Padel Manager</title>
+  <link rel="stylesheet" href="../css/theme.css">
+  <link rel="stylesheet" href="../css/ejercicios.css">
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar"></nav>
+    <main class="content">
+      <h1>🎾 Diseñador de Ejercicios</h1>
+
+      <div class="toolbar">
+        <div class="tool-group">
+          <span class="tool-label">Jugadores:</span>
+          <button class="tool-btn" data-tipo="jugador-azul" title="Jugador equipo A">🔵</button>
+          <button class="tool-btn" data-tipo="jugador-rojo" title="Jugador equipo B">🔴</button>
+        </div>
+        <div class="tool-group">
+          <span class="tool-label">Material:</span>
+          <button class="tool-btn" data-tipo="carro-bolas">🛒 Bolas</button>
+          <button class="tool-btn" data-tipo="cono">🔶 Cono</button>
+          <button class="tool-btn" data-tipo="seta">🍄 Seta</button>
+        </div>
+        <div class="tool-group">
+          <span class="tool-label">Trayectorias:</span>
+          <button class="tool-btn" data-tipo="flecha-recta">➡️ Recta</button>
+          <button class="tool-btn" data-tipo="flecha-curva">↩️ Curva</button>
+        </div>
+        <button class="btn-peligro" id="btn-limpiar">🗑️ Limpiar</button>
+        <button class="btn-primary" id="btn-guardar">💾 Guardar Ejercicio</button>
+      </div>
+
+      <div class="pista-container">
+        <svg id="pista-svg" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="400" height="200" fill="#2a6b9c" rx="4"/>
+          <rect x="100" y="20" width="200" height="160" fill="#3a8fbf" rx="2"/>
+          <rect x="100" y="90" width="200" height="20" fill="#2a6b9c"/>
+          <line x1="200" y1="0" x2="200" y2="200" stroke="white" stroke-width="1.5"/>
+          <line x1="100" y1="20" x2="100" y2="180" stroke="white" stroke-width="1"/>
+          <line x1="300" y1="20" x2="300" y2="180" stroke="white" stroke-width="1"/>
+          <line x1="0" y1="100" x2="400" y2="100" stroke="white" stroke-width="1.5" stroke-dasharray="8,4"/>
+          <line x1="100" y1="60" x2="300" y2="60" stroke="white" stroke-width="1"/>
+          <line x1="100" y1="140" x2="300" y2="140" stroke="white" stroke-width="1"/>
+          <rect x="0" y="0" width="8" height="200" fill="#a8d5e0" opacity="0.4"/>
+          <rect x="392" y="0" width="8" height="200" fill="#a8d5e0" opacity="0.4"/>
+          <g id="capa-elementos"></g>
+        </svg>
+      </div>
+
+      <div class="panel-propiedades" id="panel-propiedades" style="display:none;">
+        <h3>Propiedades</h3>
+        <label>Rotación
+          <input type="range" id="prop-rotacion" min="0" max="360" value="0">
+        </label>
+        <button class="btn-peligro" id="btn-eliminar-elemento">Eliminar</button>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { supabase, TABLES } from '../js/supabase-client.js'
+    import { renderNav } from '../js/nav.js'
+    import { inicializarPista, obtenerDatosPista } from '../js/ejercicios.js'
+
+    renderNav('ejercicios')
+
+    inicializarPista('pista-svg')
+
+    document.getElementById('btn-guardar').addEventListener('click', async () => {
+      const titulo = prompt('Título del ejercicio:')
+      if (!titulo) return
+      const descripcion = prompt('Descripción (opcional):') || null
+      const datos = obtenerDatosPista()
+
+      const params = new URLSearchParams(window.location.search)
+      const claseId = params.get('clase_id') || null
+
+      const { error } = await supabase.from(TABLES.ejercicios).insert({
+        titulo,
+        descripcion,
+        canvas_data: datos,
+        clase_id: claseId
+      })
+
+      if (error) alert('Error: ' + error.message)
+      else alert('✅ Ejercicio guardado')
+    })
+  </script>
+</body>
+</html>
