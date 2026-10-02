@@ -64,10 +64,16 @@
     const modal = document.getElementById('modal-eval')
     let chart = null
 
+    // Cargar alumnos (sin apellidos)
     const { data: alumnos } = await supabase
-      .from(TABLES.alumnos).select('id, nombre, apellidos').order('apellidos')
+      .from(TABLES.alumnos)
+      .select('id, nombre')
+      .eq('activo', true)
+      .order('nombre')
+
     selectAlumno.innerHTML = (alumnos || [])
-      .map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos}</option>`).join('')
+      .map(a => `<option value="${a.id}">${a.nombre}</option>`).join('')
+      || '<option value="">— Sin alumnos —</option>'
 
     selectAlumno.onchange = cargarProgreso
 
