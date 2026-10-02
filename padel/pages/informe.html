@@ -55,6 +55,9 @@
     document.getElementById('btn-exportar').onclick = exportarPDF
     document.getElementById('btn-csv').onclick = exportarCSV
 
+    // ============================================
+    // Generar informe (consulta a Supabase)
+    // ============================================
     async function generar() {
       const mes = document.getElementById('mes').value
       if (!mes) { alert('Selecciona un mes'); return }
@@ -72,6 +75,7 @@
         .gte('fecha', primerDia)
         .lte('fecha', ultimoDia)
         .order('fecha', { ascending: true })
+        .order('hora_inicio', { ascending: true })
 
       if (error) { alert(error.message); return }
 
@@ -108,7 +112,7 @@
         return `
           <tr>
             <td>${c.fecha}</td>
-            <td>${c.hora_inicio?.slice(0,5)}</td>
+            <td>${c.hora_inicio?.slice(0,5)}–${c.hora_fin?.slice(0,5)}</td>
             <td>${c.titulo}</td>
             <td>${c.tipo}</td>
             <td class="wrap">${ej}</td>
@@ -119,36 +123,225 @@
       }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--texto-secundario);">Sin clases realizadas este mes</td></tr>'
     }
 
+    // ============================================
+    // Exportar PDF con listado completo
+    // ============================================
     function exportarPDF() {
       if (!informeActual) { alert('Genera primero el informe'); return }
+
       const { jsPDF } = window.jspdf
       const doc = new jsPDF()
+
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
+      const margenIzq = 15
+      const margenDer = 15
+      const anchoUtil = pageWidth - margenIzq - margenDer
+
+      const [year, month] = informeActual.mes.split('-')
+      const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+      const nombreMes = meses[parseInt(month) - 1] + ' ' + year
+
+      // ============ CABECERA ============
+      doc.setFillColor(26, 58, 92) // azul oscuro
+      doc.rect(0, 0, pageWidth, 30, 'F')
+
+      doc.setTextColor(255, 255, 255)
       doc.setFontSize(18)
-      doc.text('Informe de clases realizadas', 20, 20)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Informe de clases realizadas', margenIzq, 14)
+
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Mes: ${nombreMes}`, margenIzq, 23)
+
+      // Contador de páginas en la esquina
+      doc.setFontSize(9)
+      doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')}`, pageWidth - margenDer, 23, { align: 'right' })
+
+      // ============ RESUMEN ============
+      let y = 42
+      doc.setTextColor(0, 0, 0)
       doc.setFontSize(12)
-      doc.text(`Mes: ${informeActual.mes}`, 20, 35)
-      doc.text(`Clases realizadas: ${informeActual.realizadas.length}`, 20, 45)
-      doc.text(`Clases anuladas: ${informeActual.anuladas.length}`, 20, 55)
-      doc.text(`Clases programadas: ${informeActual.programadas.length}`, 20, 65)
-      doc.text('Desglose por tipo:', 20, 80)
-      let y = 90
-      Object.entries(informeActual.porTipo).forEach(([k, v]) => {
-        doc.text(`  - ${k}: ${v}`, 20, y)
-        y += 8
+      doc.setFont('helvetica', 'bold')
+      doc.text('Resumen', margenIzq, y)
+      y += 6
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      doc.text(`Clases realizadas: ${informeActual.realizadas.length}`, margenIzq, y)
+      doc.text(`Clases anuladas: ${informeActual.anuladas.length}`, margenIzq + 70, y)
+      doc.text(`Aún programadas: ${informeActual.programadas.length}`, margenIzq + 130, y)
+      y += 8
+
+      // Desglose por tipo
+      if (Object.keys(informeActual.porTipo).length > 0) {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.text('Por tipo:', margenIzq, y)
+        doc.setFont('helvetica', 'normal')
+        y += 5
+        Object.entries(informeActual.porTipo).forEach(([k, v]) => {
+          doc.text(`•  ${k}: ${v} clase${v > 1 ? 's' : ''}`, margenIzq + 4, y)
+          y += 5
+        })
+      }
+
+      y += 4
+
+      // ============ LISTADO DE CLASES ============
+      doc.setDrawColor(42, 107, 156)
+      doc.setLineWidth(0.5)
+      doc.line(margenIzq, y, pageWidth - margenDer, y)
+      y += 6
+
+      doc.setFontSize(12)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Listado de clases realizadas', margenIzq, y)
+      y += 8
+
+      // Cabecera de la tabla
+      const colFecha = margenIzq
+      const colHora = margenIzq + 25
+      const colTitulo = margenIzq + 52
+      const colTipo = margenIzq + 110
+      const colAlumnos = margenIzq + 135
+
+      doc.setFillColor(240, 244, 248)
+      doc.rect(margenIzq - 2, y - 4, anchoUtil + 4, 7, 'F')
+
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(26, 58, 92)
+      doc.text('Fecha', colFecha, y)
+      doc.text('Hora', colHora, y)
+      doc.text('Título', colTitulo, y)
+      doc.text('Tipo', colTipo, y)
+      doc.text('Alumnos', colAlumnos, y)
+      y += 6
+
+      doc.setTextColor(0, 0, 0)
+      doc.setFont('helvetica', 'normal')
+
+      // Filas
+      const clasesOrdenadas = [...informeActual.realizadas].sort((a, b) => {
+        if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha)
+        return (a.hora_inicio || '').localeCompare(b.hora_inicio || '')
       })
+
+      clasesOrdenadas.forEach((c, idx) => {
+        // Salto de página si hace falta
+        if (y > pageHeight - 25) {
+          doc.addPage()
+          y = 20
+          // Repetir cabecera
+          doc.setFillColor(240, 244, 248)
+          doc.rect(margenIzq - 2, y - 4, anchoUtil + 4, 7, 'F')
+          doc.setFontSize(9)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(26, 58, 92)
+          doc.text('Fecha', colFecha, y)
+          doc.text('Hora', colHora, y)
+          doc.text('Título', colTitulo, y)
+          doc.text('Tipo', colTipo, y)
+          doc.text('Alumnos', colAlumnos, y)
+          y += 6
+          doc.setTextColor(0, 0, 0)
+          doc.setFont('helvetica', 'normal')
+        }
+
+        // Fondo alterno
+        if (idx % 2 === 0) {
+          doc.setFillColor(250, 252, 254)
+          doc.rect(margenIzq - 2, y - 4, anchoUtil + 4, 6, 'F')
+        }
+
+        // Fecha
+        const fechaCorta = formatearFechaCorta(c.fecha)
+        doc.text(fechaCorta, colFecha, y)
+
+        // Hora
+        const horaStr = `${(c.hora_inicio || '').slice(0,5)}–${(c.hora_fin || '').slice(0,5)}`
+        doc.text(horaStr, colHora, y)
+
+        // Título (truncado si es muy largo)
+        const titulo = truncar(c.titulo || '', 32)
+        doc.text(titulo, colTitulo, y)
+
+        // Tipo
+        doc.text(c.tipo || '', colTipo, y)
+
+        // Alumnos (truncado)
+        const alumnosStr = (c.padel_clase_alumnos || [])
+          .map(a => a.padel_alumnos.nombre)
+          .join(', ')
+        const alumnosTrunc = truncar(alumnosStr || '—', 28)
+        doc.text(alumnosTrunc, colAlumnos, y)
+
+        y += 6
+      })
+
+      // Si no hay clases
+      if (clasesOrdenadas.length === 0) {
+        doc.setTextColor(138, 155, 168)
+        doc.setFont('helvetica', 'italic')
+        doc.text('No hay clases realizadas este mes', margenIzq, y)
+      }
+
+      // ============ PIE DE PÁGINA ============
+      const totalPaginas = doc.internal.getNumberOfPages()
+      for (let i = 1; i <= totalPaginas; i++) {
+        doc.setPage(i)
+        doc.setFontSize(8)
+        doc.setTextColor(138, 155, 168)
+        doc.setFont('helvetica', 'normal')
+        doc.text(
+          `Padel Manager — ${nombreMes}  ·  Página ${i} de ${totalPaginas}`,
+          pageWidth / 2,
+          pageHeight - 8,
+          { align: 'center' }
+        )
+      }
+
       doc.save(`informe-padel-${informeActual.mes}.pdf`)
     }
 
+    // ============================================
+    // Helpers
+    // ============================================
+    function formatearFechaCorta(fechaISO) {
+      if (!fechaISO) return ''
+      const [y, m, d] = fechaISO.split('-')
+      return `${d}/${m}/${y.slice(2)}`
+    }
+
+    function truncar(str, max) {
+      if (!str) return ''
+      return str.length > max ? str.slice(0, max - 1) + '…' : str
+    }
+
+    // ============================================
+    // Exportar CSV
+    // ============================================
     function exportarCSV() {
       if (!informeActual) { alert('Genera primero el informe'); return }
-      const filas = [['Fecha', 'Hora', 'Título', 'Tipo', 'Ejercicio', 'Alumnos', 'Notas']]
+      const filas = [['Fecha', 'Hora inicio', 'Hora fin', 'Título', 'Tipo', 'Ejercicio', 'Alumnos', 'Notas']]
       informeActual.realizadas.forEach(c => {
         const ej = c.padel_ejercicios?.titulo || c.ejercicio_libre || ''
         const alumnos = (c.padel_clase_alumnos || []).map(a => a.padel_alumnos.nombre).join('; ')
-        filas.push([c.fecha, c.hora_inicio, c.titulo, c.tipo, ej, alumnos, c.notas || ''])
+        filas.push([
+          c.fecha,
+          c.hora_inicio,
+          c.hora_fin,
+          c.titulo,
+          c.tipo,
+          ej,
+          alumnos,
+          c.notas || ''
+        ])
       })
       const csv = filas.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -157,6 +350,9 @@
       URL.revokeObjectURL(url)
     }
 
+    // ============================================
+    // Generar al cargar
+    // ============================================
     generar()
   </script>
 </body>
