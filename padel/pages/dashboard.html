@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Dashboard — Padel Manager</title>
   <link rel="stylesheet" href="../css/theme.css">
 </head>
@@ -14,25 +15,16 @@
       <div class="grid-cards" id="stats"></div>
 
       <h2 style="margin-top:24px;">Próximas clases</h2>
-      <table class="tabla" id="tabla-proximas">
-        <thead>
-          <tr><th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th><th>Alumnos</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div class="tabla-wrapper">
+        <table class="tabla">
+          <thead>
+            <tr><th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th><th>Alumnos</th></tr>
+          </thead>
+          <tbody id="tbody-proximas"></tbody>
+        </table>
+      </div>
     </main>
   </div>
-
-  <style>
-    .grid-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-    }
-    .stat-card { text-align: left; }
-    .stat-card .num { font-size: 2rem; font-weight: 700; color: var(--pista-azul-hielo); }
-    .stat-card .label { color: var(--texto-secundario); font-size: 0.85rem; margin-top: 4px; }
-  </style>
 
   <script type="module">
     import { supabase, TABLES } from '../js/supabase-client.js'
@@ -67,11 +59,11 @@
         <div class="label">Clases programadas</div>
       </div>
       <div class="card stat-card">
-        <div class="num">${ingresosHoy.toFixed(2)} €</div>
+        <div class="num">${ingresosHoy.toFixed(0)} €</div>
         <div class="label">Ingresos de hoy</div>
       </div>
       <div class="card stat-card">
-        <div class="num">${pendienteCobro.toFixed(2)} €</div>
+        <div class="num">${pendienteCobro.toFixed(0)} €</div>
         <div class="label">Pendiente de cobro</div>
       </div>
     `
@@ -85,7 +77,7 @@
       .order('hora_inicio', { ascending: true })
       .limit(10)
 
-    const tbody = document.querySelector('#tabla-proximas tbody')
+    const tbody = document.getElementById('tbody-proximas')
     tbody.innerHTML = (proximas || []).map(c => {
       const alumnos = (c.padel_clase_alumnos || [])
         .map(a => `${a.padel_alumnos.nombre} ${a.padel_alumnos.apellidos}`)
@@ -96,7 +88,7 @@
           <td>${c.hora_inicio?.slice(0,5)}</td>
           <td>${c.titulo}</td>
           <td>${c.tipo}</td>
-          <td>${alumnos}</td>
+          <td class="wrap">${alumnos}</td>
         </tr>
       `
     }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--texto-secundario);">Sin clases próximas</td></tr>'
