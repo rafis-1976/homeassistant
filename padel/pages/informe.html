@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Informe — Padel Manager</title>
+  <link rel="stylesheet" href="../css/theme.css">
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar"></nav>
+    <main class="content">
+      <h1>📄 Informe mensual de clases realizadas</h1>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
+          <label style="flex:1;min-width:180px;">Mes
+            <input type="month" id="mes">
+          </label>
+          <button class="btn-primary" id="btn-generar">Generar informe</button>
+          <button class="btn-secondary" id="btn-exportar">📄 Exportar PDF</button>
+          <button class="btn-secondary" id="btn-csv">📊 Exportar CSV</button>
+        </div>
+      </div>
+
+      <div id="resumen" style="margin-bottom:16px;"></div>
+
+      <h2>Detalle de clases realizadas</h2>
+      <div class="tabla-wrapper">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th>
+              <th>Ejercicio</th><th>Alumnos</th><th>Notas</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-informe"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script type="module">
+    import { supabase, TABLES } from '../js/supabase-client.js'
+    import { renderNav } from '../js/nav.js'
+
+    renderNav('informe')
+
+    let informeActual = null
+
+    document.getElementById('mes').value = new Date().toISOString().slice(0, 7)
+
+    document.getElementById('btn-generar').onclick = generar
+    document.getElementById('btn-exportar').onclick = exportarPDF
+    document.getElementById('btn-csv').onclick = exportarCSV
+
+    async function generar() {
+      const mes = document.getElementById('mes').value
+      if (!mes) { alert('Selecciona un mes'); return }
+      const [year, month] = mes.split('-')
+      const primerDia = `${year}-${month}-01`
+      const ultimoDia = new Date(year, month, 0).toISOString().split('T')[0]
+
+      const { data: clases, error } = await supabase
+        .from(TABLES.clases)
+        .select(`
+          *,
+          padel_ejercicios(titulo),
+          padel_clase_alumnos(padel_alumnos(nombre))
+        `)
+        .gte('fecha', primerDia)
+        .lte('fecha', ultimoDia)
+        .order('fecha', { ascending: true })
+
+      if (error) { alert(error.message); return }
+
+      const realizadas = (clases || []).filter(c => c.estado === 'realizada')
+      const anuladas = (clases || []).filter(c => c.estado === 'anulada')
+      const programadas = (clases || []).filter(c => c.estado === 'programada')
+
+      const porTipo = {}
+      realizadas.forEach(c => {
+        porTipo[c.tipo] = (porTipo[c.tipo] || 0) + 1
+      })
+
+      informeActual = { mes, realizadas, anuladas, programadas, porTipo }
+
+      document.getElementById('resumen').innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
+          <div class="card"><div style="font-size:1.8rem;color:#27ae60;font-weight:700;">${realizadas.length}</div><div style="color:var(--texto-secundario);font-size:0.85rem;">Clases realizadas</div></div>
+          <div class="card"><div style="font-size:1.8rem;color:#3a8fbf;font-weight:700;">${programadas.length}</div><div style="color:var(--texto-secundario);font-size:0.85rem;">Aún programadas</div></div>
+          <div class="card"><div style="font-size:1.8rem;color:#e74c3c;font-weight:700;">${anuladas.length}</div><div style="color:var(--texto-secundario);font-size:0.85rem;">Anuladas</div></div>
+        </div>
+        <h3 style="margin-top:16px;font-size:1rem;">Por tipo</h3>
+        <div class="tabla-wrapper">
+          <table class="tabla">
+            <thead><tr><th>Tipo</th><th>Clases realizadas</th></tr></thead>
+            <tbody>${Object.entries(porTipo).map(([k, v]) =>
+              `<tr><td>${k}</td><td>${v}</td></tr>`).join('') || '<tr><td colspan="2" style="text-align:center;color:var(--texto-secundario);">—</td></tr>'}</tbody>
+          </table>
+        </div>
+      `
+
+      document.getElementById('tbody-informe').innerHTML = realizadas.map(c => {
+        const ej = c.padel_ejercicios?.titulo || c.ejercicio_libre || '—'
+        const alumnos = (c.padel_clase_alumnos || []).map(a => a.padel_alumnos.nombre).join(', ') || '—'
+        return `
+          <tr>
+            <td>${c.fecha}</td>
+            <td>${c.hora_inicio?.slice(0,5)}</td>
+            <td>${c.titulo}</td>
+            <td>${c.tipo}</td>
+            <td class="wrap">${ej}</td>
+            <td class="wrap">${alumnos}</td>
+            <td class="wrap">${c.notas || '—'}</td>
+          </tr>
+        `
+      }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--texto-secundario);">Sin clases realizadas este mes</td></tr>'
+    }
+
+    function exportarPDF() {
+      if (!informeActual) { alert('Genera primero el informe'); return }
+      const { jsPDF } = window.jspdf
+      const doc = new jsPDF()
+      doc.setFontSize(18)
+      doc.text('Informe de clases realizadas', 20, 20)
+      doc.setFontSize(12)
+      doc.text(`Mes: ${informeActual.mes}`, 20, 35)
+      doc.text(`Clases realizadas: ${informeActual.realizadas.length}`, 20, 45)
+      doc.text(`Clases anuladas: ${informeActual.anuladas.length}`, 20, 55)
+      doc.text(`Clases programadas: ${informeActual.programadas.length}`, 20, 65)
+      doc.text('Desglose por tipo:', 20, 80)
+      let y = 90
+      Object.entries(informeActual.porTipo).forEach(([k, v]) => {
+        doc.text(`  - ${k}: ${v}`, 20, y)
+        y += 8
+      })
+      doc.save(`informe-padel-${informeActual.mes}.pdf`)
+    }
+
+    function exportarCSV() {
+      if (!informeActual) { alert('Genera primero el informe'); return }
+      const filas = [['Fecha', 'Hora', 'Título', 'Tipo', 'Ejercicio', 'Alumnos', 'Notas']]
+      informeActual.realizadas.forEach(c => {
+        const ej = c.padel_ejercicios?.titulo || c.ejercicio_libre || ''
+        const alumnos = (c.padel_clase_alumnos || []).map(a => a.padel_alumnos.nombre).join('; ')
+        filas.push([c.fecha, c.hora_inicio, c.titulo, c.tipo, ej, alumnos, c.notas || ''])
+      })
+      const csv = filas.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `informe-padel-${informeActual.mes}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+
+    generar()
+  </script>
+</body>
+</html>
