@@ -11,6 +11,15 @@
   <div class="layout">
     <nav class="sidebar"></nav>
     <main class="content">
+
+      <!-- ============================
+           BANNER DE EDICIÓN
+           ============================ -->
+      <div id="banner-edicion" class="banner-edicion" style="display:none;">
+        <span>✏️ <strong>Editando:</strong> <span id="banner-titulo"></span></span>
+        <button type="button" class="btn-mini" id="btn-cancelar-edicion">✕ Cancelar edición</button>
+      </div>
+
       <h1>🎾 Diseñador de Ejercicios</h1>
 
       <!-- TÍTULO Y DESCRIPCIÓN -->
@@ -94,24 +103,21 @@
         </div>
       </div>
 
+      <!-- PISTA -->
       <div class="pista-wrapper">
         <div class="hint-trayectoria" id="hint-trayectoria"></div>
-
         <div class="pista-container">
           <svg id="pista-svg" viewBox="0 0 940 540" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
-
             <defs>
               <marker id="flecha-end" markerWidth="8" markerHeight="8" refX="7" refY="4"
                       orient="auto" markerUnits="strokeWidth">
                 <polygon points="0 0, 8 4, 0 8" fill="#e8ff3a"/>
               </marker>
-
               <pattern id="malla-red" width="6" height="6" patternUnits="userSpaceOnUse">
                 <rect width="6" height="6" fill="transparent"/>
                 <path d="M 0,0 L 6,6 M 6,0 L 0,6" stroke="#e8f0f8" stroke-width="0.4" opacity="0.35"/>
               </pattern>
 
-              <!-- JUGADOR AZUL -->
               <g id="icon-jugador-azul">
                 <ellipse cx="1" cy="5" rx="13" ry="6" fill="rgba(0,0,0,0.22)"/>
                 <line x1="-9" y1="0" x2="-15" y2="-4" stroke="#f4c9a4" stroke-width="3" stroke-linecap="round"/>
@@ -131,7 +137,6 @@
                 <circle cx="18.5" cy="-6.5" r="0.35" fill="#8a9900"/>
               </g>
 
-              <!-- JUGADOR ROJO -->
               <g id="icon-jugador-rojo">
                 <ellipse cx="1" cy="5" rx="13" ry="6" fill="rgba(0,0,0,0.22)"/>
                 <line x1="-9" y1="0" x2="-15" y2="-4" stroke="#f4c9a4" stroke-width="3" stroke-linecap="round"/>
@@ -151,7 +156,6 @@
                 <circle cx="18.5" cy="-6.5" r="0.35" fill="#8a9900"/>
               </g>
 
-              <!-- CARRO -->
               <g id="icon-carro">
                 <ellipse cx="0" cy="3" rx="14" ry="11" fill="rgba(0,0,0,0.3)"/>
                 <rect x="-17" y="-2" width="6" height="4" rx="1" fill="#333" stroke="#111" stroke-width="0.5"/>
@@ -173,7 +177,6 @@
                 <ellipse cx="9"  cy="10" rx="3" ry="1.8" fill="#222" stroke="#555" stroke-width="0.5"/>
               </g>
 
-              <!-- CONO -->
               <g id="icon-cono">
                 <ellipse cx="0.5" cy="1.5" rx="7" ry="5" fill="rgba(0,0,0,0.3)"/>
                 <circle r="6" fill="#e67e22" stroke="#b35c00" stroke-width="1.2"/>
@@ -182,7 +185,6 @@
                 <circle r="1.2" fill="#b35c00"/>
               </g>
 
-              <!-- ESCALERA -->
               <g id="icon-escalera">
                 <ellipse cx="0" cy="3" rx="52" ry="8" fill="rgba(0,0,0,0.2)"/>
                 <line x1="-50" y1="-10" x2="50" y2="-10" stroke="#f5a623" stroke-width="2.2" stroke-linecap="round"/>
@@ -199,7 +201,6 @@
                 <line x1="45"  y1="-10" x2="45"  y2="10" stroke="#e8951a" stroke-width="1.6"/>
               </g>
 
-              <!-- PELOTA -->
               <g id="icon-pelota">
                 <ellipse cx="0.5" cy="1.5" rx="4" ry="3" fill="rgba(0,0,0,0.35)"/>
                 <circle r="3.5" fill="#e8ff3a" stroke="#8a9900" stroke-width="0.7"/>
@@ -207,20 +208,17 @@
                 <path d="M 3,-1.5 Q 1.2,0 3,1.5"   fill="none" stroke="#8a9900" stroke-width="0.6"/>
               </g>
 
-              <!-- FLECHA -->
               <g id="icon-flecha">
                 <line x1="0" y1="0" x2="40" y2="0" stroke="#e8ff3a" stroke-width="3"
                       marker-end="url(#flecha-end)" stroke-linecap="round"/>
               </g>
 
-              <!-- TRAYECTORIA -->
               <g id="icon-trayectoria">
                 <path d="M 0,0 Q 20,-12 40,0" fill="none" stroke="#e8ff3a" stroke-width="2.5"
                       stroke-dasharray="5,3" marker-end="url(#flecha-end)"/>
                 <circle cx="0" cy="0" r="3.5" fill="#e8ff3a" stroke="#8a9900" stroke-width="0.7"/>
               </g>
 
-              <!-- GLOBO -->
               <g id="icon-globo">
                 <path d="M 0,0 Q 20,-28 40,0" fill="none" stroke="#e8ff3a" stroke-width="2.5"
                       stroke-dasharray="5,3" marker-end="url(#flecha-end)"/>
@@ -231,7 +229,6 @@
             <rect x="0" y="0" width="940" height="540" fill="#0a1420"/>
             <rect x="50" y="50" width="840" height="440" fill="#1c2a3a" rx="6"/>
 
-            <!-- Cristales -->
             <rect x="60" y="60" width="820" height="10" fill="#a8d5e0" opacity="0.35"/>
             <rect x="60" y="60" width="820" height="10" fill="none" stroke="#5bb8d4" stroke-width="1"/>
             <rect x="60" y="470" width="820" height="10" fill="#a8d5e0" opacity="0.35"/>
@@ -241,7 +238,6 @@
             <rect x="870" y="60" width="10" height="420" fill="#a8d5e0" opacity="0.35"/>
             <rect x="870" y="60" width="10" height="420" fill="none" stroke="#5bb8d4" stroke-width="1"/>
 
-            <!-- Pista -->
             <rect x="70" y="70" width="800" height="400" fill="#3a8fbf"/>
             <rect x="190" y="70"  width="280" height="200" fill="#5bb8d4" opacity="0.55"/>
             <rect x="190" y="270" width="280" height="200" fill="#5bb8d4" opacity="0.55"/>
@@ -266,12 +262,14 @@
         </div>
       </div>
 
+      <!-- NOTAS -->
       <div class="notas-container">
         <label for="notas-ejercicio">📝 Notas del ejercicio</label>
         <textarea id="notas-ejercicio" rows="4"
                   placeholder="Objetivos, correcciones técnicas, variantes, progresiones..."></textarea>
       </div>
 
+      <!-- PROPIEDADES -->
       <div class="panel-propiedades" id="panel-propiedades" style="display:none;">
         <h3>Propiedades</h3>
         <label id="rot-label">Rotación
@@ -280,43 +278,500 @@
         </label>
         <button class="btn-peligro" id="btn-eliminar-elemento">🗑️ Eliminar</button>
       </div>
+
+      <!-- ============================================
+           LISTA DE EJERCICIOS GUARDADOS
+           ============================================ -->
+      <section class="seccion-lista">
+        <div class="lista-header">
+          <h2>📚 Ejercicios guardados <span id="contador-ejercicios" class="contador-lista"></span></h2>
+          <input type="search" id="buscar-ejercicio" placeholder="🔍 Buscar por título o descripción..."
+                 class="buscador">
+        </div>
+
+        <div id="lista-ejercicios" class="grid-ejercicios">
+          <p class="vacio-lista">Cargando ejercicios...</p>
+        </div>
+      </section>
+
     </main>
   </div>
 
   <script type="module">
     import { supabase, TABLES } from '../js/supabase-client.js'
     import { renderNav } from '../js/nav.js'
-    import { inicializarPista, obtenerDatosPista } from '../js/ejercicios.js'
+    import { inicializarPista, obtenerDatosPista, cargarDesdeDatos } from '../js/ejercicios.js'
 
     renderNav('ejercicios')
     inicializarPista('pista-svg')
 
-    document.getElementById('btn-guardar').addEventListener('click', async () => {
-      const titulo = document.getElementById('titulo-ejercicio').value.trim()
+    // ============================================
+    // Estado de edición
+    // ============================================
+    let ejercicioEditandoId = null
+    let ejerciciosCache = []
+
+    // ============================================
+    // Referencias DOM
+    // ============================================
+    const inputTitulo = document.getElementById('titulo-ejercicio')
+    const inputDescripcion = document.getElementById('descripcion-ejercicio')
+    const inputNotas = document.getElementById('notas-ejercicio')
+    const btnGuardar = document.getElementById('btn-guardar')
+    const bannerEdicion = document.getElementById('banner-edicion')
+    const bannerTitulo = document.getElementById('banner-titulo')
+    const btnCancelarEdicion = document.getElementById('btn-cancelar-edicion')
+    const listaEjercicios = document.getElementById('lista-ejercicios')
+    const contadorEjercicios = document.getElementById('contador-ejercicios')
+    const buscador = document.getElementById('buscar-ejercicio')
+
+    // ============================================
+    // Guardar (crear o actualizar)
+    // ============================================
+    btnGuardar.addEventListener('click', async () => {
+      const titulo = inputTitulo.value.trim()
       if (!titulo) {
         alert('Falta el título del ejercicio')
-        document.getElementById('titulo-ejercicio').focus()
+        inputTitulo.focus()
         return
       }
-      const descripcion = document.getElementById('descripcion-ejercicio').value || null
-      const notas = document.getElementById('notas-ejercicio').value || null
+      const descripcion = inputDescripcion.value.trim() || null
+      const notas = inputNotas.value || null
       const datos = obtenerDatosPista()
 
-      const { error } = await supabase.from(TABLES.ejercicios).insert({
-        titulo,
-        descripcion,
-        notas,
-        canvas_data: { elementos: datos }
-      })
+      if (ejercicioEditandoId) {
+        // ===== ACTUALIZAR =====
+        const { error } = await supabase
+          .from(TABLES.ejercicios)
+          .update({ titulo, descripcion, notas, canvas_data: { elementos: datos } })
+          .eq('id', ejercicioEditandoId)
 
-      if (error) alert('Error: ' + error.message)
-      else {
+        if (error) { alert('Error: ' + error.message); return }
+        alert('✅ Ejercicio actualizado')
+        salirModoEdicion()
+      } else {
+        // ===== CREAR =====
+        const { error } = await supabase.from(TABLES.ejercicios).insert({
+          titulo, descripcion, notas, canvas_data: { elementos: datos }
+        })
+        if (error) { alert('Error: ' + error.message); return }
         alert('✅ Ejercicio guardado')
-        document.getElementById('titulo-ejercicio').value = ''
-        document.getElementById('descripcion-ejercicio').value = ''
-        document.getElementById('notas-ejercicio').value = ''
+        inputTitulo.value = ''
+        inputDescripcion.value = ''
+        inputNotas.value = ''
+      }
+
+      cargarListaEjercicios()
+    })
+
+    // ============================================
+    // Modo edición
+    // ============================================
+    function entrarModoEdicion(ejercicio) {
+      ejercicioEditandoId = ejercicio.id
+      inputTitulo.value = ejercicio.titulo || ''
+      inputDescripcion.value = ejercicio.descripcion || ''
+      inputNotas.value = ejercicio.notas || ''
+
+      // Cargar pista
+      const datos = ejercicio.canvas_data?.elementos || []
+      cargarDesdeDatos(datos)
+
+      bannerTitulo.textContent = ejercicio.titulo
+      bannerEdicion.style.display = 'flex'
+      btnGuardar.textContent = '💾 Guardar cambios'
+
+      // Scroll arriba
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
+    function salirModoEdicion() {
+      ejercicioEditandoId = null
+      bannerEdicion.style.display = 'none'
+      btnGuardar.textContent = '💾 Guardar'
+      inputTitulo.value = ''
+      inputDescripcion.value = ''
+      inputNotas.value = ''
+      cargarDesdeDatos([])
+    }
+
+    btnCancelarEdicion.onclick = salirModoEdicion
+
+    // Sobrescribir botón limpiar para que también salga del modo edición
+    const btnLimpiarOriginal = document.getElementById('btn-limpiar')
+    btnLimpiarOriginal.addEventListener('click', () => {
+      if (ejercicioEditandoId) {
+        // Ya se limpió la pista por el listener original; salimos del modo edición
+        salirModoEdicion()
+      } else {
+        inputTitulo.value = ''
+        inputDescripcion.value = ''
+        inputNotas.value = ''
       }
     })
+
+    // ============================================
+    // Cargar y pintar lista de ejercicios
+    // ============================================
+    async function cargarListaEjercicios() {
+      const { data, error } = await supabase
+        .from(TABLES.ejercicios)
+        .select('id, titulo, descripcion, notas, canvas_data, created_at')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        listaEjercicios.innerHTML = `<p class="vacio-lista">Error: ${error.message}</p>`
+        return
+      }
+
+      ejerciciosCache = data || []
+      pintarLista()
+    }
+
+    function pintarLista(filtro = '') {
+      const f = filtro.trim().toLowerCase()
+      const filtrados = f
+        ? ejerciciosCache.filter(e =>
+            (e.titulo || '').toLowerCase().includes(f) ||
+            (e.descripcion || '').toLowerCase().includes(f))
+        : ejerciciosCache
+
+      contadorEjercicios.textContent = `(${filtrados.length}${f ? ' de ' + ejerciciosCache.length : ''})`
+
+      if (filtrados.length === 0) {
+        listaEjercicios.innerHTML = `<p class="vacio-lista">${f ? 'Sin resultados para "' + filtro + '"' : 'Todavía no has guardado ejercicios'}</p>`
+        return
+      }
+
+      listaEjercicios.innerHTML = filtrados.map(e => {
+        const stats = contarElementos(e.canvas_data?.elementos || [])
+        const fecha = e.created_at ? e.created_at.split('T')[0] : ''
+        const descripcion = e.descripcion ? `<p class="card-desc">${escapar(e.descripcion)}</p>` : ''
+        const badges = construirBadges(stats)
+
+        return `
+          <div class="card-ejercicio" data-id="${e.id}">
+            <div class="card-header">
+              <h3 class="card-titulo">${escapar(e.titulo)}</h3>
+              <span class="card-fecha">${fecha}</span>
+            </div>
+            ${descripcion}
+            <div class="card-badges">${badges}</div>
+            <div class="card-acciones">
+              <button class="btn-accion btn-editar" data-action="editar" data-id="${e.id}">✏️ Editar</button>
+              <button class="btn-accion btn-duplicar" data-action="duplicar" data-id="${e.id}">📋 Duplicar</button>
+              <button class="btn-accion btn-eliminar" data-action="eliminar" data-id="${e.id}">🗑️</button>
+            </div>
+          </div>
+        `
+      }).join('')
+
+      // Listeners
+      listaEjercicios.querySelectorAll('[data-action]').forEach(btn => {
+        const id = btn.dataset.id
+        const ej = ejerciciosCache.find(x => x.id === id)
+        if (!ej) return
+
+        if (btn.dataset.action === 'editar') {
+          btn.onclick = () => entrarModoEdicion(ej)
+        } else if (btn.dataset.action === 'duplicar') {
+          btn.onclick = () => duplicarEjercicio(ej)
+        } else if (btn.dataset.action === 'eliminar') {
+          btn.onclick = () => eliminarEjercicio(ej)
+        }
+      })
+    }
+
+    // ============================================
+    // Contar elementos por tipo
+    // ============================================
+    function contarElementos(elementos) {
+      const c = { jugadores: 0, carros: 0, conos: 0, escaleras: 0, pelotas: 0, flechas: 0, trayectorias: 0, globos: 0 }
+      elementos.forEach(el => {
+        const t = el.tipo || ''
+        if (t.startsWith('jugador')) c.jugadores++
+        else if (t === 'carro-bolas') c.carros++
+        else if (t === 'cono') c.conos++
+        else if (t === 'escalera') c.escaleras++
+        else if (t === 'pelota') c.pelotas++
+        else if (t === 'flecha-recta') c.flechas++
+        else if (t === 'trayectoria') c.trayectorias++
+        else if (t === 'globo') c.globos++
+      })
+      return c
+    }
+
+    function construirBadges(stats) {
+      const partes = []
+      if (stats.jugadores)    partes.push(`<span class="badge-info">🏃 ${stats.jugadores}</span>`)
+      if (stats.carros)       partes.push(`<span class="badge-info">🛒 ${stats.carros}</span>`)
+      if (stats.conos)        partes.push(`<span class="badge-info">🔶 ${stats.conos}</span>`)
+      if (stats.escaleras)    partes.push(`<span class="badge-info">🪜 ${stats.escaleras}</span>`)
+      if (stats.pelotas)      partes.push(`<span class="badge-info">🎾 ${stats.pelotas}</span>`)
+      if (stats.flechas)      partes.push(`<span class="badge-info">➡️ ${stats.flechas}</span>`)
+      if (stats.trayectorias) partes.push(`<span class="badge-info">〰️ ${stats.trayectorias}</span>`)
+      if (stats.globos)       partes.push(`<span class="badge-info">🌈 ${stats.globos}</span>`)
+      return partes.join('') || '<span class="badge-info badge-vacio">Pista vacía</span>'
+    }
+
+    // ============================================
+    // Duplicar
+    // ============================================
+    async function duplicarEjercicio(ej) {
+      const nuevoTitulo = prompt('Título del nuevo ejercicio:', ej.titulo + ' (copia)')
+      if (!nuevoTitulo) return
+
+      const { error } = await supabase.from(TABLES.ejercicios).insert({
+        titulo: nuevoTitulo,
+        descripcion: ej.descripcion,
+        notas: ej.notas,
+        canvas_data: ej.canvas_data
+      })
+      if (error) { alert('Error: ' + error.message); return }
+      cargarListaEjercicios()
+    }
+
+    // ============================================
+    // Eliminar
+    // ============================================
+    async function eliminarEjercicio(ej) {
+      // Contar cuántas clases usan este ejercicio
+      const { count } = await supabase
+        .from(TABLES.clases)
+        .select('*', { count: 'exact', head: true })
+        .eq('ejercicio_id', ej.id)
+
+      const aviso = count > 0
+        ? `⚠️ Este ejercicio está asociado a ${count} clase(s).\n\nSi lo eliminas, esas clases se quedarán sin ejercicio asignado.\n\n¿Continuar?`
+        : `¿Eliminar el ejercicio "${ej.titulo}"?`
+
+      if (!confirm(aviso)) return
+
+      const { error } = await supabase.from(TABLES.ejercicios).delete().eq('id', ej.id)
+      if (error) { alert('Error: ' + error.message); return }
+
+      // Si estábamos editando este mismo, salir del modo edición
+      if (ejercicioEditandoId === ej.id) salirModoEdicion()
+
+      cargarListaEjercicios()
+    }
+
+    // ============================================
+    // Buscador
+    // ============================================
+    buscador.addEventListener('input', () => pintarLista(buscador.value))
+
+    // ============================================
+    // Utilidad escape HTML
+    // ============================================
+    function escapar(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+    }
+
+    // ============================================
+    // Inicializar
+    // ============================================
+    cargarListaEjercicios()
   </script>
+
+  <style>
+    /* ============================
+       Banner de edición
+       ============================ */
+    .banner-edicion {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: linear-gradient(90deg, #e67e22, #d35400);
+      color: white;
+      padding: 10px 16px;
+      border-radius: var(--radio);
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 12px rgba(230, 126, 34, 0.3);
+    }
+    .banner-edicion .btn-mini {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.4);
+      font-weight: 600;
+    }
+    .banner-edicion .btn-mini:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    /* ============================
+       Sección lista de ejercicios
+       ============================ */
+    .seccion-lista {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 2px solid var(--borde-card);
+    }
+
+    .lista-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .lista-header h2 { margin: 0; }
+
+    .contador-lista {
+      color: var(--pista-azul-hielo);
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .buscador {
+      max-width: 320px;
+      min-width: 200px;
+    }
+
+    .grid-ejercicios {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .vacio-lista {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--texto-secundario);
+      font-size: 0.9rem;
+      background: var(--fondo-card);
+      border: 1px dashed var(--borde-card);
+      border-radius: var(--radio);
+    }
+
+    /* ============================
+       Card de ejercicio
+       ============================ */
+    .card-ejercicio {
+      background: var(--fondo-card);
+      border: 1px solid var(--borde-card);
+      border-radius: var(--radio);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+    .card-ejercicio:hover {
+      border-color: var(--pista-azul-claro);
+      transform: translateY(-2px);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .card-titulo {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin: 0;
+      color: var(--texto-principal);
+      line-height: 1.3;
+    }
+    .card-fecha {
+      font-size: 0.7rem;
+      color: var(--texto-secundario);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    .card-desc {
+      font-size: 0.8rem;
+      color: var(--texto-secundario);
+      margin: 0;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .badge-info {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-size: 0.7rem;
+      color: var(--texto-principal);
+      font-variant-numeric: tabular-nums;
+    }
+    .badge-vacio {
+      color: var(--texto-secundario);
+      font-style: italic;
+    }
+
+    .card-acciones {
+      display: flex;
+      gap: 6px;
+      margin-top: auto;
+      padding-top: 8px;
+      border-top: 1px solid var(--borde-card);
+    }
+    .btn-accion {
+      flex: 1;
+      padding: 6px 8px;
+      border-radius: var(--radio-sm);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--borde-card);
+      background: var(--fondo-app);
+      color: var(--texto-principal);
+      transition: all 0.12s;
+      min-height: auto;
+      font-family: inherit;
+    }
+    .btn-accion:hover { transform: translateY(-1px); }
+    .btn-editar:hover    { background: var(--pista-azul-claro); border-color: var(--pista-azul-claro); color: white; }
+    .btn-duplicar:hover  { background: #e67e22; border-color: #e67e22; color: white; }
+    .btn-eliminar        { max-width: 40px; color: #e74c3c; }
+    .btn-eliminar:hover  { background: #c0392b; border-color: #c0392b; color: white; }
+
+    /* ============================
+       Responsive
+       ============================ */
+    @media (max-width: 768px) {
+      .lista-header { flex-direction: column; align-items: stretch; }
+      .buscador { max-width: 100%; }
+      .grid-ejercicios { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .card-ejercicio { padding: 10px; }
+      .card-titulo { font-size: 0.85rem; }
+      .card-desc { font-size: 0.75rem; }
+      .badge-info { font-size: 0.65rem; }
+      .btn-accion { font-size: 0.72rem; padding: 5px 6px; }
+      .banner-edicion { flex-direction: column; align-items: stretch; text-align: center; }
+      .banner-edicion .btn-mini { width: 100%; }
+    }
+
+    @media (max-width: 400px) {
+      .grid-ejercicios { grid-template-columns: 1fr; }
+    }
+  </style>
 </body>
 </html>
