@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Calendario — Padel Manager</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css">
+  <link rel="stylesheet" href="../css/theme.css">
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar"></nav>
+    <main class="content">
+      <h1>📅 Calendario de Clases</h1>
+      <div id="calendar"></div>
+    </main>
+  </div>
+
+  <dialog id="modal-clase">
+    <form id="form-clase">
+      <h2 id="modal-titulo">Nueva Clase</h2>
+      <input type="hidden" id="clase-id">
+      <label>Título <input type="text" id="titulo" required></label>
+      <label>Fecha <input type="date" id="fecha" required></label>
+      <label>Hora inicio <input type="time" id="hora_inicio" required></label>
+      <label>Hora fin <input type="time" id="hora_fin" required></label>
+      <label>Tipo
+        <select id="tipo">
+          <option value="individual">Individual</option>
+          <option value="grupal">Grupal</option>
+          <option value="clinica">Clínica</option>
+          <option value="partido">Partido</option>
+        </select>
+      </label>
+      <label>Precio total <input type="number" id="precio_total" step="0.01" value="0"></label>
+      <label>Alumnos (Ctrl+clic para varios)
+        <select id="alumnos" multiple size="5"></select>
+      </label>
+      <label>Notas <textarea id="notas" rows="3"></textarea></label>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="btn-cancelar">Cancelar</button>
+        <button type="submit" class="btn-primary">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <style>
+    #calendar { background: var(--fondo-card); padding: 16px; border-radius: var(--radio); border: 1px solid var(--borde-card); }
+    .fc { color: var(--texto-principal); }
+    .fc-theme-standard td, .fc-theme-standard th { border-color: var(--borde-card); }
+    .fc .fc-button-primary {
+      background: var(--pista-azul-claro); border-color: var(--pista-azul-claro);
+    }
+    .fc .fc-button-primary:hover { background: var(--pista-azul-medio); }
+    .fc-day-today { background: rgba(232, 255, 58, 0.08) !important; }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+  <script type="module">
+    import { supabase, TABLES } from '../js/supabase-client.js'
+    import { renderNav } from '../js/nav.js'
+
+    renderNav('calendario')
+
+    const modal = document.getElementById('modal-clase')
+    const form = document.getElementById('form-clase')
+    const selectAlumnos = document.getElementById('alumnos')
+
+    const { data: alumnos } = await supabase
+      .from(TABLES.alumnos).select('id, nombre, apellidos').eq('activo', true).order('apellidos')
+    selectAlumnos.innerHTML = (alumnos || [])
+      .map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos}</option>`).join('')
+
+    async function cargarClases() {
+      const { data, error } = await supabase
+        .from(TABLES.clases)
+        .select('*, padel_clase_alumnos(alumno_id, padel_alumnos(id, nombre, apellidos))')
+      if (error) { console.error(error); return [] }
+
+      return data.map(c => ({
+        id: c.id,
+        title: c.titulo,
+        start: `${c.fecha}T${c.hora_inicio}`,
+        end: `${c.fecha}T${c.hora_fin}`,
+        extendedProps: {
+          tipo: c.tipo,
+          estado: c.estado,
+          precio: c.precio_total,
+          notas: c.notas,
+          alumnosIds: (c.padel_clase_alumnos || []).map(a => a.alumno_id),
+          alumnosTexto: (c.padel_clase_alumnos || [])
+            .map(a => `${a.padel_alumnos.nombre} ${a.padel_alumnos.apellidos}`).join(', ')
+        },
+        backgroundColor: colorPorTipo(c.tipo, c.estado),
+        borderColor: 'transparent'
+      }))
+    }
+
+    function colorPorTipo(tipo, estado) {
+      if (estado === 'anulada') return '#c0392b'
+      return {
+        individual: '#3a8fbf',
+        grupal:     '#5bb8d4',
+        clinica:    '#e8ff3a',
+        partido:    '#8a9ba8'
+      }[tipo] || '#3a8fbf'
+    }
+
+    const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+      initialView: 'dayGridMonth',
+      locale: 'es',
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,timeGridDay'
+      },
+      events: await cargarClases(),
+      editable: true,
+      selectable: true,
+      dateClick: (info) => abrirModal({ fecha: info.dateStr }),
+      eventClick: (info) => abrirModal(info.event),
+      eventDrop: async (info) => {
+        await supabase.from(TABLES.clases)
+          .update({ fecha: info.event.startStr.split('T')[0] })
+          .eq('id', info.event.id)
+      }
+    })
+    calendar.render()
+
+    function abrirModal(clase) {
+      if (clase?.id) {
+        document.getElementById('modal-titulo').textContent = 'Editar Clase'
+        document.getElementById('clase-id').value = clase.id
+        document.getElementById('titulo').value = clase.title
+        document.getElementById('fecha').value = clase.startStr.split('T')[0]
+        document.getElementById('hora_inicio').value = clase.startStr.split('T')[1]?.slice(0,5) || '09:00'
+        document.getElementById('hora_fin').value = clase.endStr?.split('T')[1]?.slice(0,5) || '10:00'
+        document.getElementById('tipo').value = clase.extendedProps.tipo
+        document.getElementById('precio_total').value = clase.extendedProps.precio || 0
+        document.getElementById('notas').value = clase.extendedProps.notas || ''
+        const ids = clase.extendedProps.alumnosIds || []
+        Array.from(selectAlumnos.options).forEach(o => o.selected = ids.includes(o.value))
+      } else {
+        form.reset()
+        document.getElementById('modal-titulo').textContent = 'Nueva Clase'
+        document.getElementById('clase-id').value = ''
+        document.getElementById('fecha').value = clase?.fecha || ''
+      }
+      modal.showModal()
+    }
+
+    document.getElementById('btn-cancelar').onclick = () => modal.close()
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const id = document.getElementById('clase-id').value
+      const alumnosIds = Array.from(selectAlumnos.selectedOptions).map(o => o.value)
+
+      const datos = {
+        titulo: document.getElementById('titulo').value,
+        fecha: document.getElementById('fecha').value,
+        hora_inicio: document.getElementById('hora_inicio').value,
+        hora_fin: document.getElementById('hora_fin').value,
+        tipo: document.getElementById('tipo').value,
+        precio_total: parseFloat(document.getElementById('precio_total').value) || 0,
+        notas: document.getElementById('notas').value
+      }
+
+      let claseId = id
+      if (id) {
+        await supabase.from(TABLES.clases).update(datos).eq('id', id)
+        await supabase.from(TABLES.claseAlumnos).delete().eq('clase_id', id)
+      } else {
+        const { data, error } = await supabase.from(TABLES.clases).insert(datos).select().single()
+        if (error) { alert(error.message); return }
+        claseId = data.id
+      }
+
+      if (alumnosIds.length) {
+        await supabase.from(TABLES.claseAlumnos).insert(
+          alumnosIds.map(aid => ({ clase_id: claseId, alumno_id: aid }))
+        )
+      }
+
+      modal.close()
+      calendar.removeAllEvents()
+      calendar.addEventSource(await cargarClases())
+    })
+  </script>
+</body>
+</html>
