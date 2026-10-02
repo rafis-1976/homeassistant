@@ -23,9 +23,7 @@
 
       <div id="resumen" style="margin-bottom:16px;"></div>
 
-      <!-- ============================
-           REALIZADAS
-           ============================ -->
+      <!-- REALIZADAS -->
       <h2 class="seccion-titulo seccion-realizadas">
         ✅ Clases realizadas <span id="cont-realizadas" class="seccion-count"></span>
       </h2>
@@ -41,9 +39,7 @@
         </table>
       </div>
 
-      <!-- ============================
-           REPROGRAMADAS
-           ============================ -->
+      <!-- REPROGRAMADAS -->
       <h2 class="seccion-titulo seccion-reprogramadas" style="margin-top:24px;">
         🔄 Clases reprogramadas <span id="cont-reprogramadas" class="seccion-count"></span>
       </h2>
@@ -59,9 +55,7 @@
         </table>
       </div>
 
-      <!-- ============================
-           ANULADAS
-           ============================ -->
+      <!-- ANULADAS -->
       <h2 class="seccion-titulo seccion-anuladas" style="margin-top:24px;">
         🚫 Clases anuladas <span id="cont-anuladas" class="seccion-count"></span>
       </h2>
@@ -77,9 +71,7 @@
         </table>
       </div>
 
-      <!-- ============================
-           PROGRAMADAS (no realizadas todavía)
-           ============================ -->
+      <!-- PROGRAMADAS -->
       <h2 class="seccion-titulo seccion-programadas" style="margin-top:24px;">
         📅 Clases aún programadas <span id="cont-programadas" class="seccion-count"></span>
       </h2>
@@ -170,7 +162,7 @@
     }
 
     // ============================================
-    // Resumen arriba
+    // Resumen en pantalla (con emojis OK)
     // ============================================
     function pintarResumen(informe) {
       document.getElementById('resumen').innerHTML = `
@@ -204,7 +196,7 @@
     }
 
     // ============================================
-    // Helpers comunes
+    // Helpers comunes (pantalla)
     // ============================================
     function alumnosTxt(c) {
       return (c.padel_clase_alumnos || []).map(a => a.padel_alumnos?.nombre).filter(Boolean).join(', ') || '—'
@@ -223,7 +215,7 @@
     }
 
     // ============================================
-    // Tablas
+    // Tablas en pantalla
     // ============================================
     function pintarTablaRealizadas(lista) {
       document.getElementById('cont-realizadas').textContent = `(${lista.length})`
@@ -284,7 +276,7 @@
     }
 
     // ============================================
-    // PDF
+    // PDF (sin emojis, sin ejercicios/tipo/alumnos/motivo)
     // ============================================
     function generarPDF(informe) {
       const { jsPDF } = window.jspdf
@@ -315,7 +307,7 @@
 
       let y = 42
 
-      // ====== RESUMEN ======
+      // ====== RESUMEN (texto plano, sin emojis ni acentos raros) ======
       doc.setTextColor(0, 0, 0)
       doc.setFontSize(12)
       doc.setFont('helvetica', 'bold')
@@ -324,66 +316,56 @@
 
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(10)
-      const total = informe.realizadas.length + informe.reprogramadas.length + informe.anuladas.length + informe.programadas.length
-      doc.text(`Total clases del mes: ${total}`, margenIzq, y); y += 5
-      doc.text(`✅ Realizadas: ${informe.realizadas.length}`, margenIzq, y)
-      doc.text(`🔄 Reprogramadas: ${informe.reprogramadas.length}`, margenIzq + 60, y)
-      doc.text(`🚫 Anuladas: ${informe.anuladas.length}`, margenIzq + 130, y); y += 5
-      doc.text(`📅 Programadas: ${informe.programadas.length}`, margenIzq, y); y += 8
 
-      // Desglose por tipo (de realizadas)
+      const total = informe.realizadas.length + informe.reprogramadas.length +
+                    informe.anuladas.length + informe.programadas.length
+
+      doc.text(`Total clases del mes: ${total}`, margenIzq, y); y += 6
+      doc.text(`Realizadas: ${informe.realizadas.length}`, margenIzq, y); y += 5
+      doc.text(`Reprogramadas: ${informe.reprogramadas.length}`, margenIzq, y); y += 5
+      doc.text(`Anuladas: ${informe.anuladas.length}`, margenIzq, y); y += 5
+      doc.text(`Programadas: ${informe.programadas.length}`, margenIzq, y); y += 8
+
+      // Desglose por tipo (texto plano)
       if (Object.keys(informe.porTipo).length > 0) {
         doc.setFont('helvetica', 'bold')
         doc.text('Realizadas por tipo:', margenIzq, y); y += 5
         doc.setFont('helvetica', 'normal')
         Object.entries(informe.porTipo).forEach(([k, v]) => {
-          doc.text(`•  ${k}: ${v}`, margenIzq + 4, y)
+          doc.text(`- ${k}: ${v}`, margenIzq + 4, y)
           y += 5
         })
       }
       y += 3
 
       // ====================================================
-      // 1. REALIZADAS
+      // SECCIONES (solo Fecha | Hora | Titulo)
       // ====================================================
       y = seccionPDF(doc, {
-        titulo: '✅ CLASES REALIZADAS',
+        titulo: 'CLASES REALIZADAS',
         color: [39, 174, 96],
         clases: informe.realizadas,
-        tipo: 'realizada',
         y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight
       })
 
-      // ====================================================
-      // 2. REPROGRAMADAS
-      // ====================================================
       y = seccionPDF(doc, {
-        titulo: '🔄 CLASES REPROGRAMADAS',
+        titulo: 'CLASES REPROGRAMADAS',
         color: [230, 126, 34],
         clases: informe.reprogramadas,
-        tipo: 'reprogramada',
         y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight
       })
 
-      // ====================================================
-      // 3. ANULADAS
-      // ====================================================
       y = seccionPDF(doc, {
-        titulo: '🚫 CLASES ANULADAS',
+        titulo: 'CLASES ANULADAS',
         color: [192, 57, 43],
         clases: informe.anuladas,
-        tipo: 'anulada',
         y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight
       })
 
-      // ====================================================
-      // 4. PROGRAMADAS
-      // ====================================================
       y = seccionPDF(doc, {
-        titulo: '📅 CLASES AÚN PROGRAMADAS',
+        titulo: 'CLASES AUN PROGRAMADAS',
         color: [58, 143, 191],
         clases: informe.programadas,
-        tipo: 'programada',
         y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight
       })
 
@@ -395,7 +377,7 @@
         doc.setTextColor(138, 155, 168)
         doc.setFont('helvetica', 'normal')
         doc.text(
-          `Padel Manager — ${nombreMes}  ·  Página ${i} de ${totalPaginas}`,
+          `Padel Manager - ${nombreMes}  |  Pagina ${i} de ${totalPaginas}`,
           pageWidth / 2,
           pageHeight - 8,
           { align: 'center' }
@@ -406,19 +388,18 @@
     }
 
     // ============================================
-    // Sección del PDF (cabecera + tabla)
+    // Sección del PDF — solo Fecha | Hora | Título
     // ============================================
     function seccionPDF(doc, opts) {
-      const { titulo, color, clases, tipo, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight } = opts
+      const { titulo, color, clases, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight } = opts
       let y = opts.y
 
-      // Salto de página si no caben al menos 4 filas
       if (y > pageHeight - 40) {
         doc.addPage()
         y = 20
       }
 
-      // Barra de título de la sección
+      // Barra de título
       doc.setFillColor(color[0], color[1], color[2])
       doc.rect(margenIzq - 2, y - 5, anchoUtil + 4, 8, 'F')
       doc.setTextColor(255, 255, 255)
@@ -427,41 +408,31 @@
       doc.text(`${titulo}  (${clases.length})`, margenIzq + 2, y)
       y += 10
 
-      // Si no hay clases
       if (clases.length === 0) {
         doc.setTextColor(138, 155, 168)
         doc.setFont('helvetica', 'italic')
         doc.setFontSize(9)
-        doc.text('Sin clases en esta categoría este mes', margenIzq + 4, y)
+        doc.text('Sin clases en esta categoria este mes', margenIzq + 4, y)
         y += 10
         doc.setTextColor(0, 0, 0)
         doc.setFont('helvetica', 'normal')
         return y
       }
 
-      // Columnas (varían según tipo)
-      // Anuladas no tiene ejercicio, sino motivo
-      const cols = tipo === 'anulada'
-        ? { fecha: margenIzq, hora: margenIzq + 25, titulo: margenIzq + 52, tipo: margenIzq + 110, alumnos: margenIzq + 132, motivo: margenIzq + 178 }
-        : { fecha: margenIzq, hora: margenIzq + 25, titulo: margenIzq + 52, tipo: margenIzq + 110, alumnos: margenIzq + 132, motivo: margenIzq + 178 }
+      // Columnas: Fecha | Hora | Título
+      const colFecha  = margenIzq
+      const colHora   = margenIzq + 30
+      const colTitulo = margenIzq + 75
 
-      const headersAnulada = ['Fecha','Hora','Título','Tipo','Alumnos','Motivo']
-      const headersNormal  = ['Fecha','Hora','Título','Tipo','Alumnos','Ejercicio']
-
-      // Cabecera de tabla
       function pintarCabecera() {
         doc.setFillColor(240, 244, 248)
         doc.rect(margenIzq - 2, y - 4, anchoUtil + 4, 7, 'F')
-        doc.setFontSize(8.5)
+        doc.setFontSize(9)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(26, 58, 92)
-        const hs = tipo === 'anulada' ? headersAnulada : headersNormal
-        doc.text(hs[0], cols.fecha, y)
-        doc.text(hs[1], cols.hora, y)
-        doc.text(hs[2], cols.titulo, y)
-        doc.text(hs[3], cols.tipo, y)
-        doc.text(hs[4], cols.alumnos, y)
-        doc.text(hs[5], cols.motivo, y)
+        doc.text('Fecha', colFecha, y)
+        doc.text('Hora', colHora, y)
+        doc.text('Titulo', colTitulo, y)
         y += 6
         doc.setTextColor(0, 0, 0)
         doc.setFont('helvetica', 'normal')
@@ -469,7 +440,6 @@
 
       pintarCabecera()
 
-      // Ordenar por fecha
       const ordenadas = [...clases].sort((a, b) => {
         if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha)
         return (a.hora_inicio || '').localeCompare(b.hora_inicio || '')
@@ -479,7 +449,6 @@
         if (y > pageHeight - 20) {
           doc.addPage()
           y = 20
-          // Repetir título de sección en la nueva página
           doc.setFillColor(color[0], color[1], color[2])
           doc.rect(margenIzq - 2, y - 5, anchoUtil + 4, 8, 'F')
           doc.setTextColor(255, 255, 255)
@@ -496,31 +465,15 @@
           doc.rect(margenIzq - 2, y - 4, anchoUtil + 4, 6, 'F')
         }
 
-        // Fecha
-        doc.setFontSize(8.5)
-        doc.text(formatearFechaCorta(c.fecha), cols.fecha, y)
-        // Hora
-        doc.text(horaTxt(c), cols.hora, y)
-        // Título
-        doc.text(truncar(c.titulo || '', 30), cols.titulo, y)
-        // Tipo
-        doc.text(c.tipo || '', cols.tipo, y)
-        // Alumnos
-        doc.text(truncar(alumnosTxt(c), 26), cols.alumnos, y)
-
-        // Última columna: motivo (anuladas) o ejercicio (resto)
-        if (tipo === 'anulada') {
-          const motivo = c.motivo_anulacion || '—'
-          doc.text(truncar(motivo, 24), cols.motivo, y)
-        } else {
-          const ej = c.padel_ejercicios?.titulo || c.ejercicio_libre || '—'
-          doc.text(truncar(ej, 24), cols.motivo, y)
-        }
+        doc.setFontSize(9)
+        doc.text(formatearFechaCorta(c.fecha), colFecha, y)
+        doc.text(horaTxt(c), colHora, y)
+        doc.text(truncar(c.titulo || '', 70), colTitulo, y)
 
         y += 6
       })
 
-      y += 4 // Espacio entre secciones
+      y += 4
       return y
     }
 
@@ -535,7 +488,7 @@
 
     function truncar(str, max) {
       if (!str) return ''
-      return str.length > max ? str.slice(0, max - 1) + '…' : str
+      return str.length > max ? str.slice(0, max - 1) + '...' : str
     }
 
     // ============================================
