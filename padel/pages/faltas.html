@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Faltas — Padel Manager</title>
+  <link rel="stylesheet" href="../css/theme.css">
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar"></nav>
+    <main class="content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h1>⚠️ Registro de Faltas</h1>
+        <button class="btn-primary" id="btn-nueva">+ Registrar falta</button>
+      </div>
+
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Alumno</th><th>Clase</th>
+            <th>Tipo</th><th>Descripción</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-faltas"></tbody>
+      </table>
+    </main>
+  </div>
+
+  <dialog id="modal-falta">
+    <form id="form-falta">
+      <h2>Registrar falta</h2>
+      <label>Alumno <select id="alumno_id" required></select></label>
+      <label>Clase <select id="clase_id"></select></label>
+      <label>Tipo
+        <select id="tipo">
+          <option value="justificada">Justificada</option>
+          <option value="no_justificada">No justificada</option>
+          <option value="lesion">Lesión</option>
+          <option value="aviso_tardio">Aviso tardío</option>
+        </select>
+      </label>
+      <label>Descripción <textarea id="descripcion" rows="3"></textarea></label>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" onclick="document.getElementById('modal-falta').close()">Cancelar</button>
+        <button type="submit" class="btn-primary">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">
+    import { supabase, TABLES } from '../js/supabase-client.js'
+    import { renderNav } from '../js/nav.js'
+
+    renderNav('faltas')
+
+    const modal = document.getElementById('modal-falta')
+
+    const { data: alumnos } = await supabase
+      .from(TABLES.alumnos).select('id, nombre, apellidos').order('apellidos')
+    document.getElementById('alumno_id').innerHTML = (alumnos || [])
+      .map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos}</option>`).join('')
+
+    const { data: clases } = await supabase
+      .from(TABLES.clases).select('id, titulo, fecha').order('fecha', { ascending: false }).limit(100)
+    document.getElementById('clase_id').innerHTML =
+      '<option value="">— Sin clase asociada —</option>' +
+      (clases || []).map(c => `<option value="${c.id}">${c.fecha} — ${c.titulo}</option>`).join('')
+
+    async function cargarFaltas() {
+      const { data } = await supabase
+        .from(TABLES.faltas)
+        .select('*, padel_alumnos(nombre, apellidos), padel_clases(titulo, fecha)')
+        .order('fecha_registro', { ascending: false })
+
+      document.getElementById('tbody-faltas').innerHTML = (data || []).map(f => `
+        <tr>
+          <td>${f.fecha_registro?.split('T')[0]}</td>
+          <td>${f.padel_alumnos?.nombre} ${f.padel_alumnos?.apellidos}</td>
+          <td>${f.padel_clases ? f.padel_clases.fecha + ' — ' + f.padel_clases.titulo : '—'}</td>
+          <td><span class="badge ${f.tipo === 'justificada' ? 'badge-realizada' : 'badge-anulada'}">${f.tipo}</span></td>
+          <td>${f.descripcion || '—'}</td>
+          <td><button class="btn-peligro" data-del="${f.id}">🗑️</button></td>
+        </tr>
+      `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--texto-secundario);">Sin faltas registradas</td></tr>'
+
+      document.querySelectorAll('[data-del]').forEach(btn => {
+        btn.onclick = async () => {
+          if (!confirm('¿Eliminar esta falta?')) return
+          await supabase.from(TABLES.faltas).delete().eq('id', btn.dataset.del)
+          cargarFaltas()
+        }
+      })
+    }
+
+    document.getElementById('btn-nueva').onclick = () => {
+      document.getElementById('form-falta').reset()
+      modal.showModal()
+    }
+
+    document.getElementById('form-falta').addEventListener('submit', async (e) => {
+      e.preventDefault()
+      await supabase.from(TABLES.faltas).insert({
+        alumno_id: document.getElementById('alumno_id').value,
+        clase_id: document.getElementById('clase_id').value || null,
+        tipo: document.getElementById('tipo').value,
+        descripcion: document.getElementById('descripcion').value || null
+      })
+      modal.close()
+      cargarFaltas()
+    })
+
+    cargarFaltas()
+  </script>
+</body>
+</html>
