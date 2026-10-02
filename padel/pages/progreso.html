@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Progreso — Padel Manager</title>
+  <link rel="stylesheet" href="../css/theme.css">
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar"></nav>
+    <main class="content">
+      <h1>📈 Progresión de Alumnos</h1>
+
+      <div class="card" style="margin-bottom:16px;display:flex;gap:12px;align-items:end;">
+        <label style="flex:1;">Alumno
+          <select id="select-alumno"></select>
+        </label>
+        <button class="btn-primary" id="btn-nueva-eval">+ Nueva evaluación</button>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <canvas id="grafico-progreso" height="120"></canvas>
+      </div>
+
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Técnica</th><th>Táctica</th>
+            <th>Físico</th><th>Actitud</th><th>Observaciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-progreso"></tbody>
+      </table>
+    </main>
+  </div>
+
+  <dialog id="modal-eval">
+    <form id="form-eval">
+      <h2>Nueva evaluación</h2>
+      <label>Fecha <input type="date" id="fecha" required></label>
+      <label>Técnica (1-10) <input type="number" id="tecnica" min="1" max="10" required></label>
+      <label>Táctica (1-10) <input type="number" id="tactica" min="1" max="10" required></label>
+      <label>Físico (1-10) <input type="number" id="fisico" min="1" max="10" required></label>
+      <label>Actitud (1-10) <input type="number" id="actitud" min="1" max="10" required></label>
+      <label>Observaciones <textarea id="observaciones" rows="3"></textarea></label>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" onclick="document.getElementById('modal-eval').close()">Cancelar</button>
+        <button type="submit" class="btn-primary">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="module">
+    import { supabase, TABLES } from '../js/supabase-client.js'
+    import { renderNav } from '../js/nav.js'
+
+    renderNav('progreso')
+
+    const selectAlumno = document.getElementById('select-alumno')
+    const modal = document.getElementById('modal-eval')
+    let chart = null
+
+    const { data: alumnos } = await supabase
+      .from(TABLES.alumnos).select('id, nombre, apellidos').order('apellidos')
+    selectAlumno.innerHTML = (alumnos || [])
+      .map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos}</option>`).join('')
+
+    selectAlumno.onchange = cargarProgreso
+
+    async function cargarProgreso() {
+      const alumnoId = selectAlumno.value
+      if (!alumnoId) return
+
+      const { data } = await supabase
+        .from(TABLES.progresoAlumnos)
+        .select('*')
+        .eq('alumno_id', alumnoId)
+        .order('fecha', { ascending: true })
+
+      const registros = data || []
+
+      document.getElementById('tbody-progreso').innerHTML = registros.map(r => `
+        <tr>
+          <td>${r.fecha}</td>
+          <td>${r.tecnica}</td><td>${r.tactica}</td>
+          <td>${r.fisico}</td><td>${r.actitud}</td>
+          <td>${r.observaciones || '—'}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--texto-secundario);">Sin evaluaciones</td></tr>'
+
+      renderGrafico(registros)
+    }
+
+    function renderGrafico(registros) {
+      const ctx = document.getElementById('grafico-progreso').getContext('2d')
+      if (chart) chart.destroy()
+      if (!registros.length) return
+
+      const ultimo = registros[registros.length - 1]
+      chart = new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: ['Técnica', 'Táctica', 'Físico', 'Actitud'],
+          datasets: [{
+            label: `Última evaluación (${ultimo.fecha})`,
+            data: [ultimo.tecnica, ultimo.tactica, ultimo.fisico, ultimo.actitud],
+            backgroundColor: 'rgba(58, 143, 191, 0.3)',
+            borderColor: '#3a8fbf',
+            borderWidth: 2,
+            pointBackgroundColor: '#e8ff3a'
+          }]
+        },
+        options: {
+          scales: {
+            r: {
+              min: 0, max: 10,
+              grid: { color: '#2a3f5a' },
+              angleLines: { color: '#2a3f5a' },
+              pointLabels: { color: '#e8f0f8' },
+              ticks: { color: '#8a9ba8', backdropColor: 'transparent' }
+            }
+          },
+          plugins: { legend: { labels: { color: '#e8f0f8' } } }
+        }
+      })
+    }
+
+    document.getElementById('btn-nueva-eval').onclick = () => {
+      if (!selectAlumno.value) { alert('Selecciona un alumno'); return }
+      document.getElementById('form-eval').reset()
+      document.getElementById('fecha').value = new Date().toISOString().split('T')[0]
+      modal.showModal()
+    }
+
+    document.getElementById('form-eval').addEventListener('submit', async (e) => {
+      e.preventDefault()
+      await supabase.from(TABLES.progresoAlumnos).insert({
+        alumno_id: selectAlumno.value,
+        fecha: document.getElementById('fecha').value,
+        tecnica: parseInt(document.getElementById('tecnica').value),
+        tactica: parseInt(document.getElementById('tactica').value),
+        fisico: parseInt(document.getElementById('fisico').value),
+        actitud: parseInt(document.getElementById('actitud').value),
+        observaciones: document.getElementById('observaciones').value || null
+      })
+      modal.close()
+      cargarProgreso()
+    })
+
+    if (selectAlumno.value) cargarProgreso()
+  </script>
+</body>
+</html>
