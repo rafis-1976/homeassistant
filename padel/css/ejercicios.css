@@ -1,47 +1,107 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--fondo-card);
+  border-radius: var(--radio);
+  border: 1px solid var(--borde-card);
+  align-items: center;
+}
+
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px 4px 0;
+  border-right: 1px solid var(--borde-card);
+}
+.tool-group:last-of-type { border-right: none; padding-right: 0; }
+
+.tool-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--texto-secundario);
+  margin-right: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ⬇️ Botones uniformes y alineados */
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fondo-app);
+  border: 1px solid var(--borde-card);
+  color: var(--texto-principal);
+  width: 48px;
+  height: 44px;
+  padding: 0;
+  border-radius: var(--radio-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.tool-btn svg {
+  display: block;
+  width: 26px;
+  height: 26px;
+  max-width: 80%;
+  max-height: 80%;
+  pointer-events: none;
+}
+.tool-btn:hover {
+  border-color: var(--pista-azul-claro);
+  background: var(--pista-azul-oscuro);
+  transform: translateY(-1px);
+}
+.tool-btn.active {
+  background: var(--pista-azul-claro);
+  border-color: var(--amarillo-pelota);
+  box-shadow: 0 0 0 2px var(--amarillo-pelota) inset;
+}
+
 /* ============================================================
-   MÓVIL: pista rotada 90° para orientación vertical
+   MÓVIL — pista rotada 90° y toolbar en columna
    ============================================================ */
 @media (max-width: 768px) {
   .toolbar {
     flex-direction: column;
     align-items: stretch;
     padding: 10px;
-    gap: 10px;
+    gap: 8px;
   }
   .tool-group {
     border-right: none;
     border-bottom: 1px solid var(--borde-card);
-    padding-right: 0;
-    padding-bottom: 10px;
-    justify-content: space-between;
+    padding: 8px 0;
+    justify-content: flex-start;
     flex-wrap: wrap;
   }
   .tool-group:last-of-type { border-bottom: none; }
-  .tool-btn {
-    min-width: 44px;
-    min-height: 44px;
-    padding: 8px;
-    flex: 1;
-  }
+  .tool-label { margin-right: 6px; }
+  .tool-btn { width: 44px; height: 44px; }
 
-  /* Pista rotada 90° para que la longitud se muestre vertical */
   .pista-container {
     position: relative;
     padding: 0;
-    aspect-ratio: 540 / 940; /* Portrait */
+    aspect-ratio: 540 / 940;
     overflow: hidden;
   }
   #pista-svg {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 174%;      /* 940/540 ≈ 1.74 */
+    width: 174%;
     height: auto;
     max-width: none;
     transform: translate(-50%, -50%) rotate(90deg);
     transform-origin: center center;
   }
-
   .hint-trayectoria {
     font-size: 0.7rem;
     padding: 5px 10px;
@@ -49,7 +109,6 @@
     white-space: normal;
     text-align: center;
   }
-
   .notas-container { padding: 12px; }
   .panel-propiedades { max-width: 100%; }
 }
