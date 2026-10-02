@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Diseñador de Ejercicios — Padel Manager</title>
   <link rel="stylesheet" href="../css/theme.css">
   <link rel="stylesheet" href="../css/ejercicios.css">
@@ -12,7 +13,6 @@
     <main class="content">
       <h1>🎾 Diseñador de Ejercicios</h1>
 
-      <!-- ============================ TOOLBAR ============================ -->
       <div class="toolbar">
         <div class="tool-group">
           <span class="tool-label">Jugadores</span>
@@ -52,11 +52,10 @@
 
         <div class="tool-group" style="margin-left:auto;">
           <button class="btn-peligro" id="btn-limpiar">🗑️ Limpiar</button>
-          <button class="btn-primary" id="btn-guardar">💾 Guardar Ejercicio</button>
+          <button class="btn-primary" id="btn-guardar">💾 Guardar</button>
         </div>
       </div>
 
-      <!-- ============================ PISTA ============================ -->
       <div class="pista-wrapper">
         <div class="hint-trayectoria" id="hint-trayectoria">
           <strong>Modo trayectoria:</strong> clic para añadir puntos ·
@@ -64,33 +63,18 @@
         </div>
 
         <div class="pista-container">
-          <!--
-            ============================================================
-            PISTA OFICIAL DE PÁDEL — PROPORCIONES REALES 20m × 10m
-            ============================================================
-            • Court 800 × 400 px = 20m × 10m  →  1m = 40px
-            • Márgenes exteriores de 50px para ver los cristales
-            • Línea de saque: 3m de la red (120px)
-            • Zona de saque: 3m × 5m (120 × 200 px)
-            • Red en x = 450 (centro exacto)
-            ============================================================
-          -->
           <svg id="pista-svg" viewBox="0 0 900 500" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
 
-            <!-- ============ DEFS ============ -->
             <defs>
               <marker id="flecha-end" markerWidth="8" markerHeight="8" refX="7" refY="4"
                       orient="auto" markerUnits="strokeWidth">
                 <polygon points="0 0, 8 4, 0 8" fill="#e8ff3a"/>
               </marker>
 
-              <!-- Patrón de malla de la red -->
               <pattern id="malla-red" width="6" height="6" patternUnits="userSpaceOnUse">
                 <rect width="6" height="6" fill="transparent"/>
                 <path d="M 0,0 L 6,6 M 6,0 L 0,6" stroke="#e8f0f8" stroke-width="0.4" opacity="0.35"/>
               </pattern>
-
-              <!-- ==== ICONOS ==== -->
 
               <g id="icon-jugador-azul">
                 <circle cx="0" cy="-10" r="4.5" fill="#f4c9a4" stroke="#8a6b52" stroke-width="0.8"/>
@@ -161,102 +145,60 @@
               </g>
             </defs>
 
-            <!-- ==================================================
-                 EXTERIOR (contraste: entorno oscuro fuera de la pista)
-                 ================================================== -->
+            <!-- EXTERIOR -->
             <rect x="0" y="0" width="900" height="500" fill="#0a1420"/>
-
-            <!-- Marco exterior del recinto (cemento / suelo perimetral) -->
             <rect x="30" y="30" width="840" height="440" fill="#1c2a3a" rx="6"/>
 
-            <!-- ==================================================
-                 MUROS PERIMETRALES (cristales)
-                 ================================================== -->
-            <!-- Muro trasero izquierdo (fondo) -->
+            <!-- CRISTALES -->
             <rect x="40" y="40" width="10" height="420" fill="#a8d5e0" opacity="0.35"/>
             <rect x="40" y="40" width="10" height="420" fill="none" stroke="#5bb8d4" stroke-width="1"/>
-
-            <!-- Muro trasero derecho (fondo) -->
             <rect x="850" y="40" width="10" height="420" fill="#a8d5e0" opacity="0.35"/>
             <rect x="850" y="40" width="10" height="420" fill="none" stroke="#5bb8d4" stroke-width="1"/>
-
-            <!-- Muro lateral superior (fondo) -->
             <rect x="40" y="40" width="820" height="10" fill="#a8d5e0" opacity="0.35"/>
             <rect x="40" y="40" width="820" height="10" fill="none" stroke="#5bb8d4" stroke-width="1"/>
-
-            <!-- Muro lateral inferior (fondo) -->
             <rect x="40" y="450" width="820" height="10" fill="#a8d5e0" opacity="0.35"/>
             <rect x="40" y="450" width="820" height="10" fill="none" stroke="#5bb8d4" stroke-width="1"/>
 
-            <!-- ==================================================
-                 SUPERFICIE DE JUEGO — 20m × 10m (800×400 px)
-                 Esquinas en (50,50) → (850,450)
-                 ================================================== -->
+            <!-- SUPERFICIE -->
             <rect x="50" y="50" width="800" height="400" fill="#3a8fbf"/>
 
-            <!-- Zonas de saque (más claras): 3m × 5m desde la red
-                 Izquierda:  x=[330, 450]  y=[50, 250] y [250, 450]
-                 Derecha:    x=[450, 570]  y=[50, 250] y [250, 450] -->
+            <!-- ZONAS DE SAQUE -->
             <rect x="330" y="50"  width="120" height="200" fill="#5bb8d4" opacity="0.55"/>
             <rect x="330" y="250" width="120" height="200" fill="#5bb8d4" opacity="0.55"/>
             <rect x="450" y="50"  width="120" height="200" fill="#5bb8d4" opacity="0.55"/>
             <rect x="450" y="250" width="120" height="200" fill="#5bb8d4" opacity="0.55"/>
 
-            <!-- ==================================================
-                 LÍNEAS DE LA PISTA
-                 ================================================== -->
-            <!-- Perímetro -->
+            <!-- LÍNEAS -->
             <rect x="50" y="50" width="800" height="400" fill="none" stroke="white" stroke-width="2.5"/>
-
-            <!-- Línea de saque izquierda (a 3m de la red) -->
             <line x1="330" y1="50" x2="330" y2="450" stroke="white" stroke-width="2.5"/>
-
-            <!-- Línea de saque derecha (a 3m de la red) -->
             <line x1="570" y1="50" x2="570" y2="450" stroke="white" stroke-width="2.5"/>
-
-            <!-- Línea central izquierda (desde la línea de saque hasta la red) -->
             <line x1="330" y1="250" x2="450" y2="250" stroke="white" stroke-width="2.5"/>
-
-            <!-- Línea central derecha (desde la red hasta la línea de saque) -->
             <line x1="450" y1="250" x2="570" y2="250" stroke="white" stroke-width="2.5"/>
 
-            <!-- ==================================================
-                 RED (en x=450, centro exacto del campo)
-                 ================================================== -->
-            <!-- Banda de la red -->
+            <!-- RED -->
             <rect x="444" y="50" width="12" height="400" fill="#1a3a5c" opacity="0.9"/>
-            <!-- Malla -->
             <rect x="444" y="50" width="12" height="400" fill="url(#malla-red)"/>
-            <!-- Borde superior e inferior de la red -->
             <line x1="444" y1="50"  x2="456" y2="50"  stroke="#e8ff3a" stroke-width="2"/>
             <line x1="444" y1="450" x2="456" y2="450" stroke="#e8ff3a" stroke-width="2"/>
-            <!-- Postes de la red -->
             <circle cx="450" cy="50"  r="5" fill="#1a3a5c" stroke="#e8ff3a" stroke-width="1.5"/>
             <circle cx="450" cy="450" r="5" fill="#1a3a5c" stroke="#e8ff3a" stroke-width="1.5"/>
 
-            <!-- ==================================================
-                 ETIQUETAS DE MEDIDAS (opcional, ayuda visual)
-                 ================================================== -->
+            <!-- ETIQUETAS DE MEDIDAS -->
             <text x="450" y="478" text-anchor="middle" fill="#5bb8d4" font-size="11" font-family="monospace">20 m</text>
             <text x="870" y="255" text-anchor="middle" fill="#5bb8d4" font-size="11" font-family="monospace"
                   transform="rotate(90 870 255)">10 m</text>
 
-            <!-- ==================================================
-                 CAPA DE ELEMENTOS INTERACTIVOS
-                 ================================================== -->
             <g id="capa-elementos"></g>
           </svg>
         </div>
       </div>
 
-      <!-- ============================ NOTAS ============================ -->
       <div class="notas-container">
         <label for="notas-ejercicio">📝 Notas del ejercicio</label>
         <textarea id="notas-ejercicio" rows="4"
                   placeholder="Describe objetivos, correcciones técnicas, variantes, progresiones, material necesario..."></textarea>
       </div>
 
-      <!-- ============================ PROPIEDADES ============================ -->
       <div class="panel-propiedades" id="panel-propiedades" style="display:none;">
         <h3>Propiedades</h3>
         <label id="rot-label">Rotación
