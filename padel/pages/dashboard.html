@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard — Padel Manager</title>
+  <link rel="stylesheet" href="../css/theme.css">
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar"></nav>
+    <main class="content">
+      <h1>📊 Dashboard</h1>
+
+      <div class="grid-cards" id="stats"></div>
+
+      <h2 style="margin-top:24px;">Próximas clases</h2>
+      <table class="tabla" id="tabla-proximas">
+        <thead>
+          <tr><th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th><th>Alumnos</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </main>
+  </div>
+
+  <style>
+    .grid-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .stat-card { text-align: left; }
+    .stat-card .num { font-size: 2rem; font-weight: 700; color: var(--pista-azul-hielo); }
+    .stat-card .label { color: var(--texto-secundario); font-size: 0.85rem; margin-top: 4px; }
+  </style>
+
+  <script type="module">
+    import { supabase, TABLES } from '../js/supabase-client.js'
+    import { renderNav } from '../js/nav.js'
+
+    renderNav('dashboard')
+
+    const hoy = new Date().toISOString().split('T')[0]
+
+    const [
+      { count: numAlumnos },
+      { count: numClases },
+      { data: clasesHoy },
+      { data: pagosPendientes }
+    ] = await Promise.all([
+      supabase.from(TABLES.alumnos).select('*', { count: 'exact', head: true }).eq('activo', true),
+      supabase.from(TABLES.clases).select('*', { count: 'exact', head: true }).eq('estado', 'programada'),
+      supabase.from(TABLES.clases).select('precio_total').eq('fecha', hoy).eq('estado', 'programada'),
+      supabase.from(TABLES.pagos).select('importe').eq('estado', 'pendiente')
+    ])
+
+    const ingresosHoy = (clasesHoy || []).reduce((s, c) => s + (c.precio_total || 0), 0)
+    const pendienteCobro = (pagosPendientes || []).reduce((s, p) => s + (p.importe || 0), 0)
+
+    document.getElementById('stats').innerHTML = `
+      <div class="card stat-card">
+        <div class="num">${numAlumnos || 0}</div>
+        <div class="label">Alumnos activos</div>
+      </div>
+      <div class="card stat-card">
+        <div class="num">${numClases || 0}</div>
+        <div class="label">Clases programadas</div>
+      </div>
+      <div class="card stat-card">
+        <div class="num">${ingresosHoy.toFixed(2)} €</div>
+        <div class="label">Ingresos de hoy</div>
+      </div>
+      <div class="card stat-card">
+        <div class="num">${pendienteCobro.toFixed(2)} €</div>
+        <div class="label">Pendiente de cobro</div>
+      </div>
+    `
+
+    const { data: proximas } = await supabase
+      .from(TABLES.clases)
+      .select('*, padel_clase_alumnos(padel_alumnos(nombre, apellidos))')
+      .gte('fecha', hoy)
+      .eq('estado', 'programada')
+      .order('fecha', { ascending: true })
+      .order('hora_inicio', { ascending: true })
+      .limit(10)
+
+    const tbody = document.querySelector('#tabla-proximas tbody')
+    tbody.innerHTML = (proximas || []).map(c => {
+      const alumnos = (c.padel_clase_alumnos || [])
+        .map(a => `${a.padel_alumnos.nombre} ${a.padel_alumnos.apellidos}`)
+        .join(', ') || '—'
+      return `
+        <tr>
+          <td>${c.fecha}</td>
+          <td>${c.hora_inicio?.slice(0,5)}</td>
+          <td>${c.titulo}</td>
+          <td>${c.tipo}</td>
+          <td>${alumnos}</td>
+        </tr>
+      `
+    }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--texto-secundario);">Sin clases próximas</td></tr>'
+  </script>
+</body>
+</html>
