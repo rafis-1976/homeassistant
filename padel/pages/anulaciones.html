@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Anulaciones — Padel Manager</title>
+  <link rel="stylesheet" href="../css/theme.css">
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar"></nav>
+    <main class="content">
+      <h1>🚫 Anulación de Clases</h1>
+
+      <div class="card" style="margin-bottom:16px;">
+        <h2>Anular una clase programada</h2>
+        <div style="display:flex;gap:12px;align-items:end;">
+          <label style="flex:1;">Clase
+            <select id="select-clase"></select>
+          </label>
+          <label style="flex:1;">Motivo
+            <input type="text" id="motivo" placeholder="Ej: lluvia, baja alumno...">
+          </label>
+          <button class="btn-peligro" id="btn-anular">Anular clase</button>
+        </div>
+      </div>
+
+      <h2>Clases anuladas</h2>
+      <table class="tabla">
+        <thead>
+          <tr><th>Fecha</th><th>Hora</th><th>Título</th><th>Motivo</th><th>Alumnos</th><th></th></tr>
+        </thead>
+        <tbody id="tbody-anuladas"></tbody>
+      </table>
+    </main>
+  </div>
+
+  <script type="module">
+    import { supabase, TABLES } from '../js/supabase-client.js'
+    import { renderNav } from '../js/nav.js'
+
+    renderNav('anulaciones')
+
+    async function cargarSelect() {
+      const hoy = new Date().toISOString().split('T')[0]
+      const { data } = await supabase
+        .from(TABLES.clases)
+        .select('id, titulo, fecha, hora_inicio')
+        .eq('estado', 'programada')
+        .gte('fecha', hoy)
+        .order('fecha')
+        .order('hora_inicio')
+      document.getElementById('select-clase').innerHTML = (data || [])
+        .map(c => `<option value="${c.id}">${c.fecha} ${c.hora_inicio?.slice(0,5)} — ${c.titulo}</option>`).join('')
+        || '<option value="">Sin clases programadas</option>'
+    }
+
+    async function cargarAnuladas() {
+      const { data } = await supabase
+        .from(TABLES.clases)
+        .select('*, padel_clase_alumnos(padel_alumnos(nombre, apellidos))')
+        .eq('estado', 'anulada')
+        .order('fecha', { ascending: false })
+
+      document.getElementById('tbody-anuladas').innerHTML = (data || []).map(c => {
+        const alumnos = (c.padel_clase_alumnos || [])
+          .map(a => `${a.padel_alumnos.nombre} ${a.padel_alumnos.apellidos}`).join(', ') || '—'
+        return `
+          <tr>
+            <td>${c.fecha}</td>
+            <td>${c.hora_inicio?.slice(0,5)}</td>
+            <td>${c.titulo}</td>
+            <td>${c.motivo_anulacion || '—'}</td>
+            <td>${alumnos}</td>
+            <td><button class="btn-secondary" data-repro="${c.id}">🔄 Reprogramar</button></td>
+          </tr>
+        `
+      }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--texto-secundario);">Sin clases anuladas</td></tr>'
+
+      document.querySelectorAll('[data-repro]').forEach(btn => {
+        btn.onclick = async () => {
+          const claseId = btn.dataset.repro
+          const nuevaFecha = prompt('Nueva fecha (YYYY-MM-DD):')
+          if (!nuevaFecha) return
+
+          const { data: original } = await supabase
+            .from(TABLES.clases).select('*').eq('id', claseId).single()
+
+          const { data: nueva, error } = await supabase
+            .from(TABLES.clases)
+            .insert({
+              titulo: original.titulo,
+              fecha: nuevaFecha,
+              hora_inicio: original.hora_inicio,
+              hora_fin: original.hora_fin,
+              tipo: original.tipo,
+              estado: 'reprogramada',
+              precio_total: original.precio_total,
+              notas: original.notas
+            }).select().single()
+
+          if (error) { alert(error.message); return }
+
+          const { data: rels } = await supabase
+            .from(TABLES.claseAlumnos).select('alumno_id').eq('clase_id', claseId)
+
+          if (rels?.length) {
+            await supabase.from(TABLES.claseAlumnos).insert(
+              rels.map(r => ({ clase_id: nueva.id, alumno_id: r.alumno_id }))
+            )
+          }
+
+          alert('✅ Clase reprogramada')
+          cargarAnuladas()
+          cargarSelect()
+        }
+      })
+    }
+
+    document.getElementById('btn-anular').onclick = async () => {
+      const claseId = document.getElementById('select-clase').value
+      const motivo = document.getElementById('motivo').value
+      if (!claseId) return
+      if (!confirm('¿Anular esta clase?')) return
+
+      await supabase.from(TABLES.clases)
+        .update({ estado: 'anulada', motivo_anulacion: motivo || null })
+        .eq('id', claseId)
+
+      document.getElementById('motivo').value = ''
+      cargarSelect()
+      cargarAnuladas()
+    }
+
+    cargarSelect()
+    cargarAnuladas()
+  </script>
+</body>
+</html>
