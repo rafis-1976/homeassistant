@@ -29,25 +29,14 @@
         <label>Hora fin <input type="time" id="hora_fin" required></label>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <label>Tipo
-          <select id="tipo">
-            <option value="individual">Individual</option>
-            <option value="grupal">Grupal</option>
-            <option value="clinica">Clínica</option>
-            <option value="partido">Partido</option>
-          </select>
-        </label>
-        <label>Nivel
-          <select id="nivel_filtro">
-            <option value="">Todos los niveles</option>
-            <option value="iniciacion">Iniciación</option>
-            <option value="intermedio">Intermedio</option>
-            <option value="avanzado">Avanzado</option>
-            <option value="competicion">Competición</option>
-          </select>
-        </label>
-      </div>
+      <label>Tipo
+        <select id="tipo">
+          <option value="individual">Individual</option>
+          <option value="grupal">Grupal</option>
+          <option value="clinica">Clínica</option>
+          <option value="partido">Partido</option>
+        </select>
+      </label>
 
       <label>Ejercicio del catálogo
         <select id="ejercicio_id">
@@ -59,25 +48,47 @@
         <input type="text" id="ejercicio_libre" placeholder="Ej: Partidillos, Calentamiento...">
       </label>
 
-      <label>Alumnos <span id="contador-alumnos" style="color:var(--pista-azul-hielo);font-weight:600;"></span>
-        <select id="alumnos" multiple size="6"></select>
-        <small style="color:var(--texto-secundario);font-size:0.75rem;">Ctrl+clic (o Cmd+clic en Mac) para seleccionar varios</small>
-      </label>
+      <!-- ============================
+           NIVEL + ALUMNOS CON CHECKBOXES
+           ============================ -->
+      <div class="bloque-alumnos">
+        <label style="margin-bottom:8px;">Nivel
+          <select id="nivel_filtro">
+            <option value="">— Selecciona un nivel —</option>
+            <option value="iniciacion">Iniciación</option>
+            <option value="intermedio">Intermedio</option>
+            <option value="avanzado">Avanzado</option>
+            <option value="competicion">Competición</option>
+          </select>
+        </label>
+
+        <div class="lista-alumnos-header">
+          <span>Alumnos <span id="contador-alumnos" class="contador"></span></span>
+          <div class="acciones-lista">
+            <button type="button" class="btn-mini" id="btn-todos">Todos</button>
+            <button type="button" class="btn-mini" id="btn-ninguno">Ninguno</button>
+          </div>
+        </div>
+
+        <div id="lista-alumnos" class="lista-alumnos">
+          <p class="vacio">Elige un nivel para ver los alumnos</p>
+        </div>
+      </div>
 
       <!-- ============================
            REPETICIÓN SEMANAL
            ============================ -->
-      <div id="bloque-repetir" style="background:var(--fondo-app);border:1px solid var(--borde-card);border-radius:8px;padding:12px;margin-bottom:12px;">
-        <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer;">
-          <input type="checkbox" id="repetir_semanal" style="width:auto;min-height:auto;">
-          <span style="font-weight:600;color:var(--texto-principal);">🔁 Repetir esta clase todas las semanas</span>
+      <div id="bloque-repetir" class="bloque-repetir">
+        <label class="check-repetir">
+          <input type="checkbox" id="repetir_semanal">
+          <span>🔁 Repetir esta clase todas las semanas</span>
         </label>
 
         <div id="campos-repetir" style="display:none;">
           <label>Repetir hasta (inclusive)
             <input type="date" id="repetir_hasta">
           </label>
-          <div id="preview-repeticion" style="font-size:0.8rem;color:var(--pista-azul-hielo);margin-top:4px;"></div>
+          <div id="preview-repeticion" class="preview-repeticion"></div>
         </div>
       </div>
 
@@ -100,20 +111,22 @@
 
     const modal = document.getElementById('modal-clase')
     const form = document.getElementById('form-clase')
-    const selectAlumnos = document.getElementById('alumnos')
     const selectEjercicio = document.getElementById('ejercicio_id')
     const selectNivel = document.getElementById('nivel_filtro')
+    const listaAlumnos = document.getElementById('lista-alumnos')
+    const contadorAlumnos = document.getElementById('contador-alumnos')
     const checkRepetir = document.getElementById('repetir_semanal')
     const camposRepetir = document.getElementById('campos-repetir')
     const inputRepetirHasta = document.getElementById('repetir_hasta')
     const previewRepeticion = document.getElementById('preview-repeticion')
-    const contadorAlumnos = document.getElementById('contador-alumnos')
 
     // Cache de alumnos
     let alumnosCache = []
+    // Set de IDs seleccionados (persistente entre cambios de nivel)
+    let alumnosSeleccionados = new Set()
 
     // ============================
-    // Cargar alumnos (con nivel para filtrar)
+    // Cargar alumnos
     // ============================
     async function cargarAlumnos() {
       const { data } = await supabase
@@ -128,29 +141,71 @@
     // ============================
     // Pintar alumnos según nivel
     // ============================
-    function pintarAlumnos(nivel, seleccionados = []) {
-      const filtrados = nivel
-        ? alumnosCache.filter(a => a.nivel === nivel)
-        : alumnosCache
+    function pintarAlumnos(nivel) {
+      if (!nivel) {
+        listaAlumnos.innerHTML = '<p class="vacio">Elige un nivel para ver los alumnos</p>'
+        actualizarContador()
+        return
+      }
 
-      selectAlumnos.innerHTML = filtrados
-        .map(a => `<option value="${a.id}">${a.nombre} <span style="color:#8a9ba8;">(${a.nivel})</span></option>`).join('')
-        || '<option disabled>— Sin alumnos de este nivel —</option>'
+      const filtrados = alumnosCache.filter(a => a.nivel === nivel)
 
-      // Restaurar selección previa si sigue estando disponible
-      Array.from(selectAlumnos.options).forEach(o => {
-        o.selected = seleccionados.includes(o.value)
+      if (filtrados.length === 0) {
+        listaAlumnos.innerHTML = '<p class="vacio">No hay alumnos de este nivel</p>'
+        actualizarContador()
+        return
+      }
+
+      listaAlumnos.innerHTML = filtrados.map(a => {
+        const checked = alumnosSeleccionados.has(a.id) ? 'checked' : ''
+        return `
+          <label class="item-alumno">
+            <input type="checkbox" value="${a.id}" ${checked}>
+            <span class="nombre">${a.nombre}</span>
+          </label>
+        `
+      }).join('')
+
+      // Listeners
+      listaAlumnos.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          if (cb.checked) alumnosSeleccionados.add(cb.value)
+          else alumnosSeleccionados.delete(cb.value)
+          actualizarContador()
+        })
       })
 
       actualizarContador()
     }
 
     function actualizarContador() {
-      const n = selectAlumnos.selectedOptions.length
+      const n = alumnosSeleccionados.size
       contadorAlumnos.textContent = n > 0 ? `(${n} seleccionado${n > 1 ? 's' : ''})` : ''
     }
 
-    selectAlumnos.addEventListener('change', actualizarContador)
+    // ============================
+    // Botones Todos / Ninguno (del nivel actual)
+    // ============================
+    document.getElementById('btn-todos').addEventListener('click', () => {
+      if (!selectNivel.value) return
+      const filtrados = alumnosCache.filter(a => a.nivel === selectNivel.value)
+      filtrados.forEach(a => alumnosSeleccionados.add(a.id))
+      pintarAlumnos(selectNivel.value)
+    })
+
+    document.getElementById('btn-ninguno').addEventListener('click', () => {
+      if (!selectNivel.value) return
+      const filtrados = alumnosCache.filter(a => a.nivel === selectNivel.value)
+      filtrados.forEach(a => alumnosSeleccionados.delete(a.id))
+      pintarAlumnos(selectNivel.value)
+    })
+
+    // ============================
+    // Cambio de nivel → repinta
+    // ============================
+    selectNivel.addEventListener('change', () => {
+      pintarAlumnos(selectNivel.value)
+    })
 
     // ============================
     // Cargar ejercicios
@@ -161,27 +216,17 @@
       (ejercicios || []).map(e => `<option value="${e.id}">${e.titulo}</option>`).join('')
 
     // ============================
-    // Cambio de nivel → filtra alumnos (sin perder la selección válida)
-    // ============================
-    selectNivel.addEventListener('change', () => {
-      const seleccionados = Array.from(selectAlumnos.selectedOptions).map(o => o.value)
-      pintarAlumnos(selectNivel.value, seleccionados)
-    })
-
-    // ============================
     // Repetición semanal
     // ============================
     checkRepetir.addEventListener('change', () => {
       camposRepetir.style.display = checkRepetir.checked ? 'block' : 'none'
       if (checkRepetir.checked && !inputRepetirHasta.value) {
-        // Sugerir +8 semanas
         const fechaBase = document.getElementById('fecha').value
         if (fechaBase) {
           const d = new Date(fechaBase + 'T12:00:00')
           d.setDate(d.getDate() + 7 * 8)
           inputRepetirHasta.value = d.toISOString().split('T')[0]
         }
-        actualizarPreviewRepeticion()
       }
       actualizarPreviewRepeticion()
     })
@@ -201,7 +246,7 @@
       while (actual <= fin) {
         fechas.push(actual.toISOString().split('T')[0])
         actual.setDate(actual.getDate() + 7)
-        if (fechas.length > 100) break // seguridad
+        if (fechas.length > 100) break
       }
       return fechas
     }
@@ -283,7 +328,7 @@
     calendar.render()
 
     // ============================
-    // Abrir modal (nueva o editar)
+    // Abrir modal
     // ============================
     function abrirModal(clase) {
       const btnRealizada = document.getElementById('btn-realizada')
@@ -301,16 +346,23 @@
         document.getElementById('ejercicio_libre').value = clase.extendedProps.ejercicioLibre || ''
         document.getElementById('notas').value = clase.extendedProps.notas || ''
 
-        // Al editar: no filtrar por nivel, mostrar todos y marcar seleccionados
-        selectNivel.value = ''
-        const ids = clase.extendedProps.alumnosIds || []
-        pintarAlumnos('', ids)
+        // Marcar los alumnos seleccionados
+        alumnosSeleccionados = new Set(clase.extendedProps.alumnosIds || [])
 
-        // Ocultar bloque repetir al editar (no tiene sentido)
+        // Al editar: inferir el nivel si TODOS los alumnos seleccionados comparten nivel
+        selectNivel.value = ''
+        const nivelesSeleccionados = new Set(
+          alumnosCache.filter(a => alumnosSeleccionados.has(a.id)).map(a => a.nivel)
+        )
+        if (nivelesSeleccionados.size === 1) {
+          selectNivel.value = [...nivelesSeleccionados][0]
+        }
+        pintarAlumnos(selectNivel.value)
+
+        // Ocultar bloque repetir
         document.getElementById('bloque-repetir').style.display = 'none'
         document.getElementById('btn-guardar').textContent = 'Guardar cambios'
 
-        // Botón "Realizada" solo si procede
         const estado = clase.extendedProps.estado
         btnRealizada.style.display = (estado === 'programada' || estado === 'reprogramada') ? 'inline-flex' : 'none'
         btnRealizada.onclick = async () => {
@@ -325,19 +377,17 @@
         document.getElementById('modal-titulo').textContent = 'Nueva Clase'
         document.getElementById('clase-id').value = ''
         document.getElementById('fecha').value = clase?.fecha || ''
+        document.getElementById('hora_inicio').value = '09:00'
+        document.getElementById('hora_fin').value = '10:00'
         btnRealizada.style.display = 'none'
 
-        // Mostrar bloque repetir
         document.getElementById('bloque-repetir').style.display = 'block'
         document.getElementById('btn-guardar').textContent = 'Guardar'
 
-        // Reset nivel y alumnos
+        // Reset selección y nivel
+        alumnosSeleccionados = new Set()
         selectNivel.value = ''
         pintarAlumnos('')
-
-        // Sugerir horas por defecto
-        document.getElementById('hora_inicio').value = '09:00'
-        document.getElementById('hora_fin').value = '10:00'
       }
       modal.showModal()
     }
@@ -345,12 +395,12 @@
     document.getElementById('btn-cancelar').onclick = () => modal.close()
 
     // ============================
-    // Guardar (nueva o editar) + repetición semanal
+    // Guardar
     // ============================
     form.addEventListener('submit', async (e) => {
       e.preventDefault()
       const id = document.getElementById('clase-id').value
-      const alumnosIds = Array.from(selectAlumnos.selectedOptions).map(o => o.value)
+      const alumnosIds = Array.from(alumnosSeleccionados)
 
       const datosBase = {
         titulo: document.getElementById('titulo').value,
@@ -364,9 +414,7 @@
 
       const fechaBase = document.getElementById('fecha').value
 
-      // ============================
-      // MODO EDICIÓN (sin repetición)
-      // ============================
+      // ===== MODO EDICIÓN =====
       if (id) {
         await supabase.from(TABLES.clases).update({
           ...datosBase,
@@ -386,9 +434,7 @@
         return
       }
 
-      // ============================
-      // MODO NUEVA (con o sin repetición)
-      // ============================
+      // ===== MODO NUEVA =====
       let fechas = [fechaBase]
 
       if (checkRepetir.checked) {
@@ -403,7 +449,6 @@
         }
       }
 
-      // Insertar todas las clases de golpe
       const clasesAInsertar = fechas.map(f => ({ ...datosBase, fecha: f }))
 
       const { data: insertadas, error } = await supabase
@@ -413,7 +458,6 @@
 
       if (error) { alert('Error: ' + error.message); return }
 
-      // Asociar alumnos a TODAS las clases creadas
       if (alumnosIds.length && insertadas?.length) {
         const relaciones = []
         insertadas.forEach(c => {
@@ -437,6 +481,144 @@
   </script>
 
   <style>
+    /* ============================
+       Bloque de alumnos con checkboxes
+       ============================ */
+    .bloque-alumnos {
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .lista-alumnos-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 10px 0 6px;
+      font-size: 0.85rem;
+      color: var(--texto-secundario);
+      font-weight: 600;
+    }
+
+    .contador {
+      color: var(--pista-azul-hielo);
+      font-weight: 700;
+    }
+
+    .acciones-lista {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-mini {
+      background: var(--pista-azul-oscuro);
+      color: var(--texto-principal);
+      border: 1px solid var(--borde-card);
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      min-height: auto;
+    }
+    .btn-mini:hover {
+      background: var(--pista-azul-claro);
+      border-color: var(--pista-azul-claro);
+    }
+
+    .lista-alumnos {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--borde-card);
+      border-radius: 6px;
+      background: var(--fondo-card);
+      padding: 4px;
+    }
+
+    .lista-alumnos .vacio {
+      padding: 12px;
+      text-align: center;
+      color: var(--texto-secundario);
+      font-size: 0.82rem;
+      margin: 0;
+    }
+
+    .item-alumno {
+      display: flex !important;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      margin: 0 !important;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: var(--texto-principal);
+      transition: background 0.12s;
+    }
+    .item-alumno:hover {
+      background: rgba(58, 143, 191, 0.15);
+    }
+    .item-alumno input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      min-height: auto;
+      margin: 0;
+      flex-shrink: 0;
+      cursor: pointer;
+      accent-color: var(--pista-azul-claro);
+    }
+    .item-alumno .nombre {
+      flex: 1;
+      user-select: none;
+    }
+    .item-alumno input[type="checkbox"]:checked + .nombre {
+      font-weight: 600;
+      color: var(--pista-azul-hielo);
+    }
+
+    /* ============================
+       Repetición
+       ============================ */
+    .bloque-repetir {
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .check-repetir {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 !important;
+      cursor: pointer;
+    }
+    .check-repetir input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      min-height: auto;
+      margin: 0;
+      flex-shrink: 0;
+      accent-color: var(--pista-azul-claro);
+    }
+    .check-repetir span {
+      font-weight: 600;
+      color: var(--texto-principal);
+      font-size: 0.9rem;
+    }
+
+    .preview-repeticion {
+      font-size: 0.8rem;
+      color: var(--pista-azul-hielo);
+      margin-top: 6px;
+    }
+
+    /* ============================
+       FullCalendar — evento anulado
+       ============================ */
     .evento-anulado {
       text-decoration: line-through;
       opacity: 0.85;
