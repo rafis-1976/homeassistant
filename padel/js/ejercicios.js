@@ -7,13 +7,13 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 // Pista oficial 20m × 10m dentro de viewBox 900×500
 // Court jugable: (50,50) → (850,450)
 const COURT = {
-  xMin: 55,
-  xMax: 845,
-  yMin: 55,
-  yMax: 445,
-  centerX: 450,
-  centerY: 250,
-  netX: 450
+  xMin: 85,
+  xMax: 855,
+  yMin: 85,
+  yMax: 455,
+  centerX: 470,
+  centerY: 270,
+  netX: 470
 }
 
 let contadorIds = 0
@@ -176,7 +176,7 @@ function agregarElemento(tipo, x, y) {
     'jugador-rojo':  '#icon-jugador-rojo',
     'carro-bolas':   '#icon-carro',
     'cono':          '#icon-cono',
-    'seta':          '#icon-seta',
+    'seta':          '#icon-escalera',
     'pelota':        '#icon-pelota',
     'flecha-recta':  '#icon-flecha'
   }
