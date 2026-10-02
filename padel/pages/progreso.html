@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Progreso — Padel Manager</title>
   <link rel="stylesheet" href="../css/theme.css">
 </head>
@@ -11,8 +12,8 @@
     <main class="content">
       <h1>📈 Progresión de Alumnos</h1>
 
-      <div class="card" style="margin-bottom:16px;display:flex;gap:12px;align-items:end;">
-        <label style="flex:1;">Alumno
+      <div class="card" style="margin-bottom:16px;display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
+        <label style="flex:1;min-width:200px;">Alumno
           <select id="select-alumno"></select>
         </label>
         <button class="btn-primary" id="btn-nueva-eval">+ Nueva evaluación</button>
@@ -22,15 +23,17 @@
         <canvas id="grafico-progreso" height="120"></canvas>
       </div>
 
-      <table class="tabla">
-        <thead>
-          <tr>
-            <th>Fecha</th><th>Técnica</th><th>Táctica</th>
-            <th>Físico</th><th>Actitud</th><th>Observaciones</th>
-          </tr>
-        </thead>
-        <tbody id="tbody-progreso"></tbody>
-      </table>
+      <div class="tabla-wrapper">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Técnica</th><th>Táctica</th>
+              <th>Físico</th><th>Actitud</th><th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-progreso"></tbody>
+        </table>
+      </div>
     </main>
   </div>
 
@@ -85,7 +88,7 @@
           <td>${r.fecha}</td>
           <td>${r.tecnica}</td><td>${r.tactica}</td>
           <td>${r.fisico}</td><td>${r.actitud}</td>
-          <td>${r.observaciones || '—'}</td>
+          <td class="wrap">${r.observaciones || '—'}</td>
         </tr>
       `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--texto-secundario);">Sin evaluaciones</td></tr>'
 
@@ -112,16 +115,18 @@
           }]
         },
         options: {
+          responsive: true,
+          maintainAspectRatio: true,
           scales: {
             r: {
               min: 0, max: 10,
               grid: { color: '#2a3f5a' },
               angleLines: { color: '#2a3f5a' },
-              pointLabels: { color: '#e8f0f8' },
-              ticks: { color: '#8a9ba8', backdropColor: 'transparent' }
+              pointLabels: { color: '#e8f0f8', font: { size: 11 } },
+              ticks: { color: '#8a9ba8', backdropColor: 'transparent', font: { size: 9 } }
             }
           },
-          plugins: { legend: { labels: { color: '#e8f0f8' } } }
+          plugins: { legend: { labels: { color: '#e8f0f8', font: { size: 11 } } } }
         }
       })
     }
