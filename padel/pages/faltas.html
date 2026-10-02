@@ -34,8 +34,16 @@
   <dialog id="modal-falta">
     <form id="form-falta">
       <h2>Registrar falta</h2>
+
       <label>Alumno <select id="alumno_id" required></select></label>
-      <label>Clase <select id="clase_id"></select></label>
+
+      <label>Clase
+        <select id="clase_id">
+          <option value="">— Selecciona un alumno primero —</option>
+        </select>
+        <small id="info-clases" style="color:var(--texto-secundario);font-size:0.72rem;display:block;margin-top:4px;"></small>
+      </label>
+
       <label>Tipo
         <select id="tipo">
           <option value="justificada">Justificada</option>
@@ -44,7 +52,9 @@
           <option value="aviso_tardio">Aviso tardío</option>
         </select>
       </label>
+
       <label>Descripción <textarea id="descripcion" rows="3"></textarea></label>
+
       <div class="modal-actions">
         <button type="button" class="btn-secondary" onclick="document.getElementById('modal-falta').close()">Cancelar</button>
         <button type="submit" class="btn-primary">Guardar</button>
@@ -59,29 +69,105 @@
     renderNav('faltas')
 
     const modal = document.getElementById('modal-falta')
+    const selectAlumno = document.getElementById('alumno_id')
+    const selectClase = document.getElementById('clase_id')
+    const infoClases = document.getElementById('info-clases')
 
-    // Cargar alumnos (sin apellidos)
+    // Cache de relaciones clase-alumno
+    // Estructura: { alumnoId: [{ claseId, fecha, hora_inicio, titulo, tipo }] }
+    let clasesPorAlumno = {}
+
+    // ============================
+    // Cargar alumnos
+    // ============================
     const { data: alumnos } = await supabase
       .from(TABLES.alumnos)
       .select('id, nombre')
       .eq('activo', true)
       .order('nombre')
 
-    document.getElementById('alumno_id').innerHTML =
-      (alumnos || []).map(a => `<option value="${a.id}">${a.nombre}</option>`).join('')
-      || '<option value="">— Sin alumnos —</option>'
+    selectAlumno.innerHTML =
+      '<option value="">— Selecciona un alumno —</option>' +
+      ((alumnos || []).map(a => `<option value="${a.id}">${a.nombre}</option>`).join('') ||
+       '<option value="" disabled>Sin alumnos</option>')
 
-    // Cargar clases
-    const { data: clases } = await supabase
-      .from(TABLES.clases)
-      .select('id, titulo, fecha')
-      .order('fecha', { ascending: false })
-      .limit(100)
+    // ============================
+    // Precargar todas las clases programadas con sus alumnos
+    // ============================
+    async function cargarClasesPorAlumno() {
+      const hoy = new Date().toISOString().split('T')[0]
 
-    document.getElementById('clase_id').innerHTML =
-      '<option value="">— Sin clase asociada —</option>' +
-      (clases || []).map(c => `<option value="${c.id}">${c.fecha} — ${c.titulo}</option>`).join('')
+      const { data, error } = await supabase
+        .from(TABLES.clases)
+        .select(`
+          id, titulo, fecha, hora_inicio, hora_fin, tipo, estado,
+          padel_clase_alumnos(alumno_id)
+        `)
+        .eq('estado', 'programada')
+        .gte('fecha', hoy)
+        .order('fecha', { ascending: true })
+        .order('hora_inicio', { ascending: true })
 
+      if (error) { console.error(error); return }
+
+      clasesPorAlumno = {}
+
+      ;(data || []).forEach(clase => {
+        (clase.padel_clase_alumnos || []).forEach(rel => {
+          const alumnoId = rel.alumno_id
+          if (!clasesPorAlumno[alumnoId]) clasesPorAlumno[alumnoId] = []
+          clasesPorAlumno[alumnoId].push({
+            id: clase.id,
+            titulo: clase.titulo,
+            fecha: clase.fecha,
+            hora_inicio: clase.hora_inicio,
+            hora_fin: clase.hora_fin,
+            tipo: clase.tipo
+          })
+        })
+      })
+    }
+
+    await cargarClasesPorAlumno()
+
+    // ============================
+    // Al cambiar de alumno → filtrar clases
+    // ============================
+    selectAlumno.addEventListener('change', () => {
+      const alumnoId = selectAlumno.value
+
+      if (!alumnoId) {
+        selectClase.innerHTML = '<option value="">— Selecciona un alumno primero —</option>'
+        selectClase.disabled = true
+        infoClases.textContent = ''
+        return
+      }
+
+      const clases = clasesPorAlumno[alumnoId] || []
+
+      if (clases.length === 0) {
+        selectClase.innerHTML = '<option value="">— Sin clases programadas —</option>'
+        selectClase.disabled = true
+        infoClases.textContent = 'Este alumno no tiene clases programadas pendientes'
+        infoClases.style.color = '#e67e22'
+        return
+      }
+
+      selectClase.disabled = false
+      selectClase.innerHTML =
+        '<option value="">— Sin clase asociada —</option>' +
+        clases.map(c => {
+          const hora = `${(c.hora_inicio || '').slice(0,5)}–${(c.hora_fin || '').slice(0,5)}`
+          return `<option value="${c.id}">${c.fecha} · ${hora} · ${c.titulo}</option>`
+        }).join('')
+
+      infoClases.textContent = `${clases.length} clase${clases.length > 1 ? 's' : ''} programada${clases.length > 1 ? 's' : ''}`
+      infoClases.style.color = 'var(--pista-azul-hielo)'
+    })
+
+    // ============================
+    // Cargar lista de faltas
+    // ============================
     async function cargarFaltas() {
       const { data } = await supabase
         .from(TABLES.faltas)
@@ -108,19 +194,33 @@
       })
     }
 
-    document.getElementById('btn-nueva').onclick = () => {
+    // ============================
+    // Abrir modal (resetear)
+    // ============================
+    document.getElementById('btn-nueva').onclick = async () => {
       document.getElementById('form-falta').reset()
+
+      // Refrescar el cache por si ha habido cambios en el calendario
+      await cargarClasesPorAlumno()
+
+      selectClase.innerHTML = '<option value="">— Selecciona un alumno primero —</option>'
+      selectClase.disabled = true
+      infoClases.textContent = ''
+
       modal.showModal()
     }
 
+    // ============================
+    // Guardar falta
+    // ============================
     document.getElementById('form-falta').addEventListener('submit', async (e) => {
       e.preventDefault()
-      const alumnoId = document.getElementById('alumno_id').value
+      const alumnoId = selectAlumno.value
       if (!alumnoId) { alert('Selecciona un alumno'); return }
 
       await supabase.from(TABLES.faltas).insert({
         alumno_id: alumnoId,
-        clase_id: document.getElementById('clase_id').value || null,
+        clase_id: selectClase.value || null,
         tipo: document.getElementById('tipo').value,
         descripcion: document.getElementById('descripcion').value || null
       })
@@ -130,5 +230,12 @@
 
     cargarFaltas()
   </script>
+
+  <style>
+    #clase_id:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
 </body>
 </html>
