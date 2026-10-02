@@ -1,0 +1,68 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--fondo-card);
+  border-radius: var(--radio);
+  border: 1px solid var(--borde-card);
+  align-items: center;
+}
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tool-label {
+  font-size: 0.8rem;
+  color: var(--texto-secundario);
+  margin-right: 4px;
+}
+.tool-btn {
+  background: var(--fondo-app);
+  border: 1px solid var(--borde-card);
+  color: var(--texto-principal);
+  padding: 6px 10px;
+  border-radius: var(--radio-sm);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.15s;
+}
+.tool-btn:hover {
+  border-color: var(--pista-azul-claro);
+  background: var(--pista-azul-oscuro);
+}
+
+.pista-container {
+  background: var(--fondo-card);
+  border-radius: var(--radio);
+  padding: 20px;
+  border: 1px solid var(--borde-card);
+  margin-bottom: 16px;
+}
+#pista-svg {
+  width: 100%;
+  max-width: 800px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  border-radius: var(--radio-sm);
+  user-select: none;
+}
+
+.panel-propiedades {
+  background: var(--fondo-card);
+  border: 1px solid var(--borde-card);
+  border-radius: var(--radio);
+  padding: 16px;
+  max-width: 300px;
+}
+.panel-propiedades h3 { margin-bottom: 12px; font-size: 1rem; }
+.panel-propiedades label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+  color: var(--texto-secundario);
+}
+.panel-propiedades input[type="range"] { width: 100%; margin-top: 4px; }
