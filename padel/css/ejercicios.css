@@ -1,7 +1,10 @@
+/* ============================================
+   Toolbar
+   ============================================ */
 .toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 18px;
   margin-bottom: 16px;
   padding: 12px 16px;
   background: var(--fondo-card);
@@ -13,56 +16,142 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  padding-right: 14px;
+  border-right: 1px solid var(--borde-card);
 }
+.tool-group:last-of-type { border-right: none; }
 .tool-label {
-  font-size: 0.8rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   color: var(--texto-secundario);
-  margin-right: 4px;
+  margin-right: 6px;
+  font-weight: 600;
 }
 .tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--fondo-app);
   border: 1px solid var(--borde-card);
   color: var(--texto-principal);
-  padding: 6px 10px;
+  padding: 6px 8px;
   border-radius: var(--radio-sm);
   cursor: pointer;
-  font-size: 0.85rem;
   transition: all 0.15s;
+  min-width: 32px;
+  min-height: 30px;
 }
 .tool-btn:hover {
   border-color: var(--pista-azul-claro);
   background: var(--pista-azul-oscuro);
+  transform: translateY(-1px);
 }
+.tool-btn.active {
+  background: var(--pista-azul-claro);
+  border-color: var(--amarillo-pelota);
+  box-shadow: 0 0 0 2px var(--amarillo-pelota) inset;
+}
+
+/* ============================================
+   Pista
+   ============================================ */
+.pista-wrapper { position: relative; margin-bottom: 16px; }
+
+.hint-trayectoria {
+  display: none;
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--amarillo-pelota);
+  color: #1a2a42;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(232, 255, 58, 0.3);
+  white-space: nowrap;
+}
+.hint-trayectoria.visible { display: block; }
 
 .pista-container {
   background: var(--fondo-card);
   border-radius: var(--radio);
-  padding: 20px;
+  padding: 12px;
   border: 1px solid var(--borde-card);
-  margin-bottom: 16px;
 }
 #pista-svg {
   width: 100%;
-  max-width: 800px;
+  max-width: 1000px;
   height: auto;
   display: block;
   margin: 0 auto;
   border-radius: var(--radio-sm);
   user-select: none;
+  touch-action: none;
+}
+#pista-svg.drawing { cursor: crosshair; }
+
+/* Elementos sobre la pista */
+.elemento-pista { transition: filter 0.15s; }
+.elemento-pista:hover { filter: drop-shadow(0 0 3px #e8ff3a); }
+.preview-trayectoria { pointer-events: none; }
+
+/* ============================================
+   Notas
+   ============================================ */
+.notas-container {
+  background: var(--fondo-card);
+  border: 1px solid var(--borde-card);
+  border-radius: var(--radio);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.notas-container label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--texto-secundario);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.notas-container textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
 }
 
+/* ============================================
+   Panel de propiedades
+   ============================================ */
 .panel-propiedades {
   background: var(--fondo-card);
   border: 1px solid var(--borde-card);
   border-radius: var(--radio);
   padding: 16px;
-  max-width: 300px;
+  max-width: 340px;
 }
-.panel-propiedades h3 { margin-bottom: 12px; font-size: 1rem; }
+.panel-propiedades h3 {
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+  color: var(--amarillo-pelota);
+}
 .panel-propiedades label {
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   font-size: 0.85rem;
   color: var(--texto-secundario);
 }
-.panel-propiedades input[type="range"] { width: 100%; margin-top: 4px; }
+.panel-propiedades input[type="range"] {
+  width: 100%;
+  margin-top: 6px;
+  accent-color: var(--pista-azul-claro);
+}
+.rot-valor {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--pista-azul-hielo);
+  font-family: monospace;
+}
