@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Anulaciones — Padel Manager</title>
   <link rel="stylesheet" href="../css/theme.css">
 </head>
@@ -13,11 +14,11 @@
 
       <div class="card" style="margin-bottom:16px;">
         <h2>Anular una clase programada</h2>
-        <div style="display:flex;gap:12px;align-items:end;">
-          <label style="flex:1;">Clase
+        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
+          <label style="flex:1;min-width:220px;">Clase
             <select id="select-clase"></select>
           </label>
-          <label style="flex:1;">Motivo
+          <label style="flex:1;min-width:220px;">Motivo
             <input type="text" id="motivo" placeholder="Ej: lluvia, baja alumno...">
           </label>
           <button class="btn-peligro" id="btn-anular">Anular clase</button>
@@ -25,12 +26,14 @@
       </div>
 
       <h2>Clases anuladas</h2>
-      <table class="tabla">
-        <thead>
-          <tr><th>Fecha</th><th>Hora</th><th>Título</th><th>Motivo</th><th>Alumnos</th><th></th></tr>
-        </thead>
-        <tbody id="tbody-anuladas"></tbody>
-      </table>
+      <div class="tabla-wrapper">
+        <table class="tabla">
+          <thead>
+            <tr><th>Fecha</th><th>Hora</th><th>Título</th><th>Motivo</th><th>Alumnos</th><th></th></tr>
+          </thead>
+          <tbody id="tbody-anuladas"></tbody>
+        </table>
+      </div>
     </main>
   </div>
 
@@ -69,8 +72,8 @@
             <td>${c.fecha}</td>
             <td>${c.hora_inicio?.slice(0,5)}</td>
             <td>${c.titulo}</td>
-            <td>${c.motivo_anulacion || '—'}</td>
-            <td>${alumnos}</td>
+            <td class="wrap">${c.motivo_anulacion || '—'}</td>
+            <td class="wrap">${alumnos}</td>
             <td><button class="btn-secondary" data-repro="${c.id}">🔄 Reprogramar</button></td>
           </tr>
         `
