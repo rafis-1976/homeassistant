@@ -10,32 +10,48 @@
   <div class="layout">
     <nav class="sidebar"></nav>
     <main class="content">
-      <h1>🚫 Anulación de Clases</h1>
-
-      <div class="card" style="margin-bottom:16px;">
-        <h2>Anular una clase programada</h2>
-        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
-          <label style="flex:1;min-width:220px;">Clase
-            <select id="select-clase"></select>
-          </label>
-          <label style="flex:1;min-width:220px;">Motivo
-            <input type="text" id="motivo" placeholder="Ej: lluvia, baja alumno...">
-          </label>
-          <button class="btn-peligro" id="btn-anular">Anular clase</button>
+      <div class="page-header">
+        <h1>🚫 Clases Anuladas</h1>
+        <div class="acciones">
+          <input type="search" id="buscador" placeholder="🔍 Buscar..." style="max-width:260px;">
         </div>
       </div>
 
-      <h2>Clases anuladas</h2>
-      <div class="tabla-wrapper">
-        <table class="tabla">
-          <thead>
-            <tr><th>Fecha</th><th>Hora</th><th>Título</th><th>Motivo</th><th>Alumnos</th><th></th></tr>
-          </thead>
-          <tbody id="tbody-anuladas"></tbody>
-        </table>
+      <!-- Filtros -->
+      <div class="filtros">
+        <button class="filtro-btn active" data-filtro="todas">Todas</button>
+        <button class="filtro-btn" data-filtro="auto">🤖 Auto (No hay alumnos)</button>
+        <button class="filtro-btn" data-filtro="manual">✋ Manual</button>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="stats"></div>
+
+      <!-- Lista -->
+      <div id="lista-anuladas">
+        <p class="vacio">Cargando...</p>
       </div>
     </main>
   </div>
+
+  <!-- ============================
+       MODAL ANULAR MANUALMENTE
+       ============================ -->
+  <dialog id="modal-anular">
+    <form id="form-anular">
+      <h2>Anular una clase programada</h2>
+      <label>Clase
+        <select id="select-clase-programada"></select>
+      </label>
+      <label>Motivo
+        <input type="text" id="motivo" placeholder="Ej: lluvia, baja alumno, etc." required>
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" onclick="document.getElementById('modal-anular').close()">Cancelar</button>
+        <button type="submit" class="btn-peligro">🚫 Anular clase</button>
+      </div>
+    </form>
+  </dialog>
 
   <script type="module">
     import { supabase, TABLES } from '../js/supabase-client.js'
@@ -43,99 +59,568 @@
 
     renderNav('anulaciones')
 
-    async function cargarSelect() {
-      const hoy = new Date().toISOString().split('T')[0]
-      const { data } = await supabase
-        .from(TABLES.clases)
-        .select('id, titulo, fecha, hora_inicio')
-        .eq('estado', 'programada')
-        .gte('fecha', hoy)
-        .order('fecha')
-        .order('hora_inicio')
-      document.getElementById('select-clase').innerHTML = (data || [])
-        .map(c => `<option value="${c.id}">${c.fecha} ${c.hora_inicio?.slice(0,5)} — ${c.titulo}</option>`).join('')
-        || '<option value="">Sin clases programadas</option>'
-    }
+    let anuladasCache = []
+    let filtroActual = 'todas'
+    let buscadorTxt = ''
 
+    // ============================
+    // Cargar clases anuladas
+    // ============================
     async function cargarAnuladas() {
-      const { data } = await supabase
+      const contenedor = document.getElementById('lista-anuladas')
+      contenedor.innerHTML = '<p class="vacio">Cargando...</p>'
+
+      const { data, error } = await supabase
         .from(TABLES.clases)
-        .select('*, padel_clase_alumnos(padel_alumnos(nombre, apellidos))')
+        .select(`
+          id, titulo, fecha, hora_inicio, hora_fin, tipo, estado, motivo_anulacion, notas,
+          padel_clase_alumnos(
+            alumno_id,
+            padel_alumnos(id, nombre)
+          )
+        `)
         .eq('estado', 'anulada')
         .order('fecha', { ascending: false })
 
-      document.getElementById('tbody-anuladas').innerHTML = (data || []).map(c => {
-        const alumnos = (c.padel_clase_alumnos || [])
-          .map(a => `${a.padel_alumnos.nombre} ${a.padel_alumnos.apellidos}`).join(', ') || '—'
-        return `
-          <tr>
-            <td>${c.fecha}</td>
-            <td>${c.hora_inicio?.slice(0,5)}</td>
-            <td>${c.titulo}</td>
-            <td class="wrap">${c.motivo_anulacion || '—'}</td>
-            <td class="wrap">${alumnos}</td>
-            <td><button class="btn-secondary" data-repro="${c.id}">🔄 Reprogramar</button></td>
-          </tr>
+      if (error) {
+        console.error('Error:', error)
+        contenedor.innerHTML = `<p class="vacio" style="color:#e74c3c;">Error: ${error.message}</p>`
+        return
+      }
+
+      anuladasCache = data || []
+      pintarStats()
+      pintarLista()
+    }
+
+    // ============================
+    // Stats
+    // ============================
+    function pintarStats() {
+      const total = anuladasCache.length
+      const auto = anuladasCache.filter(c => (c.motivo_anulacion || '').toLowerCase().includes('no hay alumnos')).length
+      const manual = total - auto
+
+      document.getElementById('stats').innerHTML = `
+        <div class="stat-card">
+          <div class="stat-num">${total}</div>
+          <div class="stat-lbl">Total anuladas</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" style="color:#e67e22;">${auto}</div>
+          <div class="stat-lbl">🤖 Auto (sin alumnos)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" style="color:#3a8fbf;">${manual}</div>
+          <div class="stat-lbl">✋ Manuales</div>
+        </div>
+      `
+    }
+
+    // ============================
+    // Lista
+    // ============================
+    function pintarLista() {
+      const contenedor = document.getElementById('lista-anuladas')
+
+      let lista = anuladasCache
+
+      // Filtro por tipo
+      if (filtroActual === 'auto') {
+        lista = lista.filter(c => (c.motivo_anulacion || '').toLowerCase().includes('no hay alumnos'))
+      } else if (filtroActual === 'manual') {
+        lista = lista.filter(c => !(c.motivo_anulacion || '').toLowerCase().includes('no hay alumnos'))
+      }
+
+      // Buscador
+      if (buscadorTxt.trim()) {
+        const q = buscadorTxt.toLowerCase()
+        lista = lista.filter(c =>
+          (c.titulo || '').toLowerCase().includes(q) ||
+          (c.fecha || '').includes(q) ||
+          (c.motivo_anulacion || '').toLowerCase().includes(q)
+        )
+      }
+
+      if (lista.length === 0) {
+        contenedor.innerHTML = `
+          <p class="vacio">
+            ${anuladasCache.length === 0
+              ? '✅ No hay clases anuladas'
+              : '🔍 Sin resultados con los filtros actuales'}
+          </p>
         `
-      }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--texto-secundario);">Sin clases anuladas</td></tr>'
+        return
+      }
 
-      document.querySelectorAll('[data-repro]').forEach(btn => {
-        btn.onclick = async () => {
-          const claseId = btn.dataset.repro
-          const nuevaFecha = prompt('Nueva fecha (YYYY-MM-DD):')
-          if (!nuevaFecha) return
+      contenedor.innerHTML = lista.map(c => {
+        const alumnos = (c.padel_clase_alumnos || []).map(r => r.padel_alumnos?.nombre).filter(Boolean)
+        const motivo = c.motivo_anulacion || '—'
+        const esAuto = motivo.toLowerCase().includes('no hay alumnos')
+        const hora = `${(c.hora_inicio || '').slice(0,5)}–${(c.hora_fin || '').slice(0,5)}`
 
-          const { data: original } = await supabase
-            .from(TABLES.clases).select('*').eq('id', claseId).single()
+        return `
+          <div class="card-anulada ${esAuto ? 'auto' : ''}" data-id="${c.id}">
+            <div class="card-anulada-header">
+              <div class="card-anulada-info">
+                <div class="card-anulada-fecha">
+                  <span class="fecha">${c.fecha}</span>
+                  <span class="hora">${hora}</span>
+                </div>
+                <div class="card-anulada-titulo">${escapar(c.titulo)}</div>
+                <div class="card-anulada-meta">
+                  <span class="badge-tipo">${c.tipo}</span>
+                  ${esAuto ? '<span class="badge-auto">🤖 Auto</span>' : '<span class="badge-manual">✋ Manual</span>'}
+                </div>
+              </div>
+              <div class="card-anulada-motivo">
+                <div class="motivo-label">Motivo:</div>
+                <div class="motivo-texto">${escapar(motivo)}</div>
+              </div>
+            </div>
 
-          const { data: nueva, error } = await supabase
-            .from(TABLES.clases)
-            .insert({
-              titulo: original.titulo,
-              fecha: nuevaFecha,
-              hora_inicio: original.hora_inicio,
-              hora_fin: original.hora_fin,
-              tipo: original.tipo,
-              estado: 'reprogramada',
-              precio_total: original.precio_total,
-              notas: original.notas
-            }).select().single()
+            ${alumnos.length > 0 ? `
+              <div class="card-anulada-alumnos">
+                <span class="alumnos-label">👥 Alumnos (${alumnos.length}):</span>
+                <div class="alumnos-chips">
+                  ${alumnos.map(a => `<span class="chip">${escapar(a)}</span>`).join('')}
+                </div>
+              </div>
+            ` : '<div class="card-anulada-alumnos"><span class="alumnos-label" style="color:var(--texto-secundario);">Sin alumnos asociados</span></div>'}
 
-          if (error) { alert(error.message); return }
+            ${c.notas ? `<div class="card-anulada-notas">📝 ${escapar(c.notas)}</div>` : ''}
 
-          const { data: rels } = await supabase
-            .from(TABLES.claseAlumnos).select('alumno_id').eq('clase_id', claseId)
+            <div class="card-anulada-acciones">
+              <button class="btn-accion btn-reabrir" data-accion="reabrir" data-id="${c.id}">↩️ Reabrir</button>
+              <button class="btn-accion btn-reprogramar" data-accion="reprogramar" data-id="${c.id}">🔄 Reprogramar</button>
+              <button class="btn-accion btn-eliminar" data-accion="eliminar" data-id="${c.id}">🗑️ Eliminar</button>
+            </div>
+          </div>
+        `
+      }).join('')
 
-          if (rels?.length) {
-            await supabase.from(TABLES.claseAlumnos).insert(
-              rels.map(r => ({ clase_id: nueva.id, alumno_id: r.alumno_id }))
-            )
-          }
+      // Listeners
+      contenedor.querySelectorAll('[data-accion]').forEach(btn => {
+        const clase = anuladasCache.find(x => x.id === btn.dataset.id)
+        if (!clase) return
 
-          alert('✅ Clase reprogramada')
-          cargarAnuladas()
-          cargarSelect()
-        }
+        if (btn.dataset.accion === 'reabrir') btn.onclick = () => reabrirClase(clase)
+        else if (btn.dataset.accion === 'reprogramar') btn.onclick = () => reprogramarClase(clase)
+        else if (btn.dataset.accion === 'eliminar') btn.onclick = () => eliminarClase(clase)
       })
     }
 
-    document.getElementById('btn-anular').onclick = async () => {
-      const claseId = document.getElementById('select-clase').value
-      const motivo = document.getElementById('motivo').value
-      if (!claseId) return
-      if (!confirm('¿Anular esta clase?')) return
+    function escapar(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
 
-      await supabase.from(TABLES.clases)
-        .update({ estado: 'anulada', motivo_anulacion: motivo || null })
-        .eq('id', claseId)
+    // ============================
+    // Acciones
+    // ============================
+    async function reabrirClase(clase) {
+      if (!confirm(`¿Reabrir "${clase.titulo}" (${clase.fecha})?\n\nVolverá al estado "programada".`)) return
 
-      document.getElementById('motivo').value = ''
-      cargarSelect()
+      const { error } = await supabase
+        .from(TABLES.clases)
+        .update({ estado: 'programada', motivo_anulacion: null })
+        .eq('id', clase.id)
+
+      if (error) { alert('Error: ' + error.message); return }
+      toast('✅ Clase reabierta', 'ok')
       cargarAnuladas()
     }
 
-    cargarSelect()
+    async function reprogramarClase(clase) {
+      const nuevaFecha = prompt('Nueva fecha (YYYY-MM-DD):', clase.fecha)
+      if (!nuevaFecha) return
+
+      // Validar formato
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(nuevaFecha)) {
+        alert('Formato de fecha inválido. Usa YYYY-MM-DD')
+        return
+      }
+
+      // Comprobar solapamiento con otras clases esa fecha
+      const { data: clasesMismaFecha } = await supabase
+        .from(TABLES.clases)
+        .select('hora_inicio, hora_fin, titulo')
+        .eq('fecha', nuevaFecha)
+        .neq('estado', 'anulada')
+        .neq('id', clase.id)
+
+      const [hI, mI] = clase.hora_inicio.split(':').map(Number)
+      const [hF, mF] = clase.hora_fin.split(':').map(Number)
+      const ini = hI * 60 + mI
+      const fin = hF * 60 + mF
+
+      const conflicto = (clasesMismaFecha || []).find(c => {
+        const [chI, cmI] = c.hora_inicio.split(':').map(Number)
+        const [chF, cmF] = c.hora_fin.split(':').map(Number)
+        return ini < (chF * 60 + cmF) && fin > (chI * 60 + cmI)
+      })
+
+      if (conflicto) {
+        alert(`⚠️ Ya hay una clase ese día en horario solapado:\n${conflicto.hora_inicio}–${conflicto.hora_fin} ${conflicto.titulo}`)
+        return
+      }
+
+      // Crear nueva clase programada (manteniendo todos los datos)
+      const { data: nueva, error } = await supabase
+        .from(TABLES.clases)
+        .insert({
+          titulo: clase.titulo,
+          fecha: nuevaFecha,
+          hora_inicio: clase.hora_inicio,
+          hora_fin: clase.hora_fin,
+          tipo: clase.tipo,
+          estado: 'programada',
+          notas: clase.notas
+        })
+        .select()
+        .single()
+
+      if (error) { alert('Error: ' + error.message); return }
+
+      // Copiar alumnos
+      const { data: rels } = await supabase
+        .from(TABLES.claseAlumnos)
+        .select('alumno_id')
+        .eq('clase_id', clase.id)
+
+      if (rels?.length) {
+        await supabase.from(TABLES.claseAlumnos).insert(
+          rels.map(r => ({ clase_id: nueva.id, alumno_id: r.alumno_id }))
+        )
+      }
+
+      toast(`✅ Nueva clase creada el ${nuevaFecha}`, 'ok')
+      cargarAnuladas()
+    }
+
+    async function eliminarClase(clase) {
+      if (!confirm(`¿Eliminar definitivamente "${clase.titulo}" (${clase.fecha})?\n\nEsta acción no se puede deshacer.`)) return
+
+      const { error } = await supabase
+        .from(TABLES.clases)
+        .delete()
+        .eq('id', clase.id)
+
+      if (error) { alert('Error: ' + error.message); return }
+      toast('🗑️ Clase eliminada', 'ok')
+      cargarAnuladas()
+    }
+
+    // ============================
+    // Filtros y buscador
+    // ============================
+    document.querySelectorAll('.filtro-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+        filtroActual = btn.dataset.filtro
+        pintarLista()
+      }
+    })
+
+    document.getElementById('buscador').addEventListener('input', (e) => {
+      buscadorTxt = e.target.value
+      pintarLista()
+    })
+
+    // ============================
+    // Modal anular manual
+    // ============================
+    document.getElementById('form-anular').addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const claseId = document.getElementById('select-clase-programada').value
+      const motivo = document.getElementById('motivo').value
+
+      if (!claseId) { alert('Selecciona una clase'); return }
+
+      const { error } = await supabase
+        .from(TABLES.clases)
+        .update({ estado: 'anulada', motivo_anulacion: motivo })
+        .eq('id', claseId)
+
+      if (error) { alert('Error: ' + error.message); return }
+
+      document.getElementById('modal-anular').close()
+      toast('🚫 Clase anulada', 'ok')
+      cargarAnuladas()
+    })
+
+    // ============================
+    // Toast
+    // ============================
+    function toast(texto, tipo = 'ok') {
+      const colores = { ok: '#1e8449', err: '#c0392b' }
+      const t = document.createElement('div')
+      t.className = 'toast'
+      t.style.background = colores[tipo] || colores.ok
+      t.textContent = texto
+      document.body.appendChild(t)
+      setTimeout(() => {
+        t.style.opacity = '0'
+        setTimeout(() => t.remove(), 300)
+      }, 2500)
+    }
+
+    // ============================
+    // Init
+    // ============================
     cargarAnuladas()
   </script>
+
+  <style>
+    /* Filtros */
+    .filtros {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .filtro-btn {
+      background: var(--fondo-card);
+      border: 1px solid var(--borde-card);
+      color: var(--texto-secundario);
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 0.83rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      min-height: auto;
+    }
+    .filtro-btn:hover { border-color: var(--pista-azul-claro); color: var(--texto-principal); }
+    .filtro-btn.active {
+      background: var(--pista-azul-claro);
+      border-color: var(--pista-azul-claro);
+      color: white;
+    }
+
+    /* Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--fondo-card);
+      border: 1px solid var(--borde-card);
+      border-radius: var(--radio);
+      padding: 14px;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #e74c3c;
+      line-height: 1;
+    }
+    .stat-lbl {
+      font-size: 0.78rem;
+      color: var(--texto-secundario);
+      margin-top: 4px;
+    }
+
+    /* Lista */
+    #lista-anuladas {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .vacio {
+      text-align: center;
+      padding: 40px 16px;
+      color: var(--texto-secundario);
+      background: var(--fondo-card);
+      border: 1px dashed var(--borde-card);
+      border-radius: var(--radio);
+      font-size: 0.9rem;
+    }
+
+    /* Card */
+    .card-anulada {
+      background: var(--fondo-card);
+      border: 1px solid var(--borde-card);
+      border-left: 4px solid #c0392b;
+      border-radius: var(--radio);
+      padding: 14px 16px;
+      transition: all 0.15s;
+    }
+    .card-anulada:hover {
+      border-color: #e74c3c;
+      transform: translateX(2px);
+    }
+    .card-anulada.auto {
+      border-left-color: #e67e22;
+      background: linear-gradient(90deg, rgba(230, 126, 34, 0.06), var(--fondo-card));
+    }
+
+    .card-anulada-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 600px) {
+      .card-anulada-header { grid-template-columns: 1fr; }
+    }
+
+    .card-anulada-fecha {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .card-anulada-fecha .fecha {
+      font-family: monospace;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--texto-principal);
+    }
+    .card-anulada-fecha .hora {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: var(--pista-azul-hielo);
+    }
+    .card-anulada-titulo {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--texto-principal);
+      text-decoration: line-through;
+      text-decoration-color: #c0392b;
+      margin-bottom: 4px;
+    }
+    .card-anulada-meta {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .badge-tipo, .badge-auto, .badge-manual {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .badge-tipo {
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      color: var(--texto-secundario);
+    }
+    .badge-auto { background: #e67e22; color: white; }
+    .badge-manual { background: #3a8fbf; color: white; }
+
+    .card-anulada-motivo {
+      text-align: right;
+      min-width: 140px;
+    }
+    @media (max-width: 600px) {
+      .card-anulada-motivo { text-align: left; }
+    }
+    .motivo-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--texto-secundario);
+      letter-spacing: 0.3px;
+      margin-bottom: 2px;
+    }
+    .motivo-texto {
+      font-size: 0.88rem;
+      color: #e74c3c;
+      font-weight: 600;
+    }
+
+    .card-anulada-alumnos {
+      padding: 8px 0;
+      border-top: 1px dashed rgba(138, 155, 168, 0.2);
+      margin-top: 6px;
+    }
+    .alumnos-label {
+      font-size: 0.8rem;
+      color: var(--pista-azul-hielo);
+      display: block;
+      margin-bottom: 6px;
+    }
+    .alumnos-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .chip {
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      border-radius: 12px;
+      padding: 2px 10px;
+      font-size: 0.75rem;
+      color: var(--texto-principal);
+    }
+
+    .card-anulada-notas {
+      font-size: 0.8rem;
+      color: var(--texto-secundario);
+      padding: 6px 0 0;
+      font-style: italic;
+    }
+
+    .card-anulada-acciones {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--borde-card);
+      flex-wrap: wrap;
+    }
+    .btn-accion {
+      flex: 1;
+      min-width: 100px;
+      padding: 7px 12px;
+      border-radius: var(--radio-sm);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--borde-card);
+      background: var(--fondo-app);
+      color: var(--texto-principal);
+      transition: all 0.15s;
+      font-family: inherit;
+      min-height: auto;
+    }
+    .btn-accion:hover { transform: translateY(-1px); }
+    .btn-reabrir:hover { background: #27ae60; border-color: #27ae60; color: white; }
+    .btn-reprogramar:hover { background: var(--pista-azul-claro); border-color: var(--pista-azul-claro); color: white; }
+    .btn-eliminar:hover { background: #c0392b; border-color: #c0392b; color: white; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.88rem;
+      z-index: 9999;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      animation: toastIn 0.3s ease;
+      transition: opacity 0.3s;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translate(-50%, 20px); }
+      to   { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    @media (max-width: 600px) {
+      .btn-accion { flex: 1 1 100%; }
+      .stat-num { font-size: 1.5rem; }
+    }
+  </style>
 </body>
 </html>
