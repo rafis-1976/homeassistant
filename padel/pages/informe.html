@@ -17,20 +17,20 @@
           <label style="flex:1;min-width:180px;">Mes
             <input type="month" id="mes">
           </label>
-          <button class="btn-primary" id="btn-generar">📄 Generar informe PDF</button>
+          <button class="btn-primary" id="btn-generar">📄 Descargar informe PDF</button>
         </div>
       </div>
 
       <!-- Resumen en una línea -->
       <div id="resumen-linea" class="resumen-linea" style="display:none;"></div>
 
-      <!-- Mensaje inicial -->
+      <!-- Mensaje de carga -->
       <div id="placeholder" class="placeholder">
-        <div class="placeholder-icon">📄</div>
-        <p>Selecciona un mes y pulsa <strong>Generar informe PDF</strong> para ver el listado y descargar el informe.</p>
+        <div class="placeholder-icon">⏳</div>
+        <p>Cargando clases del mes...</p>
       </div>
 
-      <!-- Contenido del informe (oculto hasta generar) -->
+      <!-- Contenido del informe -->
       <div id="contenido-informe" style="display:none;">
         <!-- REALIZADAS -->
         <h2 class="seccion-titulo seccion-realizadas">
@@ -106,20 +106,48 @@
 
     renderNav('informe')
 
-    document.getElementById('mes').value = new Date().toISOString().slice(0, 7)
-    document.getElementById('btn-generar').onclick = generarYDescargar
+    const inputMes = document.getElementById('mes')
+    const btnGenerar = document.getElementById('btn-generar')
 
-    // ============================================
-    // Generar informe + PDF (SOLO al pulsar botón)
-    // ============================================
-    async function generarYDescargar() {
-      const mes = document.getElementById('mes').value
-      if (!mes) { alert('Selecciona un mes'); return }
+    // Mes actual por defecto
+    inputMes.value = new Date().toISOString().slice(0, 7)
 
-      const btn = document.getElementById('btn-generar')
-      const textoOriginal = btn.textContent
-      btn.disabled = true
-      btn.textContent = '⏳ Generando...'
+    // Estado del informe actual
+    let informeActual = null
+
+    // ============================================================
+    // LISTENERS
+    // ============================================================
+    // Al cambiar el mes → recargar listado automáticamente
+    inputMes.addEventListener('change', () => cargarYMostrar())
+
+    // Al pulsar el botón → descargar PDF (requiere datos cargados)
+    btnGenerar.addEventListener('click', () => {
+      if (!informeActual) {
+        alert('Espera a que se carguen los datos del mes')
+        return
+      }
+      generarPDF(informeActual)
+    })
+
+    // ============================================================
+    // CARGAR Y MOSTRAR LISTADO (sin descargar PDF)
+    // ============================================================
+    async function cargarYMostrar() {
+      const mes = inputMes.value
+      if (!mes) return
+
+      // UI: mostrar estado de carga
+      document.getElementById('placeholder').style.display = 'block'
+      document.getElementById('placeholder').innerHTML = `
+        <div class="placeholder-icon">⏳</div>
+        <p>Cargando clases del mes...</p>
+      `
+      document.getElementById('contenido-informe').style.display = 'none'
+      document.getElementById('resumen-linea').style.display = 'none'
+
+      btnGenerar.disabled = true
+      btnGenerar.textContent = '⏳ Cargando...'
 
       try {
         const [year, month] = mes.split('-')
@@ -145,38 +173,44 @@
         const reprogramadas  = (clases || []).filter(c => c.estado === 'reprogramada')
         const programadas    = (clases || []).filter(c => c.estado === 'programada')
 
-        const informe = { mes, realizadas, anuladas, reprogramadas, programadas }
+        informeActual = { mes, realizadas, anuladas, reprogramadas, programadas }
 
-        // Mostrar contenido
+        // Ocultar placeholder, mostrar contenido
         document.getElementById('placeholder').style.display = 'none'
         document.getElementById('contenido-informe').style.display = 'block'
 
-        pintarResumenLinea(informe)
+        // Pintar resumen + tablas
+        pintarResumenLinea(informeActual)
         pintarTablaRealizadas(realizadas)
         pintarTablaReprogramadas(reprogramadas)
         pintarTablaAnuladas(anuladas)
         pintarTablaProgramadas(programadas)
 
-        generarPDF(informe)
+        // Restaurar botón
+        btnGenerar.disabled = false
+        btnGenerar.textContent = '📄 Descargar informe PDF'
 
       } catch (err) {
-        alert('Error: ' + err.message)
         console.error(err)
-      } finally {
-        btn.disabled = false
-        btn.textContent = textoOriginal
+        document.getElementById('placeholder').innerHTML = `
+          <div class="placeholder-icon" style="color:#e74c3c;">⚠️</div>
+          <p style="color:#e74c3c;">Error al cargar: ${err.message}</p>
+        `
+        btnGenerar.disabled = true
+        btnGenerar.textContent = '📄 Descargar informe PDF'
       }
     }
 
-    // ============================================
-    // Resumen en una sola línea
-    // ============================================
+    // ============================================================
+    // RESUMEN (una línea)
+    // ============================================================
     function pintarResumenLinea(informe) {
       const total = informe.realizadas.length + informe.reprogramadas.length +
                     informe.anuladas.length + informe.programadas.length
 
-      document.getElementById('resumen-linea').style.display = 'block'
-      document.getElementById('resumen-linea').innerHTML = `
+      const div = document.getElementById('resumen-linea')
+      div.style.display = 'flex'
+      div.innerHTML = `
         <span class="res-item res-total">Total: <strong>${total}</strong></span>
         <span class="res-sep">·</span>
         <span class="res-item res-realizada">✅ Realizadas: <strong>${informe.realizadas.length}</strong></span>
@@ -189,9 +223,9 @@
       `
     }
 
-    // ============================================
-    // Helpers
-    // ============================================
+    // ============================================================
+    // HELPERS
+    // ============================================================
     function alumnosTxt(c) {
       return (c.padel_clase_alumnos || []).map(a => a.padel_alumnos?.nombre).filter(Boolean).join(', ') || '—'
     }
@@ -208,9 +242,9 @@
       return `<tr><td colspan="${cols}" style="text-align:center;color:var(--texto-secundario);">${msg}</td></tr>`
     }
 
-    // ============================================
-    // Tablas
-    // ============================================
+    // ============================================================
+    // TABLAS
+    // ============================================================
     function pintarTablaRealizadas(lista) {
       document.getElementById('cont-realizadas').textContent = `(${lista.length})`
       document.getElementById('tbody-realizadas').innerHTML = lista.map(c => `
@@ -269,9 +303,9 @@
       `).join('') || emptyRow(6, 'Sin clases programadas este mes')
     }
 
-    // ============================================
-    // PDF (sin emojis, resumen en 1 línea, sin "por tipo")
-    // ============================================
+    // ============================================================
+    // PDF
+    // ============================================================
     function generarPDF(informe) {
       const { jsPDF } = window.jspdf
       const doc = new jsPDF()
@@ -286,7 +320,7 @@
       const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
       const nombreMes = meses[parseInt(month) - 1] + ' ' + year
 
-      // ====== CABECERA ======
+      // CABECERA
       doc.setFillColor(26, 58, 92)
       doc.rect(0, 0, pageWidth, 30, 'F')
       doc.setTextColor(255, 255, 255)
@@ -301,7 +335,7 @@
 
       let y = 42
 
-      // ====== RESUMEN EN UNA LÍNEA ======
+      // RESUMEN EN 1 LÍNEA
       const total = informe.realizadas.length + informe.reprogramadas.length +
                     informe.anuladas.length + informe.programadas.length
 
@@ -311,45 +345,19 @@
 
       const resumenLinea = `Total: ${total}   Realizadas: ${informe.realizadas.length}   Reprogramadas: ${informe.reprogramadas.length}   Anuladas: ${informe.anuladas.length}   Programadas: ${informe.programadas.length}`
 
-      // Fondo suave para la línea de resumen
       doc.setFillColor(240, 244, 248)
       doc.rect(margenIzq - 2, y - 5, anchoUtil + 4, 8, 'F')
       doc.text(resumenLinea, margenIzq + 2, y)
 
       y += 14
 
-      // ====================================================
-      // SECCIONES (solo Fecha | Hora | Título)
-      // ====================================================
-      y = seccionPDF(doc, {
-        titulo: 'CLASES REALIZADAS',
-        color: [39, 174, 96],
-        clases: informe.realizadas,
-        y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight
-      })
+      // SECCIONES
+      y = seccionPDF(doc, { titulo: 'CLASES REALIZADAS',    color: [39, 174, 96],  clases: informe.realizadas,    y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight })
+      y = seccionPDF(doc, { titulo: 'CLASES REPROGRAMADAS', color: [230, 126, 34], clases: informe.reprogramadas, y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight })
+      y = seccionPDF(doc, { titulo: 'CLASES ANULADAS',      color: [192, 57, 43],  clases: informe.anuladas,      y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight })
+      y = seccionPDF(doc, { titulo: 'CLASES AUN PROGRAMADAS', color: [58, 143, 191], clases: informe.programadas, y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight })
 
-      y = seccionPDF(doc, {
-        titulo: 'CLASES REPROGRAMADAS',
-        color: [230, 126, 34],
-        clases: informe.reprogramadas,
-        y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight
-      })
-
-      y = seccionPDF(doc, {
-        titulo: 'CLASES ANULADAS',
-        color: [192, 57, 43],
-        clases: informe.anuladas,
-        y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight
-      })
-
-      y = seccionPDF(doc, {
-        titulo: 'CLASES AUN PROGRAMADAS',
-        color: [58, 143, 191],
-        clases: informe.programadas,
-        y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight
-      })
-
-      // ====== PIE DE PÁGINA ======
+      // PIE
       const totalPaginas = doc.internal.getNumberOfPages()
       for (let i = 1; i <= totalPaginas; i++) {
         doc.setPage(i)
@@ -358,28 +366,19 @@
         doc.setFont('helvetica', 'normal')
         doc.text(
           `Padel Manager - ${nombreMes}  |  Pagina ${i} de ${totalPaginas}`,
-          pageWidth / 2,
-          pageHeight - 8,
-          { align: 'center' }
+          pageWidth / 2, pageHeight - 8, { align: 'center' }
         )
       }
 
       doc.save(`informe-padel-${informe.mes}.pdf`)
     }
 
-    // ============================================
-    // Sección del PDF — solo Fecha | Hora | Título
-    // ============================================
     function seccionPDF(doc, opts) {
       const { titulo, color, clases, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight } = opts
       let y = opts.y
 
-      if (y > pageHeight - 40) {
-        doc.addPage()
-        y = 20
-      }
+      if (y > pageHeight - 40) { doc.addPage(); y = 20 }
 
-      // Barra de título
       doc.setFillColor(color[0], color[1], color[2])
       doc.rect(margenIzq - 2, y - 5, anchoUtil + 4, 8, 'F')
       doc.setTextColor(255, 255, 255)
@@ -416,7 +415,6 @@
         doc.setTextColor(0, 0, 0)
         doc.setFont('helvetica', 'normal')
       }
-
       pintarCabecera()
 
       const ordenadas = [...clases].sort((a, b) => {
@@ -426,8 +424,7 @@
 
       ordenadas.forEach((c, idx) => {
         if (y > pageHeight - 20) {
-          doc.addPage()
-          y = 20
+          doc.addPage(); y = 20
           doc.setFillColor(color[0], color[1], color[2])
           doc.rect(margenIzq - 2, y - 5, anchoUtil + 4, 8, 'F')
           doc.setTextColor(255, 255, 255)
@@ -448,7 +445,6 @@
         doc.text(formatearFechaCorta(c.fecha), colFecha, y)
         doc.text(horaTxt(c), colHora, y)
         doc.text(truncar(c.titulo || '', 70), colTitulo, y)
-
         y += 6
       })
 
@@ -456,24 +452,20 @@
       return y
     }
 
-    // ============================================
-    // Helpers
-    // ============================================
     function formatearFechaCorta(fechaISO) {
       if (!fechaISO) return ''
       const [y, m, d] = fechaISO.split('-')
       return `${d}/${m}/${y.slice(2)}`
     }
-
     function truncar(str, max) {
       if (!str) return ''
       return str.length > max ? str.slice(0, max - 1) + '...' : str
     }
 
-    // ============================================
-    // NO se ejecuta nada al cargar. Solo cuando
-    // el usuario pulsa el botón "Generar informe PDF".
-    // ============================================
+    // ============================================================
+    // AL CARGAR LA PÁGINA → cargar el mes actual automáticamente
+    // ============================================================
+    cargarYMostrar()
   </script>
 
   <style>
@@ -497,9 +489,6 @@
       font-weight: 500;
     }
 
-    /* ============================
-       Placeholder inicial
-       ============================ */
     .placeholder {
       text-align: center;
       padding: 60px 20px;
@@ -511,20 +500,14 @@
     .placeholder-icon {
       font-size: 3rem;
       margin-bottom: 12px;
-      opacity: 0.6;
+      opacity: 0.7;
     }
     .placeholder p {
       font-size: 0.95rem;
       margin: 0;
       line-height: 1.5;
     }
-    .placeholder strong {
-      color: var(--pista-azul-hielo);
-    }
 
-    /* ============================
-       Resumen en una línea
-       ============================ */
     .resumen-linea {
       display: flex;
       flex-wrap: wrap;
@@ -570,6 +553,12 @@
         gap: 4px;
       }
       .resumen-linea .res-sep { display: none; }
+    }
+
+    /* Botón deshabilitado */
+    #btn-generar:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   </style>
 </body>
