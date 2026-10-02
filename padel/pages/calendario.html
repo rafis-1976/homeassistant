@@ -34,13 +34,21 @@
           <option value="partido">Partido</option>
         </select>
       </label>
-      <label>Precio total <input type="number" id="precio_total" step="0.01" value="0"></label>
+      <label>Ejercicio del catálogo
+        <select id="ejercicio_id">
+          <option value="">— Sin ejercicio —</option>
+        </select>
+      </label>
+      <label>O escribe un ejercicio libre
+        <input type="text" id="ejercicio_libre" placeholder="Ej: Partidillos, Calentamiento...">
+      </label>
       <label>Alumnos (Ctrl+clic para varios)
         <select id="alumnos" multiple size="5"></select>
       </label>
       <label>Notas <textarea id="notas" rows="3"></textarea></label>
       <div class="modal-actions">
         <button type="button" class="btn-secondary" id="btn-cancelar">Cancelar</button>
+        <button type="button" class="btn-secondary" id="btn-realizada" style="display:none;">✅ Marcar realizada</button>
         <button type="submit" class="btn-primary">Guardar</button>
       </div>
     </form>
@@ -56,37 +64,51 @@
     const modal = document.getElementById('modal-clase')
     const form = document.getElementById('form-clase')
     const selectAlumnos = document.getElementById('alumnos')
+    const selectEjercicio = document.getElementById('ejercicio_id')
 
+    // Cargar alumnos
     const { data: alumnos } = await supabase
-      .from(TABLES.alumnos).select('id, nombre, apellidos').eq('activo', true).order('apellidos')
+      .from(TABLES.alumnos).select('id, nombre').eq('activo', true).order('nombre')
     selectAlumnos.innerHTML = (alumnos || [])
-      .map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos}</option>`).join('')
+      .map(a => `<option value="${a.id}">${a.nombre}</option>`).join('')
+
+    // Cargar ejercicios
+    const { data: ejercicios } = await supabase
+      .from(TABLES.ejercicios).select('id, titulo').order('titulo')
+    selectEjercicio.innerHTML = '<option value="">— Sin ejercicio —</option>' +
+      (ejercicios || []).map(e => `<option value="${e.id}">${e.titulo}</option>`).join('')
 
     async function cargarClases() {
       const { data, error } = await supabase
         .from(TABLES.clases)
-        .select('*, padel_clase_alumnos(alumno_id, padel_alumnos(id, nombre, apellidos))')
+        .select('*, padel_clase_alumnos(alumno_id, padel_alumnos(id, nombre)), padel_ejercicios(id, titulo)')
       if (error) { console.error(error); return [] }
 
       return data.map(c => ({
         id: c.id,
-        title: c.titulo,
+        title: c.estado === 'anulada' ? '🚫 ' + c.titulo : c.titulo,
         start: `${c.fecha}T${c.hora_inicio}`,
         end: `${c.fecha}T${c.hora_fin}`,
         extendedProps: {
           tipo: c.tipo,
           estado: c.estado,
-          precio: c.precio_total,
           notas: c.notas,
+          motivo: c.motivo_anulacion,
+          ejercicioId: c.ejercicio_id,
+          ejercicioLibre: c.ejercicio_libre,
+          ejercicioTitulo: c.padel_ejercicios?.titulo || c.ejercicio_libre || '',
           alumnosIds: (c.padel_clase_alumnos || []).map(a => a.alumno_id)
         },
-        backgroundColor: colorPorTipo(c.tipo, c.estado),
-        borderColor: 'transparent'
+        backgroundColor: colorPorEstado(c.estado, c.tipo),
+        borderColor: c.estado === 'anulada' ? '#e74c3c' : 'transparent',
+        classNames: c.estado === 'anulada' ? ['evento-anulado'] : []
       }))
     }
 
-    function colorPorTipo(tipo, estado) {
-      if (estado === 'anulada') return '#c0392b'
+    function colorPorEstado(estado, tipo) {
+      if (estado === 'anulada') return '#7a1a1a'
+      if (estado === 'realizada') return '#27ae60'
+      if (estado === 'reprogramada') return '#e67e22'
       return {
         individual: '#3a8fbf',
         grupal:     '#5bb8d4',
@@ -118,23 +140,36 @@
     calendar.render()
 
     function abrirModal(clase) {
+      const btnRealizada = document.getElementById('btn-realizada')
       if (clase?.id) {
         document.getElementById('modal-titulo').textContent = 'Editar Clase'
         document.getElementById('clase-id').value = clase.id
-        document.getElementById('titulo').value = clase.title
+        document.getElementById('titulo').value = clase.title.replace(/^🚫\s*/, '')
         document.getElementById('fecha').value = clase.startStr.split('T')[0]
         document.getElementById('hora_inicio').value = clase.startStr.split('T')[1]?.slice(0,5) || '09:00'
         document.getElementById('hora_fin').value = clase.endStr?.split('T')[1]?.slice(0,5) || '10:00'
         document.getElementById('tipo').value = clase.extendedProps.tipo
-        document.getElementById('precio_total').value = clase.extendedProps.precio || 0
+        document.getElementById('ejercicio_id').value = clase.extendedProps.ejercicioId || ''
+        document.getElementById('ejercicio_libre').value = clase.extendedProps.ejercicioLibre || ''
         document.getElementById('notas').value = clase.extendedProps.notas || ''
         const ids = clase.extendedProps.alumnosIds || []
         Array.from(selectAlumnos.options).forEach(o => o.selected = ids.includes(o.value))
+
+        // Mostrar botón "Realizada" sólo si no está realizada ni anulada
+        const estado = clase.extendedProps.estado
+        btnRealizada.style.display = (estado === 'programada' || estado === 'reprogramada') ? 'inline-flex' : 'none'
+        btnRealizada.onclick = async () => {
+          await supabase.from(TABLES.clases).update({ estado: 'realizada' }).eq('id', clase.id)
+          modal.close()
+          calendar.removeAllEvents()
+          calendar.addEventSource(await cargarClases())
+        }
       } else {
         form.reset()
         document.getElementById('modal-titulo').textContent = 'Nueva Clase'
         document.getElementById('clase-id').value = ''
         document.getElementById('fecha').value = clase?.fecha || ''
+        btnRealizada.style.display = 'none'
       }
       modal.showModal()
     }
@@ -152,7 +187,8 @@
         hora_inicio: document.getElementById('hora_inicio').value,
         hora_fin: document.getElementById('hora_fin').value,
         tipo: document.getElementById('tipo').value,
-        precio_total: parseFloat(document.getElementById('precio_total').value) || 0,
+        ejercicio_id: document.getElementById('ejercicio_id').value || null,
+        ejercicio_libre: document.getElementById('ejercicio_libre').value || null,
         notas: document.getElementById('notas').value
       }
 
@@ -177,5 +213,26 @@
       calendar.addEventSource(await cargarClases())
     })
   </script>
+
+  <style>
+    .evento-anulado {
+      text-decoration: line-through;
+      opacity: 0.85;
+    }
+    .evento-anulado::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 4px,
+        rgba(0,0,0,0.15) 4px,
+        rgba(0,0,0,0.15) 8px
+      );
+      pointer-events: none;
+    }
+    .fc-event { position: relative; }
+  </style>
 </body>
 </html>
