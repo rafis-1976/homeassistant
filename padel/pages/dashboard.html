@@ -33,21 +33,20 @@
     renderNav('dashboard')
 
     const hoy = new Date().toISOString().split('T')[0]
+    const primerDiaMes = hoy.slice(0, 7) + '-01'
+    const ultimoDiaMes = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
 
     const [
       { count: numAlumnos },
       { count: numClases },
-      { data: clasesHoy },
-      { data: pagosPendientes }
+      { count: numRealizadasMes },
+      { count: numAnuladasMes }
     ] = await Promise.all([
       supabase.from(TABLES.alumnos).select('*', { count: 'exact', head: true }).eq('activo', true),
       supabase.from(TABLES.clases).select('*', { count: 'exact', head: true }).eq('estado', 'programada'),
-      supabase.from(TABLES.clases).select('precio_total').eq('fecha', hoy).eq('estado', 'programada'),
-      supabase.from(TABLES.pagos).select('importe').eq('estado', 'pendiente')
+      supabase.from(TABLES.clases).select('*', { count: 'exact', head: true }).eq('estado', 'realizada').gte('fecha', primerDiaMes).lte('fecha', ultimoDiaMes),
+      supabase.from(TABLES.clases).select('*', { count: 'exact', head: true }).eq('estado', 'anulada').gte('fecha', primerDiaMes).lte('fecha', ultimoDiaMes)
     ])
-
-    const ingresosHoy = (clasesHoy || []).reduce((s, c) => s + (c.precio_total || 0), 0)
-    const pendienteCobro = (pagosPendientes || []).reduce((s, p) => s + (p.importe || 0), 0)
 
     document.getElementById('stats').innerHTML = `
       <div class="card stat-card">
@@ -59,29 +58,27 @@
         <div class="label">Clases programadas</div>
       </div>
       <div class="card stat-card">
-        <div class="num">${ingresosHoy.toFixed(0)} €</div>
-        <div class="label">Ingresos de hoy</div>
+        <div class="num">${numRealizadasMes || 0}</div>
+        <div class="label">Realizadas este mes</div>
       </div>
       <div class="card stat-card">
-        <div class="num">${pendienteCobro.toFixed(0)} €</div>
-        <div class="label">Pendiente de cobro</div>
+        <div class="num">${numAnuladasMes || 0}</div>
+        <div class="label">Anuladas este mes</div>
       </div>
     `
 
     const { data: proximas } = await supabase
       .from(TABLES.clases)
-      .select('*, padel_clase_alumnos(padel_alumnos(nombre, apellidos))')
+      .select('*, padel_clase_alumnos(padel_alumnos(nombre))')
       .gte('fecha', hoy)
       .eq('estado', 'programada')
       .order('fecha', { ascending: true })
       .order('hora_inicio', { ascending: true })
       .limit(10)
 
-    const tbody = document.getElementById('tbody-proximas')
-    tbody.innerHTML = (proximas || []).map(c => {
+    document.getElementById('tbody-proximas').innerHTML = (proximas || []).map(c => {
       const alumnos = (c.padel_clase_alumnos || [])
-        .map(a => `${a.padel_alumnos.nombre} ${a.padel_alumnos.apellidos}`)
-        .join(', ') || '—'
+        .map(a => a.padel_alumnos.nombre).join(', ') || '—'
       return `
         <tr>
           <td>${c.fecha}</td>
