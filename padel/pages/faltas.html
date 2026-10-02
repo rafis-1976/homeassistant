@@ -22,10 +22,12 @@
           <thead>
             <tr>
               <th>Fecha</th><th>Alumno</th><th>Clase</th>
-              <th>Tipo</th><th>Descripción</th><th></th>
+              <th>Tipo</th><th>Estado</th><th>Descripción</th><th></th>
             </tr>
           </thead>
-          <tbody id="tbody-faltas"></tbody>
+          <tbody id="tbody-faltas">
+            <tr><td colspan="7" style="text-align:center;color:var(--texto-secundario);">Cargando...</td></tr>
+          </tbody>
         </table>
       </div>
     </main>
@@ -73,62 +75,59 @@
     const selectClase = document.getElementById('clase_id')
     const infoClases = document.getElementById('info-clases')
 
-    // Cache de relaciones clase-alumno
-    // Estructura: { alumnoId: [{ claseId, fecha, hora_inicio, titulo, tipo }] }
-    let clasesPorAlumno = {}
+    let alumnosMap = {}     // id -> { nombre }
+    let clasesMap = {}      // id -> { titulo, fecha }
+    let clasesPorAlumno = {} // alumno_id -> [{ id, titulo, fecha, hora_inicio, hora_fin }]
 
     // ============================
-    // Cargar alumnos
+    // Cargar alumnos, clases y relaciones
     // ============================
-    const { data: alumnos } = await supabase
-      .from(TABLES.alumnos)
-      .select('id, nombre')
-      .eq('activo', true)
-      .order('nombre')
+    async function cargarDatos() {
+      // Alumnos
+      const { data: alumnos, error: errA } = await supabase
+        .from(TABLES.alumnos)
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre')
 
-    selectAlumno.innerHTML =
-      '<option value="">— Selecciona un alumno —</option>' +
-      ((alumnos || []).map(a => `<option value="${a.id}">${a.nombre}</option>`).join('') ||
-       '<option value="" disabled>Sin alumnos</option>')
+      if (errA) console.error('Error alumnos:', errA)
+      alumnosMap = Object.fromEntries((alumnos || []).map(a => [a.id, a]))
 
-    // ============================
-    // Precargar todas las clases programadas con sus alumnos
-    // ============================
-    async function cargarClasesPorAlumno() {
-      const hoy = new Date().toISOString().split('T')[0]
+      selectAlumno.innerHTML =
+        '<option value="">— Selecciona un alumno —</option>' +
+        ((alumnos || []).map(a => `<option value="${a.id}">${a.nombre}</option>`).join('') ||
+         '<option value="" disabled>Sin alumnos</option>')
 
-      const { data, error } = await supabase
+      // Clases (todas, no solo futuras, para poder asociar también a pasadas)
+      const { data: clases, error: errC } = await supabase
         .from(TABLES.clases)
-        .select(`
-          id, titulo, fecha, hora_inicio, hora_fin, tipo, estado,
-          padel_clase_alumnos(alumno_id)
-        `)
-        .eq('estado', 'programada')
-        .gte('fecha', hoy)
-        .order('fecha', { ascending: true })
-        .order('hora_inicio', { ascending: true })
+        .select('id, titulo, fecha, hora_inicio, hora_fin, estado')
+        .order('fecha', { ascending: false })
+        .limit(500)
 
-      if (error) { console.error(error); return }
+      if (errC) console.error('Error clases:', errC)
+      clasesMap = Object.fromEntries((clases || []).map(c => [c.id, c]))
+
+      // Relaciones clase-alumno
+      const { data: rels, error: errR } = await supabase
+        .from(TABLES.claseAlumnos)
+        .select('clase_id, alumno_id')
+
+      if (errR) console.error('Error relaciones:', errR)
 
       clasesPorAlumno = {}
+      ;(rels || []).forEach(r => {
+        const clase = clasesMap[r.clase_id]
+        if (!clase) return
+        if (!clasesPorAlumno[r.alumno_id]) clasesPorAlumno[r.alumno_id] = []
+        clasesPorAlumno[r.alumno_id].push(clase)
+      })
 
-      ;(data || []).forEach(clase => {
-        (clase.padel_clase_alumnos || []).forEach(rel => {
-          const alumnoId = rel.alumno_id
-          if (!clasesPorAlumno[alumnoId]) clasesPorAlumno[alumnoId] = []
-          clasesPorAlumno[alumnoId].push({
-            id: clase.id,
-            titulo: clase.titulo,
-            fecha: clase.fecha,
-            hora_inicio: clase.hora_inicio,
-            hora_fin: clase.hora_fin,
-            tipo: clase.tipo
-          })
-        })
+      // Ordenar cada lista por fecha desc
+      Object.values(clasesPorAlumno).forEach(arr => {
+        arr.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
       })
     }
-
-    await cargarClasesPorAlumno()
 
     // ============================
     // Al cambiar de alumno → filtrar clases
@@ -146,46 +145,111 @@
       const clases = clasesPorAlumno[alumnoId] || []
 
       if (clases.length === 0) {
-        selectClase.innerHTML = '<option value="">— Sin clases programadas —</option>'
+        selectClase.innerHTML = '<option value="">— Sin clases disponibles —</option>'
         selectClase.disabled = true
-        infoClases.textContent = 'Este alumno no tiene clases programadas pendientes'
+        infoClases.textContent = 'Este alumno no tiene clases registradas'
         infoClases.style.color = '#e67e22'
         return
       }
 
       selectClase.disabled = false
-      selectClase.innerHTML =
-        '<option value="">— Sin clase asociada —</option>' +
-        clases.map(c => {
-          const hora = `${(c.hora_inicio || '').slice(0,5)}–${(c.hora_fin || '').slice(0,5)}`
+      // Ordenar por fecha descendente y separar programadas vs pasadas
+      const programadas = clases.filter(c => c.estado === 'programada')
+      const otras = clases.filter(c => c.estado !== 'programada')
+
+      let html = '<option value="">— Sin clase asociada —</option>'
+      if (programadas.length > 0) {
+        html += '<optgroup label="📅 Programadas">'
+        html += programadas.map(c => {
+          const hora = c.hora_inicio ? `${c.hora_inicio.slice(0,5)}–${(c.hora_fin||'').slice(0,5)}` : ''
           return `<option value="${c.id}">${c.fecha} · ${hora} · ${c.titulo}</option>`
         }).join('')
+        html += '</optgroup>'
+      }
+      if (otras.length > 0) {
+        html += '<optgroup label="📚 Otras clases">'
+        html += otras.slice(0, 20).map(c => {
+          const hora = c.hora_inicio ? `${c.hora_inicio.slice(0,5)}–${(c.hora_fin||'').slice(0,5)}` : ''
+          const est = c.estado === 'anulada' ? '🚫 ' : c.estado === 'realizada' ? '✅ ' : ''
+          return `<option value="${c.id}">${est}${c.fecha} · ${hora} · ${c.titulo}</option>`
+        }).join('')
+        html += '</optgroup>'
+      }
+      selectClase.innerHTML = html
 
-      infoClases.textContent = `${clases.length} clase${clases.length > 1 ? 's' : ''} programada${clases.length > 1 ? 's' : ''}`
+      infoClases.textContent = `${programadas.length} programada${programadas.length !== 1 ? 's' : ''} · ${otras.length} otras`
       infoClases.style.color = 'var(--pista-azul-hielo)'
     })
 
     // ============================
-    // Cargar lista de faltas
+    // Cargar faltas (con carga separada de alumnos y clases)
     // ============================
     async function cargarFaltas() {
-      const { data } = await supabase
+      const tbody = document.getElementById('tbody-faltas')
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--texto-secundario);">Cargando...</td></tr>'
+
+      const { data: faltas, error } = await supabase
         .from(TABLES.faltas)
-        .select('*, padel_alumnos(nombre), padel_clases(titulo, fecha)')
+        .select('*')
         .order('fecha_registro', { ascending: false })
 
-      document.getElementById('tbody-faltas').innerHTML = (data || []).map(f => `
-        <tr>
-          <td>${f.fecha_registro?.split('T')[0]}</td>
-          <td>${f.padel_alumnos?.nombre || '—'}</td>
-          <td>${f.padel_clases ? f.padel_clases.fecha + ' — ' + f.padel_clases.titulo : '—'}</td>
-          <td><span class="badge ${f.tipo === 'justificada' ? 'badge-realizada' : 'badge-anulada'}">${f.tipo}</span></td>
-          <td class="wrap">${f.descripcion || '—'}</td>
-          <td><button class="btn-peligro" data-del="${f.id}">🗑️</button></td>
-        </tr>
-      `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--texto-secundario);">Sin faltas registradas</td></tr>'
+      if (error) {
+        console.error('Error faltas:', error)
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#e74c3c;">Error: ${error.message}</td></tr>`
+        return
+      }
 
-      document.querySelectorAll('[data-del]').forEach(btn => {
+      if (!faltas || faltas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--texto-secundario);">Sin faltas registradas</td></tr>'
+        return
+      }
+
+      tbody.innerHTML = faltas.map(f => {
+        const alumno = alumnosMap[f.alumno_id]?.nombre || '—'
+        const clase = clasesMap[f.clase_id]
+        const claseTxt = clase ? `${clase.fecha} — ${clase.titulo}` : '—'
+
+        // Estado de recuperación
+        let estadoHtml = ''
+        if (f.tipo === 'justificada' || f.tipo === 'lesion') {
+          if (f.recuperada) {
+            estadoHtml = '<span class="badge-rec">✔️ Recuperada</span>'
+          } else if (f.clase_recuperacion_id) {
+            estadoHtml = '<span class="badge-rec badge-rec-prog">🔄 Programada</span>'
+          } else {
+            estadoHtml = '<span class="badge-rec badge-rec-pend">⏳ Pendiente</span>'
+          }
+        } else {
+          estadoHtml = '<span style="color:var(--texto-secundario);">—</span>'
+        }
+
+        const tipoLabel = {
+          justificada: 'Justificada',
+          no_justificada: 'No justificada',
+          lesion: 'Lesión',
+          aviso_tardio: 'Aviso tardío'
+        }[f.tipo] || f.tipo
+
+        const badgeClass = f.tipo === 'justificada' ? 'badge-realizada'
+                         : f.tipo === 'lesion' ? 'badge-anulada'
+                         : f.tipo === 'no_justificada' ? 'badge-anulada'
+                         : 'badge-programada'
+
+        return `
+          <tr>
+            <td>${f.fecha_registro?.split('T')[0] || '—'}</td>
+            <td>${escapar(alumno)}</td>
+            <td class="wrap">${escapar(claseTxt)}</td>
+            <td><span class="badge ${badgeClass}">${tipoLabel}</span></td>
+            <td>${estadoHtml}</td>
+            <td class="wrap">${escapar(f.descripcion || '—')}</td>
+            <td><button class="btn-peligro" data-del="${f.id}">🗑️</button></td>
+          </tr>
+        `
+      }).join('')
+
+      // Listeners de borrado
+      tbody.querySelectorAll('[data-del]').forEach(btn => {
         btn.onclick = async () => {
           if (!confirm('¿Eliminar esta falta?')) return
           await supabase.from(TABLES.faltas).delete().eq('id', btn.dataset.del)
@@ -194,47 +258,74 @@
       })
     }
 
+    function escapar(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
     // ============================
-    // Abrir modal (resetear)
+    // Nuevo
     // ============================
     document.getElementById('btn-nueva').onclick = async () => {
       document.getElementById('form-falta').reset()
-
-      // Refrescar el cache por si ha habido cambios en el calendario
-      await cargarClasesPorAlumno()
-
       selectClase.innerHTML = '<option value="">— Selecciona un alumno primero —</option>'
       selectClase.disabled = true
       infoClases.textContent = ''
-
+      await cargarDatos()
       modal.showModal()
     }
 
     // ============================
-    // Guardar falta
+    // Guardar
     // ============================
     document.getElementById('form-falta').addEventListener('submit', async (e) => {
       e.preventDefault()
       const alumnoId = selectAlumno.value
       if (!alumnoId) { alert('Selecciona un alumno'); return }
 
-      await supabase.from(TABLES.faltas).insert({
+      const { error } = await supabase.from(TABLES.faltas).insert({
         alumno_id: alumnoId,
         clase_id: selectClase.value || null,
         tipo: document.getElementById('tipo').value,
         descripcion: document.getElementById('descripcion').value || null
       })
+
+      if (error) { alert('Error: ' + error.message); return }
+
       modal.close()
       cargarFaltas()
     })
 
+    // ============================
+    // Init
+    // ============================
+    await cargarDatos()
     cargarFaltas()
   </script>
 
   <style>
-    #clase_id:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+    #clase_id:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .badge-rec {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-rec-pend { background: #e67e22; color: white; }
+    .badge-rec-prog { background: #8e44ad; color: white; }
+    .badge-rec     { background: #27ae60; color: white; }
+
+    optgroup {
+      background: var(--fondo-card);
+      color: var(--pista-azul-hielo);
+      font-weight: 700;
+    }
+    optgroup option {
+      background: var(--fondo-app);
+      color: var(--texto-principal);
+      font-weight: 400;
     }
   </style>
 </body>
