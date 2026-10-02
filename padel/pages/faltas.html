@@ -46,6 +46,8 @@
         <small id="info-clases" style="color:var(--texto-secundario);font-size:0.72rem;display:block;margin-top:4px;"></small>
       </label>
 
+      <div id="aviso-duplicado" class="aviso-duplicado" style="display:none;"></div>
+
       <label>Tipo
         <select id="tipo">
           <option value="justificada">Justificada</option>
@@ -59,7 +61,7 @@
 
       <div class="modal-actions">
         <button type="button" class="btn-secondary" onclick="document.getElementById('modal-falta').close()">Cancelar</button>
-        <button type="submit" class="btn-primary">Guardar</button>
+        <button type="submit" class="btn-primary" id="btn-guardar-falta">Guardar</button>
       </div>
     </form>
   </dialog>
@@ -74,13 +76,17 @@
     const selectAlumno = document.getElementById('alumno_id')
     const selectClase = document.getElementById('clase_id')
     const infoClases = document.getElementById('info-clases')
+    const avisoDuplicado = document.getElementById('aviso-duplicado')
+    const btnGuardar = document.getElementById('btn-guardar-falta')
 
-    let alumnosMap = {}     // id -> { nombre }
-    let clasesMap = {}      // id -> { titulo, fecha }
-    let clasesPorAlumno = {} // alumno_id -> [{ id, titulo, fecha, hora_inicio, hora_fin }]
+    let alumnosMap = {}
+    let clasesMap = {}
+    let clasesPorAlumno = {}
+    // Set de claves "alumnoId:claseId" que YA tienen falta registrada
+    let faltasExistentes = new Set()
 
     // ============================
-    // Cargar alumnos, clases y relaciones
+    // Cargar alumnos, clases, relaciones y faltas
     // ============================
     async function cargarDatos() {
       // Alumnos
@@ -98,7 +104,7 @@
         ((alumnos || []).map(a => `<option value="${a.id}">${a.nombre}</option>`).join('') ||
          '<option value="" disabled>Sin alumnos</option>')
 
-      // Clases (todas, no solo futuras, para poder asociar también a pasadas)
+      // Clases
       const { data: clases, error: errC } = await supabase
         .from(TABLES.clases)
         .select('id, titulo, fecha, hora_inicio, hora_fin, estado')
@@ -123,9 +129,22 @@
         clasesPorAlumno[r.alumno_id].push(clase)
       })
 
-      // Ordenar cada lista por fecha desc
       Object.values(clasesPorAlumno).forEach(arr => {
         arr.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
+      })
+
+      // ⬇️ Cargar TODAS las faltas para construir el set de duplicados
+      const { data: faltas, error: errF } = await supabase
+        .from(TABLES.faltas)
+        .select('alumno_id, clase_id')
+
+      if (errF) console.error('Error faltas:', errF)
+
+      faltasExistentes = new Set()
+      ;(faltas || []).forEach(f => {
+        if (f.alumno_id && f.clase_id) {
+          faltasExistentes.add(`${f.alumno_id}:${f.clase_id}`)
+        }
       })
     }
 
@@ -135,6 +154,9 @@
     selectAlumno.addEventListener('change', () => {
       const alumnoId = selectAlumno.value
 
+      avisoDuplicado.style.display = 'none'
+      btnGuardar.disabled = false
+
       if (!alumnoId) {
         selectClase.innerHTML = '<option value="">— Selecciona un alumno primero —</option>'
         selectClase.disabled = true
@@ -142,20 +164,31 @@
         return
       }
 
-      const clases = clasesPorAlumno[alumnoId] || []
+      const todasLasClases = clasesPorAlumno[alumnoId] || []
 
-      if (clases.length === 0) {
+      // ⬇️ Filtrar clases que YA tienen falta para este alumno
+      const clasesDisponibles = todasLasClases.filter(c =>
+        !faltasExistentes.has(`${alumnoId}:${c.id}`)
+      )
+      const clasesConFalta = todasLasClases.length - clasesDisponibles.length
+
+      if (clasesDisponibles.length === 0) {
         selectClase.innerHTML = '<option value="">— Sin clases disponibles —</option>'
         selectClase.disabled = true
-        infoClases.textContent = 'Este alumno no tiene clases registradas'
-        infoClases.style.color = '#e67e22'
+        if (todasLasClases.length === 0) {
+          infoClases.textContent = 'Este alumno no tiene clases registradas'
+          infoClases.style.color = '#e67e22'
+        } else {
+          infoClases.textContent = `Este alumno ya tiene falta registrada en todas sus clases (${clasesConFalta})`
+          infoClases.style.color = '#e74c3c'
+        }
         return
       }
 
       selectClase.disabled = false
-      // Ordenar por fecha descendente y separar programadas vs pasadas
-      const programadas = clases.filter(c => c.estado === 'programada')
-      const otras = clases.filter(c => c.estado !== 'programada')
+
+      const programadas = clasesDisponibles.filter(c => c.estado === 'programada')
+      const otras = clasesDisponibles.filter(c => c.estado !== 'programada')
 
       let html = '<option value="">— Sin clase asociada —</option>'
       if (programadas.length > 0) {
@@ -168,7 +201,7 @@
       }
       if (otras.length > 0) {
         html += '<optgroup label="📚 Otras clases">'
-        html += otras.slice(0, 20).map(c => {
+        html += otras.slice(0, 30).map(c => {
           const hora = c.hora_inicio ? `${c.hora_inicio.slice(0,5)}–${(c.hora_fin||'').slice(0,5)}` : ''
           const est = c.estado === 'anulada' ? '🚫 ' : c.estado === 'realizada' ? '✅ ' : ''
           return `<option value="${c.id}">${est}${c.fecha} · ${hora} · ${c.titulo}</option>`
@@ -177,12 +210,41 @@
       }
       selectClase.innerHTML = html
 
-      infoClases.textContent = `${programadas.length} programada${programadas.length !== 1 ? 's' : ''} · ${otras.length} otras`
+      let infoTxt = `${programadas.length} programada${programadas.length !== 1 ? 's' : ''} · ${otras.length} otras`
+      if (clasesConFalta > 0) {
+        infoTxt += ` · ${clasesConFalta} oculta${clasesConFalta > 1 ? 's' : ''} (ya tienen falta)`
+      }
+      infoClases.textContent = infoTxt
       infoClases.style.color = 'var(--pista-azul-hielo)'
     })
 
     // ============================
-    // Cargar faltas (con carga separada de alumnos y clases)
+    // Al cambiar de clase → validar duplicado (por si acaso)
+    // ============================
+    selectClase.addEventListener('change', () => {
+      const alumnoId = selectAlumno.value
+      const claseId = selectClase.value
+
+      if (!alumnoId || !claseId) {
+        avisoDuplicado.style.display = 'none'
+        btnGuardar.disabled = false
+        return
+      }
+
+      if (faltasExistentes.has(`${alumnoId}:${claseId}`)) {
+        avisoDuplicado.style.display = 'block'
+        avisoDuplicado.innerHTML = `
+          ⚠️ <strong>Ya existe una falta registrada</strong> para este alumno en esta clase.
+        `
+        btnGuardar.disabled = true
+      } else {
+        avisoDuplicado.style.display = 'none'
+        btnGuardar.disabled = false
+      }
+    })
+
+    // ============================
+    // Cargar tabla de faltas
     // ============================
     async function cargarFaltas() {
       const tbody = document.getElementById('tbody-faltas')
@@ -213,7 +275,7 @@
         let estadoHtml = ''
         if (f.tipo === 'justificada' || f.tipo === 'lesion') {
           if (f.recuperada) {
-            estadoHtml = '<span class="badge-rec">✔️ Recuperada</span>'
+            estadoHtml = '<span class="badge-rec badge-rec-ok">✔️ Recuperada</span>'
           } else if (f.clase_recuperacion_id) {
             estadoHtml = '<span class="badge-rec badge-rec-prog">🔄 Programada</span>'
           } else {
@@ -248,11 +310,11 @@
         `
       }).join('')
 
-      // Listeners de borrado
       tbody.querySelectorAll('[data-del]').forEach(btn => {
         btn.onclick = async () => {
           if (!confirm('¿Eliminar esta falta?')) return
           await supabase.from(TABLES.faltas).delete().eq('id', btn.dataset.del)
+          await cargarDatos()
           cargarFaltas()
         }
       })
@@ -270,21 +332,33 @@
       selectClase.innerHTML = '<option value="">— Selecciona un alumno primero —</option>'
       selectClase.disabled = true
       infoClases.textContent = ''
+      avisoDuplicado.style.display = 'none'
+      btnGuardar.disabled = false
+
+      // Recargar datos para tener faltas actualizadas
       await cargarDatos()
       modal.showModal()
     }
 
     // ============================
-    // Guardar
+    // Guardar (con validación anti-duplicado final)
     // ============================
     document.getElementById('form-falta').addEventListener('submit', async (e) => {
       e.preventDefault()
       const alumnoId = selectAlumno.value
       if (!alumnoId) { alert('Selecciona un alumno'); return }
 
+      const claseId = selectClase.value || null
+
+      // ⬇️ Validación final anti-duplicado
+      if (claseId && faltasExistentes.has(`${alumnoId}:${claseId}`)) {
+        alert('⚠️ Este alumno ya tiene una falta registrada en esa clase.')
+        return
+      }
+
       const { error } = await supabase.from(TABLES.faltas).insert({
         alumno_id: alumnoId,
-        clase_id: selectClase.value || null,
+        clase_id: claseId,
         tipo: document.getElementById('tipo').value,
         descripcion: document.getElementById('descripcion').value || null
       })
@@ -292,6 +366,7 @@
       if (error) { alert('Error: ' + error.message); return }
 
       modal.close()
+      await cargarDatos()
       cargarFaltas()
     })
 
@@ -315,7 +390,25 @@
     }
     .badge-rec-pend { background: #e67e22; color: white; }
     .badge-rec-prog { background: #8e44ad; color: white; }
-    .badge-rec     { background: #27ae60; color: white; }
+    .badge-rec-ok   { background: #27ae60; color: white; }
+
+    .aviso-duplicado {
+      background: rgba(192, 57, 43, 0.15);
+      border: 1px solid #e74c3c;
+      border-left: 4px solid #e74c3c;
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 0.83rem;
+      color: #e74c3c;
+      animation: shakeIn 0.3s ease;
+    }
+    @keyframes shakeIn {
+      0%   { transform: translateX(0); }
+      25%  { transform: translateX(-4px); }
+      75%  { transform: translateX(4px); }
+      100% { transform: translateX(0); }
+    }
 
     optgroup {
       background: var(--fondo-card);
@@ -326,6 +419,11 @@
       background: var(--fondo-app);
       color: var(--texto-principal);
       font-weight: 400;
+    }
+
+    #btn-guardar-falta:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   </style>
 </body>
