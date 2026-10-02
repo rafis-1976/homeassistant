@@ -21,59 +21,67 @@
 
   --radio:    10px;
   --radio-sm: 6px;
+
+  --sidebar-width: 240px;
+  --topbar-height: 56px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--fondo-app);
   color: var(--texto-principal);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 h1 { font-size: 1.6rem; margin-bottom: 16px; }
 h2 { font-size: 1.2rem; margin-bottom: 12px; }
 
-/* Botones */
-.btn-primary {
-  background: var(--pista-azul-claro);
-  color: white;
+/* ============================================================
+   BOTONES (tamaños táctiles en móvil)
+   ============================================================ */
+.btn-primary,
+.btn-secondary,
+.btn-peligro {
   border: none;
   padding: 10px 20px;
   border-radius: var(--radio-sm);
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   font-size: 0.9rem;
+  font-family: inherit;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
 }
-.btn-primary:hover {
-  background: var(--pista-azul-medio);
-  transform: translateY(-1px);
+.btn-primary {
+  background: var(--pista-azul-claro);
+  color: white;
 }
+.btn-primary:hover { background: var(--pista-azul-medio); }
+.btn-primary:active { transform: scale(0.97); }
+
 .btn-secondary {
   background: transparent;
   border: 1px solid var(--borde-card);
   color: var(--texto-principal);
-  padding: 10px 20px;
-  border-radius: var(--radio-sm);
-  cursor: pointer;
-  font-size: 0.9rem;
 }
 .btn-secondary:hover { border-color: var(--pista-azul-claro); }
-.btn-peligro {
-  background: #c0392b;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: var(--radio-sm);
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
+
+.btn-peligro { background: #c0392b; color: white; }
 .btn-peligro:hover { background: #a02d1f; }
 
-/* Tarjetas */
+/* ============================================================
+   TARJETAS
+   ============================================================ */
 .card {
   background: var(--fondo-card);
   border: 1px solid var(--borde-card);
@@ -82,35 +90,48 @@ h2 { font-size: 1.2rem; margin-bottom: 12px; }
   box-shadow: var(--sombra);
 }
 
-/* Inputs */
+/* ============================================================
+   INPUTS (evita zoom en iOS con font-size ≥16px)
+   ============================================================ */
 input, select, textarea {
   width: 100%;
-  padding: 10px;
+  padding: 10px 12px;
   border-radius: var(--radio-sm);
   border: 1px solid var(--borde-card);
   background: var(--fondo-app);
   color: var(--texto-principal);
-  font-size: 0.95rem;
+  font-size: 16px;
   font-family: inherit;
+  min-height: 42px;
 }
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--pista-azul-claro);
 }
+textarea { min-height: 80px; resize: vertical; }
 
-/* Layout principal con sidebar */
+/* ============================================================
+   LAYOUT PRINCIPAL
+   ============================================================ */
 .layout {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: var(--sidebar-width) 1fr;
   min-height: 100vh;
 }
+
 .sidebar {
   background: var(--fondo-card);
   border-right: 1px solid var(--borde-card);
   padding: 20px 0;
   display: flex;
   flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 100;
 }
+
 .nav-brand {
   font-size: 1.2rem;
   font-weight: 700;
@@ -118,6 +139,7 @@ input:focus, select:focus, textarea:focus {
   border-bottom: 1px solid var(--borde-card);
   margin-bottom: 12px;
 }
+
 .nav-links {
   list-style: none;
   flex: 1;
@@ -125,13 +147,13 @@ input:focus, select:focus, textarea:focus {
 }
 .nav-links li a {
   display: block;
-  padding: 10px 14px;
+  padding: 12px 14px;
   color: var(--texto-secundario);
   text-decoration: none;
   border-radius: var(--radio-sm);
   margin-bottom: 2px;
   transition: all 0.15s;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 .nav-links li a:hover {
   background: var(--pista-azul-oscuro);
@@ -145,43 +167,103 @@ input:focus, select:focus, textarea:focus {
 
 .content {
   padding: 24px;
-  overflow-y: auto;
+  min-width: 0; /* evita desbordamiento de grid */
 }
 
-/* Tablas */
+/* Topbar con hamburguesa (solo aparece en móvil) */
+.topbar {
+  display: none;
+  position: sticky;
+  top: 0;
+  height: var(--topbar-height);
+  background: var(--fondo-card);
+  border-bottom: 1px solid var(--borde-card);
+  align-items: center;
+  padding: 0 12px;
+  gap: 12px;
+  z-index: 90;
+}
+.topbar-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hamburger {
+  background: transparent;
+  border: none;
+  color: var(--texto-principal);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: var(--radio-sm);
+  line-height: 1;
+}
+.hamburger:hover { background: var(--pista-azul-oscuro); }
+
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 99;
+  backdrop-filter: blur(2px);
+}
+.sidebar-overlay.visible { display: block; }
+
+/* ============================================================
+   TABLAS
+   ============================================================ */
+.tabla-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radio);
+  margin-bottom: 16px;
+}
 .tabla {
   width: 100%;
   border-collapse: collapse;
   background: var(--fondo-card);
   border-radius: var(--radio);
   overflow: hidden;
+  min-width: 600px; /* fuerza scroll horizontal en móvil */
 }
 .tabla th, .tabla td {
   padding: 12px 14px;
   text-align: left;
   border-bottom: 1px solid var(--borde-card);
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 .tabla th {
   background: var(--pista-azul-oscuro);
   color: var(--texto-principal);
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  position: sticky;
+  top: 0;
 }
 .tabla tr:hover td { background: rgba(58, 143, 191, 0.08); }
+.tabla td.wrap { white-space: normal; min-width: 180px; }
 
-/* Modales */
+/* ============================================================
+   MODALES
+   ============================================================ */
 dialog {
   background: var(--fondo-card);
   border: 1px solid var(--borde-card);
   border-radius: var(--radio);
   color: var(--texto-principal);
   padding: 24px;
-  max-width: 500px;
-  width: 90%;
+  max-width: 520px;
+  width: calc(100% - 32px);
   box-shadow: var(--sombra);
+  max-height: 90vh;
+  overflow-y: auto;
 }
 dialog::backdrop { background: rgba(0,0,0,0.7); }
 dialog form label {
@@ -200,9 +282,12 @@ dialog form label textarea {
   gap: 10px;
   justify-content: flex-end;
   margin-top: 16px;
+  flex-wrap: wrap;
 }
 
-/* Badges */
+/* ============================================================
+   BADGES
+   ============================================================ */
 .badge {
   display: inline-block;
   padding: 3px 8px;
@@ -217,3 +302,208 @@ dialog form label textarea {
 .badge-reprogramada{ background: #e67e22; color: white; }
 .badge-pendiente   { background: #e67e22; color: white; }
 .badge-pagado      { background: #27ae60; color: white; }
+
+/* ============================================================
+   CABECERAS DE PÁGINA CON BOTÓN A LA DERECHA
+   ============================================================ */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.page-header h1 { margin-bottom: 0; }
+.page-header .acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+   GRID DE STATS (dashboard)
+   ============================================================ */
+.grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+.stat-card { text-align: left; }
+.stat-card .num {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--pista-azul-hielo);
+  line-height: 1.1;
+}
+.stat-card .label {
+  color: var(--texto-secundario);
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+/* ============================================================
+   FULLCALENDAR responsive tweaks
+   ============================================================ */
+#calendar {
+  background: var(--fondo-card);
+  padding: 12px;
+  border-radius: var(--radio);
+  border: 1px solid var(--borde-card);
+  overflow-x: auto;
+}
+.fc { color: var(--texto-principal); }
+.fc-theme-standard td, .fc-theme-standard th { border-color: var(--borde-card); }
+.fc .fc-button-primary {
+  background: var(--pista-azul-claro);
+  border-color: var(--pista-azul-claro);
+}
+.fc .fc-button-primary:hover { background: var(--pista-azul-medio); }
+.fc-day-today { background: rgba(232, 255, 58, 0.08) !important; }
+
+/* ============================================================
+   MEDIA QUERIES — TABLET (≤ 1024px)
+   ============================================================ */
+@media (max-width: 1024px) {
+  :root { --sidebar-width: 200px; }
+  .content { padding: 20px; }
+}
+
+/* ============================================================
+   MEDIA QUERIES — MÓVIL (≤ 768px)
+   ============================================================ */
+@media (max-width: 768px) {
+  body { font-size: 15px; }
+  h1 { font-size: 1.3rem; }
+  h2 { font-size: 1.05rem; }
+
+  /* Layout en una columna */
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  /* Sidebar → menú lateral deslizante */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 260px;
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 0.28s ease;
+    z-index: 100;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  /* Mostrar topbar con hamburguesa */
+  .topbar { display: flex; }
+
+  .content { padding: 16px 12px; }
+
+  /* Tarjetas menos padding */
+  .card { padding: 14px; }
+
+  /* Página header apilado en móvil */
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .page-header .acciones { justify-content: stretch; }
+  .page-header .acciones > * { flex: 1; }
+
+  /* Grid stats en 2 columnas en móvil */
+  .grid-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .stat-card .num { font-size: 1.5rem; }
+
+  /* Botones full-width en modales */
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+  .modal-actions > button {
+    width: 100%;
+  }
+
+  /* Modal en pantalla completa */
+  dialog {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100vh;
+    height: auto;
+    border-radius: var(--radio) var(--radio) 0 0;
+    margin: 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    padding: 20px 16px;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+
+  /* Tablas → fuente más pequeña */
+  .tabla th, .tabla td { padding: 10px; font-size: 0.82rem; }
+  .tabla { min-width: 520px; }
+
+  /* Toolbar del diseñador */
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px;
+    gap: 10px;
+  }
+  .tool-group {
+    border-right: none;
+    border-bottom: 1px solid var(--borde-card);
+    padding-right: 0;
+    padding-bottom: 10px;
+    justify-content: space-between;
+  }
+  .tool-group:last-of-type { border-bottom: none; }
+  .tool-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 10px;
+    flex: 1;
+  }
+
+  /* Notas full width */
+  .notas-container { padding: 12px; }
+
+  /* Panel propiedades full width */
+  .panel-propiedades { max-width: 100%; }
+
+  /* FullCalendar botones más pequeños */
+  .fc .fc-toolbar { flex-wrap: wrap; gap: 6px; }
+  .fc .fc-toolbar-title { font-size: 1rem !important; }
+  .fc .fc-button { padding: 4px 8px; font-size: 0.8rem; }
+}
+
+/* ============================================================
+   MEDIA QUERIES — MÓVIL PEQUEÑO (≤ 480px)
+   ============================================================ */
+@media (max-width: 480px) {
+  .content { padding: 12px 8px; }
+  h1 { font-size: 1.15rem; }
+  .stat-card .num { font-size: 1.3rem; }
+  .grid-cards { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .card { padding: 12px; }
+  .tool-label { font-size: 0.65rem; }
+}
+
+/* ============================================================
+   LANDSCAPE MÓVIL — prioriza altura
+   ============================================================ */
+@media (max-height: 500px) and (orientation: landscape) {
+  .sidebar { width: 220px; }
+  dialog { max-height: 100vh; padding: 16px; }
+  .content { padding: 10px; }
+}
