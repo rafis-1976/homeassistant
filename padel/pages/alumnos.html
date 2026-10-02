@@ -36,7 +36,6 @@
       <h2 id="modal-titulo">Nuevo alumno</h2>
       <input type="hidden" id="alumno-id">
       <label>Nombre <input type="text" id="nombre" required></label>
-      <label>Apellidos <input type="text" id="apellidos" required></label>
       <label>Email <input type="email" id="email"></label>
       <label>Teléfono <input type="tel" id="telefono"></label>
       <label>Nivel
@@ -66,10 +65,10 @@
     const form = document.getElementById('form-alumno')
 
     async function cargarAlumnos() {
-      const { data } = await supabase.from(TABLES.alumnos).select('*').order('apellidos')
+      const { data } = await supabase.from(TABLES.alumnos).select('*').order('nombre')
       document.getElementById('tbody-alumnos').innerHTML = (data || []).map(a => `
         <tr>
-          <td>${a.nombre} ${a.apellidos}</td>
+          <td>${a.nombre}</td>
           <td>${a.nivel}</td>
           <td>${a.email || '—'}</td>
           <td>${a.telefono || '—'}</td>
@@ -101,7 +100,6 @@
       document.getElementById('modal-titulo').textContent = 'Editar alumno'
       document.getElementById('alumno-id').value = a.id
       document.getElementById('nombre').value = a.nombre
-      document.getElementById('apellidos').value = a.apellidos
       document.getElementById('email').value = a.email || ''
       document.getElementById('telefono').value = a.telefono || ''
       document.getElementById('nivel').value = a.nivel
@@ -123,13 +121,12 @@
       e.preventDefault()
       const id = document.getElementById('alumno-id').value
       const datos = {
-        nombre:    document.getElementById('nombre').value,
-        apellidos: document.getElementById('apellidos').value,
-        email:     document.getElementById('email').value || null,
-        telefono:  document.getElementById('telefono').value || null,
-        nivel:     document.getElementById('nivel').value,
-        notas:     document.getElementById('notas').value || null,
-        activo:    document.getElementById('activo').checked
+        nombre:   document.getElementById('nombre').value,
+        email:    document.getElementById('email').value || null,
+        telefono: document.getElementById('telefono').value || null,
+        nivel:    document.getElementById('nivel').value,
+        notas:    document.getElementById('notas').value || null,
+        activo:   document.getElementById('activo').checked
       }
       if (id) await supabase.from(TABLES.alumnos).update(datos).eq('id', id)
       else    await supabase.from(TABLES.alumnos).insert(datos)
