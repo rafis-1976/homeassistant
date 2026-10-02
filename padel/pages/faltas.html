@@ -82,44 +82,31 @@
     let alumnosMap = {}
     let clasesMap = {}
     let clasesPorAlumno = {}
-    // Set de claves "alumnoId:claseId" que YA tienen falta registrada
     let faltasExistentes = new Set()
 
     // ============================
-    // Cargar alumnos, clases, relaciones y faltas
+    // Cargar datos
     // ============================
     async function cargarDatos() {
-      // Alumnos
-      const { data: alumnos, error: errA } = await supabase
-        .from(TABLES.alumnos)
-        .select('id, nombre')
-        .eq('activo', true)
-        .order('nombre')
+      const { data: alumnos } = await supabase
+        .from(TABLES.alumnos).select('id, nombre').eq('activo', true).order('nombre')
 
-      if (errA) console.error('Error alumnos:', errA)
       alumnosMap = Object.fromEntries((alumnos || []).map(a => [a.id, a]))
-
       selectAlumno.innerHTML =
         '<option value="">— Selecciona un alumno —</option>' +
         ((alumnos || []).map(a => `<option value="${a.id}">${a.nombre}</option>`).join('') ||
          '<option value="" disabled>Sin alumnos</option>')
 
-      // Clases
-      const { data: clases, error: errC } = await supabase
+      const { data: clases } = await supabase
         .from(TABLES.clases)
         .select('id, titulo, fecha, hora_inicio, hora_fin, estado')
         .order('fecha', { ascending: false })
         .limit(500)
 
-      if (errC) console.error('Error clases:', errC)
       clasesMap = Object.fromEntries((clases || []).map(c => [c.id, c]))
 
-      // Relaciones clase-alumno
-      const { data: rels, error: errR } = await supabase
-        .from(TABLES.claseAlumnos)
-        .select('clase_id, alumno_id')
-
-      if (errR) console.error('Error relaciones:', errR)
+      const { data: rels } = await supabase
+        .from(TABLES.claseAlumnos).select('clase_id, alumno_id')
 
       clasesPorAlumno = {}
       ;(rels || []).forEach(r => {
@@ -133,12 +120,8 @@
         arr.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
       })
 
-      // ⬇️ Cargar TODAS las faltas para construir el set de duplicados
-      const { data: faltas, error: errF } = await supabase
-        .from(TABLES.faltas)
-        .select('alumno_id, clase_id')
-
-      if (errF) console.error('Error faltas:', errF)
+      const { data: faltas } = await supabase
+        .from(TABLES.faltas).select('alumno_id, clase_id')
 
       faltasExistentes = new Set()
       ;(faltas || []).forEach(f => {
@@ -149,11 +132,10 @@
     }
 
     // ============================
-    // Al cambiar de alumno → filtrar clases
+    // Al cambiar alumno → filtrar clases
     // ============================
     selectAlumno.addEventListener('change', () => {
       const alumnoId = selectAlumno.value
-
       avisoDuplicado.style.display = 'none'
       btnGuardar.disabled = false
 
@@ -165,12 +147,13 @@
       }
 
       const todasLasClases = clasesPorAlumno[alumnoId] || []
-
-      // ⬇️ Filtrar clases que YA tienen falta para este alumno
-      const clasesDisponibles = todasLasClases.filter(c =>
+      // Solo clases que NO estén anuladas
+      const clasesNoAnuladas = todasLasClases.filter(c => c.estado !== 'anulada')
+      // Y de esas, las que aún no tienen falta para este alumno
+      const clasesDisponibles = clasesNoAnuladas.filter(c =>
         !faltasExistentes.has(`${alumnoId}:${c.id}`)
       )
-      const clasesConFalta = todasLasClases.length - clasesDisponibles.length
+      const clasesConFalta = clasesNoAnuladas.length - clasesDisponibles.length
 
       if (clasesDisponibles.length === 0) {
         selectClase.innerHTML = '<option value="">— Sin clases disponibles —</option>'
@@ -186,7 +169,6 @@
       }
 
       selectClase.disabled = false
-
       const programadas = clasesDisponibles.filter(c => c.estado === 'programada')
       const otras = clasesDisponibles.filter(c => c.estado !== 'programada')
 
@@ -203,7 +185,7 @@
         html += '<optgroup label="📚 Otras clases">'
         html += otras.slice(0, 30).map(c => {
           const hora = c.hora_inicio ? `${c.hora_inicio.slice(0,5)}–${(c.hora_fin||'').slice(0,5)}` : ''
-          const est = c.estado === 'anulada' ? '🚫 ' : c.estado === 'realizada' ? '✅ ' : ''
+          const est = c.estado === 'realizada' ? '✅ ' : ''
           return `<option value="${c.id}">${est}${c.fecha} · ${hora} · ${c.titulo}</option>`
         }).join('')
         html += '</optgroup>'
@@ -219,7 +201,7 @@
     })
 
     // ============================
-    // Al cambiar de clase → validar duplicado (por si acaso)
+    // Al cambiar clase → validar duplicado
     // ============================
     selectClase.addEventListener('change', () => {
       const alumnoId = selectAlumno.value
@@ -233,9 +215,7 @@
 
       if (faltasExistentes.has(`${alumnoId}:${claseId}`)) {
         avisoDuplicado.style.display = 'block'
-        avisoDuplicado.innerHTML = `
-          ⚠️ <strong>Ya existe una falta registrada</strong> para este alumno en esta clase.
-        `
+        avisoDuplicado.innerHTML = `⚠️ <strong>Ya existe una falta registrada</strong> para este alumno en esta clase.`
         btnGuardar.disabled = true
       } else {
         avisoDuplicado.style.display = 'none'
@@ -244,19 +224,16 @@
     })
 
     // ============================
-    // Cargar tabla de faltas
+    // Cargar tabla
     // ============================
     async function cargarFaltas() {
       const tbody = document.getElementById('tbody-faltas')
       tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--texto-secundario);">Cargando...</td></tr>'
 
       const { data: faltas, error } = await supabase
-        .from(TABLES.faltas)
-        .select('*')
-        .order('fecha_registro', { ascending: false })
+        .from(TABLES.faltas).select('*').order('fecha_registro', { ascending: false })
 
       if (error) {
-        console.error('Error faltas:', error)
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#e74c3c;">Error: ${error.message}</td></tr>`
         return
       }
@@ -271,16 +248,11 @@
         const clase = clasesMap[f.clase_id]
         const claseTxt = clase ? `${clase.fecha} — ${clase.titulo}` : '—'
 
-        // Estado de recuperación
         let estadoHtml = ''
         if (f.tipo === 'justificada' || f.tipo === 'lesion') {
-          if (f.recuperada) {
-            estadoHtml = '<span class="badge-rec badge-rec-ok">✔️ Recuperada</span>'
-          } else if (f.clase_recuperacion_id) {
-            estadoHtml = '<span class="badge-rec badge-rec-prog">🔄 Programada</span>'
-          } else {
-            estadoHtml = '<span class="badge-rec badge-rec-pend">⏳ Pendiente</span>'
-          }
+          if (f.recuperada) estadoHtml = '<span class="badge-rec badge-rec-ok">✔️ Recuperada</span>'
+          else if (f.clase_recuperacion_id) estadoHtml = '<span class="badge-rec badge-rec-prog">🔄 Programada</span>'
+          else estadoHtml = '<span class="badge-rec badge-rec-pend">⏳ Pendiente</span>'
         } else {
           estadoHtml = '<span style="color:var(--texto-secundario);">—</span>'
         }
@@ -312,12 +284,125 @@
 
       tbody.querySelectorAll('[data-del]').forEach(btn => {
         btn.onclick = async () => {
+          const faltaId = btn.dataset.del
+          const falta = faltas.find(f => f.id === faltaId)
           if (!confirm('¿Eliminar esta falta?')) return
-          await supabase.from(TABLES.faltas).delete().eq('id', btn.dataset.del)
+          await supabase.from(TABLES.faltas).delete().eq('id', faltaId)
+          // Si la falta tenía clase, revisar si hay que reabrir
+          if (falta?.clase_id) {
+            await revisarReaperturaClase(falta.clase_id)
+          }
           await cargarDatos()
           cargarFaltas()
         }
       })
+    }
+
+    // ============================
+    // AUTO-ANULACIÓN: si todos los alumnos de la clase faltan → anular
+    // ============================
+    async function verificarAutoAnulacion(claseId) {
+      // 1. Alumnos de la clase
+      const { data: alumnosClase } = await supabase
+        .from(TABLES.claseAlumnos)
+        .select('alumno_id')
+        .eq('clase_id', claseId)
+
+      if (!alumnosClase || alumnosClase.length === 0) return null
+
+      // 2. Faltas de la clase
+      const { data: faltasClase } = await supabase
+        .from(TABLES.faltas)
+        .select('alumno_id')
+        .eq('clase_id', claseId)
+
+      const alumnosConFalta = new Set((faltasClase || []).map(f => f.alumno_id))
+      const todosFaltan = alumnosClase.every(a => alumnosConFalta.has(a.alumno_id))
+
+      if (!todosFaltan) return null
+
+      // 3. Obtener datos de la clase
+      const { data: clase } = await supabase
+        .from(TABLES.clases)
+        .select('estado')
+        .eq('id', claseId)
+        .single()
+
+      // Solo anular si está programada
+      if (!clase || clase.estado !== 'programada') return null
+
+      // 4. Anular la clase
+      const { error } = await supabase
+        .from(TABLES.clases)
+        .update({ estado: 'anulada', motivo_anulacion: 'No hay alumnos' })
+        .eq('id', claseId)
+
+      if (error) { console.error('Error anulando:', error); return null }
+
+      return { totalAlumnos: alumnosClase.length }
+    }
+
+    // ============================
+    // REAPERTURA: si ya NO faltan todos → reabrir (solo si se anuló por "No hay alumnos")
+    // ============================
+    async function revisarReaperturaClase(claseId) {
+      const { data: clase } = await supabase
+        .from(TABLES.clases)
+        .select('estado, motivo_anulacion')
+        .eq('id', claseId)
+        .single()
+
+      // Solo reabrir si fue anulada automáticamente por "No hay alumnos"
+      if (!clase || clase.estado !== 'anulada') return false
+      if (clase.motivo_anulacion !== 'No hay alumnos') return false
+
+      const { data: alumnosClase } = await supabase
+        .from(TABLES.claseAlumnos)
+        .select('alumno_id')
+        .eq('clase_id', claseId)
+
+      const { data: faltasClase } = await supabase
+        .from(TABLES.faltas)
+        .select('alumno_id')
+        .eq('clase_id', claseId)
+
+      const alumnosConFalta = new Set((faltasClase || []).map(f => f.alumno_id))
+      const todosFaltan = (alumnosClase || []).every(a => alumnosConFalta.has(a.alumno_id))
+
+      if (todosFaltan) return false
+
+      // Reabrir la clase
+      const { error } = await supabase
+        .from(TABLES.clases)
+        .update({ estado: 'programada', motivo_anulacion: null })
+        .eq('id', claseId)
+
+      return !error
+    }
+
+    // ============================
+    // Toast de notificación
+    // ============================
+    function mostrarToast(texto, tipo = 'ok') {
+      const colores = {
+        ok: '#1e8449',
+        anulada: '#c0392b',
+        reabierta: '#2a6b9c'
+      }
+      const iconos = {
+        ok: '✅',
+        anulada: '🚫',
+        reabierta: '🔄'
+      }
+      const t = document.createElement('div')
+      t.className = 'toast-notificacion'
+      t.style.background = colores[tipo] || colores.ok
+      t.innerHTML = `${iconos[tipo] || ''} ${texto}`
+      document.body.appendChild(t)
+      setTimeout(() => {
+        t.style.opacity = '0'
+        setTimeout(() => t.remove(), 300)
+      }, 3500)
     }
 
     function escapar(s) {
@@ -334,14 +419,12 @@
       infoClases.textContent = ''
       avisoDuplicado.style.display = 'none'
       btnGuardar.disabled = false
-
-      // Recargar datos para tener faltas actualizadas
       await cargarDatos()
       modal.showModal()
     }
 
     // ============================
-    // Guardar (con validación anti-duplicado final)
+    // Guardar
     // ============================
     document.getElementById('form-falta').addEventListener('submit', async (e) => {
       e.preventDefault()
@@ -350,7 +433,6 @@
 
       const claseId = selectClase.value || null
 
-      // ⬇️ Validación final anti-duplicado
       if (claseId && faltasExistentes.has(`${alumnoId}:${claseId}`)) {
         alert('⚠️ Este alumno ya tiene una falta registrada en esa clase.')
         return
@@ -366,6 +448,18 @@
       if (error) { alert('Error: ' + error.message); return }
 
       modal.close()
+
+      // ⬇️ Verificar auto-anulación si tiene clase
+      if (claseId) {
+        const result = await verificarAutoAnulacion(claseId)
+        if (result) {
+          mostrarToast(
+            `Clase anulada automáticamente: todos los alumnos (${result.totalAlumnos}) han faltado`,
+            'anulada'
+          )
+        }
+      }
+
       await cargarDatos()
       cargarFaltas()
     })
@@ -424,6 +518,29 @@
     #btn-guardar-falta:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    /* Toast de notificación */
+    .toast-notificacion {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      padding: 14px 22px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      z-index: 9999;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+      animation: toastIn 0.3s ease;
+      max-width: 90vw;
+      text-align: center;
+      transition: opacity 0.3s ease;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translate(-50%, 20px); }
+      to   { opacity: 1; transform: translate(-50%, 0); }
     }
   </style>
 </body>
