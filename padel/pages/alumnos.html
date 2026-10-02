@@ -21,8 +21,15 @@
         <table class="tabla">
           <thead>
             <tr>
-              <th>Nombre</th><th>Nivel</th><th>Email</th><th>Teléfono</th>
-              <th>Alta</th><th>Activo</th><th></th>
+              <th>Nombre</th>
+              <th>Nivel</th>
+              <th class="th-stat" title="Clases programadas futuras">📅 Prog.</th>
+              <th class="th-stat" title="Clases realizadas">✅ Real.</th>
+              <th class="th-stat" title="Faltas no justificadas">❌ No just.</th>
+              <th class="th-stat" title="Faltas con aviso tardío">⏰ Aviso</th>
+              <th class="th-stat" title="Clases a recuperar (justificadas o por lesión)">🔄 Recup.</th>
+              <th>Activo</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="tbody-alumnos"></tbody>
@@ -31,10 +38,14 @@
     </main>
   </div>
 
+  <!-- ============================
+       MODAL EDITAR / NUEVO
+       ============================ -->
   <dialog id="modal-alumno">
     <form id="form-alumno">
       <h2 id="modal-titulo">Nuevo alumno</h2>
       <input type="hidden" id="alumno-id">
+
       <label>Nombre <input type="text" id="nombre" required></label>
       <label>Email <input type="email" id="email"></label>
       <label>Teléfono <input type="tel" id="telefono"></label>
@@ -48,11 +59,22 @@
       </label>
       <label>Notas <textarea id="notas" rows="3"></textarea></label>
       <label><input type="checkbox" id="activo" checked style="width:auto;"> Activo</label>
+
       <div class="modal-actions">
         <button type="button" class="btn-secondary" id="btn-cancelar">Cancelar</button>
         <button type="submit" class="btn-primary">Guardar</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- ============================
+       MODAL FICHA DE ALUMNO (detalle)
+       ============================ -->
+  <dialog id="modal-ficha">
+    <div id="ficha-contenido"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" onclick="document.getElementById('modal-ficha').close()">Cerrar</button>
+    </div>
   </dialog>
 
   <script type="module">
@@ -62,40 +84,284 @@
     renderNav('alumnos')
 
     const modal = document.getElementById('modal-alumno')
+    const modalFicha = document.getElementById('modal-ficha')
     const form = document.getElementById('form-alumno')
 
-    async function cargarAlumnos() {
-      const { data } = await supabase.from(TABLES.alumnos).select('*').order('nombre')
-      document.getElementById('tbody-alumnos').innerHTML = (data || []).map(a => `
-        <tr>
-          <td>${a.nombre}</td>
-          <td>${a.nivel}</td>
-          <td>${a.email || '—'}</td>
-          <td>${a.telefono || '—'}</td>
-          <td>${a.fecha_alta}</td>
-          <td>${a.activo ? '✅' : '❌'}</td>
-          <td>
-            <button class="btn-secondary" data-edit="${a.id}">✏️</button>
-            <button class="btn-peligro" data-del="${a.id}">🗑️</button>
-          </td>
-        </tr>
-      `).join('')
+    let alumnosCache = []
+    let statsCache = {}
 
+    // ============================
+    // Cargar todo y calcular estadísticas
+    // ============================
+    async function cargarAlumnos() {
+      const [alumnosRes, clasesRes, faltasRes] = await Promise.all([
+        supabase.from(TABLES.alumnos).select('*').order('nombre'),
+        supabase.from(TABLES.clases).select('id, estado, fecha, hora_inicio, titulo, padel_clase_alumnos(alumno_id)'),
+        supabase.from(TABLES.faltas).select('id, alumno_id, clase_id, tipo, recuperada, fecha_registro, descripcion')
+      ])
+
+      alumnosCache = alumnosRes.data || []
+      const clases = clasesRes.data || []
+      const faltas = faltasRes.data || []
+
+      // ---- Calcular stats por alumno ----
+      const hoy = new Date().toISOString().split('T')[0]
+      statsCache = {}
+
+      // Inicializar contadores
+      alumnosCache.forEach(a => {
+        statsCache[a.id] = {
+          programadas: 0,
+          realizadas: 0,
+          noJustificadas: 0,
+          avisoTardio: 0,
+          aRecuperar: 0
+        }
+      })
+
+      // Contar programadas / realizadas por alumno
+      clases.forEach(c => {
+        (c.padel_clase_alumnos || []).forEach(rel => {
+          const s = statsCache[rel.alumno_id]
+          if (!s) return
+          if (c.estado === 'programada' && c.fecha >= hoy) s.programadas++
+          else if (c.estado === 'realizada') s.realizadas++
+        })
+      })
+
+      // Contar faltas por tipo
+      faltas.forEach(f => {
+        const s = statsCache[f.alumno_id]
+        if (!s) return
+        if (f.tipo === 'no_justificada') s.noJustificadas++
+        else if (f.tipo === 'aviso_tardio') s.avisoTardio++
+        else if ((f.tipo === 'justificada' || f.tipo === 'lesion') && !f.recuperada) {
+          s.aRecuperar++
+        }
+      })
+
+      pintarTabla()
+    }
+
+    // ============================
+    // Pintar tabla
+    // ============================
+    function pintarTabla() {
+      document.getElementById('tbody-alumnos').innerHTML = alumnosCache.map(a => {
+        const s = statsCache[a.id] || {}
+
+        const claseRecup = s.aRecuperar > 0 ? 'stat-recuperar' : ''
+        const claseNoJust = s.noJustificadas >= 3 ? 'stat-alerta' : ''
+        const claseAviso = s.avisoTardio >= 3 ? 'stat-aviso' : ''
+
+        return `
+          <tr>
+            <td>
+              <button class="btn-nombre" data-ficha="${a.id}">
+                ${escapar(a.nombre)}
+              </button>
+            </td>
+            <td><span class="badge badge-nivel badge-${a.nivel}">${etiquetaNivel(a.nivel)}</span></td>
+            <td class="td-stat">${s.programadas > 0 ? s.programadas : '<span class="stat-cero">—</span>'}</td>
+            <td class="td-stat stat-realizada">${s.realizadas > 0 ? s.realizadas : '<span class="stat-cero">—</span>'}</td>
+            <td class="td-stat ${claseNoJust}">${s.noJustificadas > 0 ? s.noJustificadas : '<span class="stat-cero">—</span>'}</td>
+            <td class="td-stat ${claseAviso}">${s.avisoTardio > 0 ? s.avisoTardio : '<span class="stat-cero">—</span>'}</td>
+            <td class="td-stat ${claseRecup}">${s.aRecuperar > 0 ? s.aRecuperar : '<span class="stat-cero">—</span>'}</td>
+            <td>${a.activo ? '✅' : '❌'}</td>
+            <td class="td-acciones">
+              <button class="btn-secondary" data-edit="${a.id}" title="Editar">✏️</button>
+              <button class="btn-peligro" data-del="${a.id}" title="Eliminar">🗑️</button>
+            </td>
+          </tr>
+        `
+      }).join('')
+
+      // Listeners
       document.querySelectorAll('[data-edit]').forEach(btn => {
-        btn.onclick = () => editar(btn.dataset.edit, data)
+        btn.onclick = () => editar(btn.dataset.edit)
       })
       document.querySelectorAll('[data-del]').forEach(btn => {
-        btn.onclick = async () => {
-          if (confirm('¿Eliminar alumno?')) {
-            await supabase.from(TABLES.alumnos).delete().eq('id', btn.dataset.del)
-            cargarAlumnos()
-          }
-        }
+        btn.onclick = () => eliminar(btn.dataset.del)
+      })
+      document.querySelectorAll('[data-ficha]').forEach(btn => {
+        btn.onclick = () => abrirFicha(btn.dataset.ficha)
       })
     }
 
-    function editar(id, lista) {
-      const a = lista.find(x => x.id === id)
+    // ============================
+    // Ficha detallada del alumno
+    // ============================
+    async function abrirFicha(alumnoId) {
+      const alumno = alumnosCache.find(a => a.id === alumnoId)
+      if (!alumno) return
+      const s = statsCache[alumnoId] || {}
+
+      // Cargar detalles de faltas y clases realizadas
+      const [faltasRes, clasesRes] = await Promise.all([
+        supabase.from(TABLES.faltas)
+          .select('*, padel_clases(titulo, fecha, hora_inicio)')
+          .eq('alumno_id', alumnoId)
+          .order('fecha_registro', { ascending: false }),
+        supabase.from(TABLES.clases)
+          .select('id, titulo, fecha, hora_inicio, hora_fin, estado, padel_clase_alumnos(alumno_id)')
+          .eq('estado', 'realizada')
+          .order('fecha', { ascending: false })
+          .limit(100)
+      ])
+
+      const faltas = faltasRes.data || []
+      const clasesRealizadas = (clasesRes.data || [])
+        .filter(c => (c.padel_clase_alumnos || []).some(r => r.alumno_id === alumnoId))
+
+      const aRecuperar = faltas.filter(f =>
+        (f.tipo === 'justificada' || f.tipo === 'lesion') && !f.recuperada
+      )
+      const recuperadas = faltas.filter(f =>
+        (f.tipo === 'justificada' || f.tipo === 'lesion') && f.recuperada
+      )
+      const noJustificadas = faltas.filter(f => f.tipo === 'no_justificada')
+      const avisoTardio = faltas.filter(f => f.tipo === 'aviso_tardio')
+
+      document.getElementById('ficha-contenido').innerHTML = `
+        <h2 style="margin-top:0;">${escapar(alumno.nombre)}</h2>
+        <p style="color:var(--texto-secundario);font-size:0.85rem;margin-bottom:12px;">
+          ${etiquetaNivel(alumno.nivel)} · ${alumno.email || 'sin email'} · ${alumno.telefono || 'sin teléfono'}
+        </p>
+
+        <div class="ficha-stats">
+          <div class="ficha-stat stat-box-programada">
+            <div class="ficha-num">${s.programadas || 0}</div>
+            <div class="ficha-label">📅 Programadas</div>
+          </div>
+          <div class="ficha-stat stat-box-realizada">
+            <div class="ficha-num">${s.realizadas || 0}</div>
+            <div class="ficha-label">✅ Realizadas</div>
+          </div>
+          <div class="ficha-stat stat-box-nojust">
+            <div class="ficha-num">${s.noJustificadas || 0}</div>
+            <div class="ficha-label">❌ No justificadas</div>
+          </div>
+          <div class="ficha-stat stat-box-aviso">
+            <div class="ficha-num">${s.avisoTardio || 0}</div>
+            <div class="ficha-label">⏰ Aviso tardío</div>
+          </div>
+          <div class="ficha-stat stat-box-recuperar">
+            <div class="ficha-num">${s.aRecuperar || 0}</div>
+            <div class="ficha-label">🔄 A recuperar</div>
+          </div>
+        </div>
+
+        ${aRecuperar.length > 0 ? `
+          <h3 style="margin-top:16px;font-size:1rem;">🔄 Clases pendientes de recuperar</h3>
+          <div class="ficha-lista">
+            ${aRecuperar.map(f => `
+              <div class="ficha-item ficha-item-recuperar">
+                <div>
+                  <div class="ficha-item-titulo">${f.padel_clases?.titulo || 'Falta sin clase'}</div>
+                  <div class="ficha-item-fecha">
+                    ${f.padel_clases?.fecha || f.fecha_registro?.split('T')[0]}
+                    ${f.padel_clases?.hora_inicio ? ' · ' + f.padel_clases.hora_inicio.slice(0,5) : ''}
+                    · <span class="ficha-tipo-${f.tipo}">${etiquetaTipoFalta(f.tipo)}</span>
+                  </div>
+                </div>
+                <button class="btn-mini btn-marcar-recuperada" data-falta="${f.id}">✔️ Marcar recuperada</button>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        ${recuperadas.length > 0 ? `
+          <h3 style="margin-top:16px;font-size:0.95rem;color:var(--texto-secundario);">
+            ✔️ Recuperadas (${recuperadas.length})
+          </h3>
+          <div class="ficha-lista">
+            ${recuperadas.map(f => `
+              <div class="ficha-item ficha-item-recuperada">
+                <div>
+                  <div class="ficha-item-titulo">${f.padel_clases?.titulo || '—'}</div>
+                  <div class="ficha-item-fecha">
+                    ${f.padel_clases?.fecha || f.fecha_registro?.split('T')[0]}
+                    · ${etiquetaTipoFalta(f.tipo)}
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        ${noJustificadas.length > 0 ? `
+          <h3 style="margin-top:16px;font-size:0.95rem;color:#e74c3c;">
+            ❌ No justificadas (${noJustificadas.length})
+          </h3>
+          <div class="ficha-lista">
+            ${noJustificadas.map(f => `
+              <div class="ficha-item ficha-item-nojust">
+                <div>
+                  <div class="ficha-item-titulo">${f.padel_clases?.titulo || '—'}</div>
+                  <div class="ficha-item-fecha">
+                    ${f.padel_clases?.fecha || f.fecha_registro?.split('T')[0]}
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        ${avisoTardio.length > 0 ? `
+          <h3 style="margin-top:16px;font-size:0.95rem;color:#e67e22;">
+            ⏰ Aviso tardío (${avisoTardio.length})
+          </h3>
+          <div class="ficha-lista">
+            ${avisoTardio.map(f => `
+              <div class="ficha-item ficha-item-aviso">
+                <div>
+                  <div class="ficha-item-titulo">${f.padel_clases?.titulo || '—'}</div>
+                  <div class="ficha-item-fecha">
+                    ${f.padel_clases?.fecha || f.fecha_registro?.split('T')[0]}
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <h3 style="margin-top:16px;font-size:0.95rem;color:var(--texto-secundario);">
+          ✅ Últimas clases realizadas (${clasesRealizadas.length})
+        </h3>
+        <div class="ficha-lista">
+          ${clasesRealizadas.slice(0, 5).map(c => `
+            <div class="ficha-item">
+              <div>
+                <div class="ficha-item-titulo">${c.titulo}</div>
+                <div class="ficha-item-fecha">
+                  ${c.fecha} · ${(c.hora_inicio || '').slice(0,5)}–${(c.hora_fin || '').slice(0,5)}
+                </div>
+              </div>
+            </div>
+          `).join('') || '<p style="color:var(--texto-secundario);font-size:0.85rem;">Sin clases realizadas</p>'}
+          ${clasesRealizadas.length > 5 ? `<p style="color:var(--texto-secundario);font-size:0.8rem;text-align:center;margin-top:6px;">...y ${clasesRealizadas.length - 5} más</p>` : ''}
+        </div>
+      `
+
+      // Botones "Marcar recuperada"
+      document.querySelectorAll('.btn-marcar-recuperada').forEach(btn => {
+        btn.onclick = async () => {
+          const faltaId = btn.dataset.falta
+          await supabase.from(TABLES.faltas).update({ recuperada: true }).eq('id', faltaId)
+          modalFicha.close()
+          await cargarAlumnos()
+          setTimeout(() => abrirFicha(alumnoId), 150)
+        }
+      })
+
+      modalFicha.showModal()
+    }
+
+    // ============================
+    // Editar / Eliminar
+    // ============================
+    function editar(id) {
+      const a = alumnosCache.find(x => x.id === id)
       if (!a) return
       document.getElementById('modal-titulo').textContent = 'Editar alumno'
       document.getElementById('alumno-id').value = a.id
@@ -108,6 +374,17 @@
       modal.showModal()
     }
 
+    async function eliminar(id) {
+      const a = alumnosCache.find(x => x.id === id)
+      if (!a) return
+      if (!confirm(`¿Eliminar a ${a.nombre}? Se borrarán todas sus faltas y progreso.`)) return
+      await supabase.from(TABLES.alumnos).delete().eq('id', id)
+      cargarAlumnos()
+    }
+
+    // ============================
+    // Nuevo alumno
+    // ============================
     document.getElementById('btn-nuevo').onclick = () => {
       form.reset()
       document.getElementById('modal-titulo').textContent = 'Nuevo alumno'
@@ -134,7 +411,267 @@
       cargarAlumnos()
     })
 
+    // ============================
+    // Helpers
+    // ============================
+    function escapar(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
+    function etiquetaNivel(n) {
+      return {
+        iniciacion: 'Iniciación',
+        intermedio: 'Intermedio',
+        avanzado:   'Avanzado',
+        competicion:'Competición'
+      }[n] || n
+    }
+
+    function etiquetaTipoFalta(t) {
+      return {
+        justificada: 'Justificada',
+        no_justificada: 'No justificada',
+        lesion: 'Lesión',
+        aviso_tardio: 'Aviso tardío'
+      }[t] || t
+    }
+
+    // ============================
+    // Init
+    // ============================
     cargarAlumnos()
   </script>
+
+  <style>
+    /* ============================
+       Tabla — cabeceras de stats
+       ============================ */
+    .th-stat, .td-stat {
+      text-align: center !important;
+      width: 70px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .td-stat {
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .stat-cero {
+      color: var(--texto-secundario);
+      font-weight: 400;
+      opacity: 0.4;
+    }
+
+    .stat-realizada {
+      color: #2ecc71;
+    }
+
+    .stat-alerta {
+      color: #e74c3c !important;
+      background: rgba(231, 76, 60, 0.1);
+    }
+
+    .stat-aviso {
+      color: #e67e22 !important;
+      background: rgba(230, 126, 34, 0.08);
+    }
+
+    .stat-recuperar {
+      color: var(--pista-azul-hielo) !important;
+      background: rgba(91, 184, 212, 0.12);
+    }
+
+    /* ============================
+       Nombre clickeable
+       ============================ */
+    .btn-nombre {
+      background: none;
+      border: none;
+      color: var(--pista-azul-hielo);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      padding: 0;
+      text-align: left;
+      font-family: inherit;
+      border-bottom: 1px dashed transparent;
+      transition: border-color 0.15s;
+    }
+    .btn-nombre:hover {
+      border-bottom-color: var(--pista-azul-hielo);
+    }
+
+    /* ============================
+       Badges de nivel
+       ============================ */
+    .badge-nivel {
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-iniciacion  { background: #5bb8d4; color: white; }
+    .badge-intermedio  { background: #3a8fbf; color: white; }
+    .badge-avanzado    { background: #2a6b9c; color: white; }
+    .badge-competicion { background: #1a3a5c; color: #e8ff3a; }
+
+    .td-acciones {
+      white-space: nowrap;
+      display: flex;
+      gap: 4px;
+    }
+
+    /* ============================
+       Ficha del alumno
+       ============================ */
+    .ficha-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .ficha-stat {
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      border-radius: 8px;
+      padding: 12px 8px;
+      text-align: center;
+      transition: transform 0.15s;
+    }
+    .ficha-stat:hover { transform: translateY(-2px); }
+
+    .ficha-num {
+      font-size: 1.6rem;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .ficha-label {
+      font-size: 0.7rem;
+      color: var(--texto-secundario);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-box-programada .ficha-num { color: #3a8fbf; }
+    .stat-box-realizada  .ficha-num { color: #2ecc71; }
+    .stat-box-nojust     .ficha-num { color: #e74c3c; }
+    .stat-box-aviso      .ficha-num { color: #e67e22; }
+    .stat-box-recuperar  .ficha-num { color: var(--pista-azul-hielo); }
+
+    .stat-box-recuperar {
+      border-color: var(--pista-azul-hielo);
+      box-shadow: 0 0 0 1px rgba(91, 184, 212, 0.3) inset;
+    }
+
+    /* ============================
+       Lista de faltas en la ficha
+       ============================ */
+    .ficha-lista {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+
+    .ficha-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 0.85rem;
+    }
+
+    .ficha-item-titulo {
+      font-weight: 600;
+      color: var(--texto-principal);
+    }
+    .ficha-item-fecha {
+      font-size: 0.75rem;
+      color: var(--texto-secundario);
+      margin-top: 2px;
+    }
+
+    .ficha-item-recuperar {
+      border-left: 3px solid var(--pista-azul-hielo);
+    }
+    .ficha-item-recuperada {
+      opacity: 0.6;
+    }
+    .ficha-item-recuperada .ficha-item-titulo {
+      text-decoration: line-through;
+    }
+    .ficha-item-nojust {
+      border-left: 3px solid #e74c3c;
+    }
+    .ficha-item-aviso {
+      border-left: 3px solid #e67e22;
+    }
+
+    .ficha-tipo-justificada    { color: #5bb8d4; font-weight: 600; }
+    .ficha-tipo-lesion         { color: #e74c3c; font-weight: 600; }
+    .ficha-tipo-no_justificada { color: #e74c3c; font-weight: 600; }
+    .ficha-tipo-aviso_tardio   { color: #e67e22; font-weight: 600; }
+
+    .btn-mini {
+      background: var(--pista-azul-oscuro);
+      color: var(--texto-principal);
+      border: 1px solid var(--borde-card);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      min-height: auto;
+      font-family: inherit;
+    }
+    .btn-mini:hover {
+      background: var(--pista-azul-claro);
+      border-color: var(--pista-azul-claro);
+    }
+    .btn-marcar-recuperada {
+      background: #1e8449;
+      border-color: #1e8449;
+      color: white;
+    }
+    .btn-marcar-recuperada:hover {
+      background: #27ae60;
+      border-color: #27ae60;
+    }
+
+    /* ============================
+       Modal ficha (más ancho)
+       ============================ */
+    #modal-ficha {
+      max-width: 620px;
+    }
+
+    /* ============================
+       Responsive
+       ============================ */
+    @media (max-width: 768px) {
+      .th-stat, .td-stat { width: 50px; font-size: 0.8rem; }
+      .btn-nombre { font-size: 0.85rem; }
+      .ficha-stats { grid-template-columns: repeat(3, 1fr); }
+      .ficha-num { font-size: 1.3rem; }
+      .ficha-label { font-size: 0.62rem; }
+    }
+
+    @media (max-width: 480px) {
+      .ficha-stats { grid-template-columns: repeat(2, 1fr); }
+      .ficha-item { font-size: 0.78rem; flex-direction: column; align-items: flex-start; }
+      .btn-mini { width: 100%; }
+    }
+  </style>
 </body>
 </html>
