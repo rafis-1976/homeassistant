@@ -20,36 +20,73 @@
     <form id="form-clase">
       <h2 id="modal-titulo">Nueva Clase</h2>
       <input type="hidden" id="clase-id">
+
       <label>Título <input type="text" id="titulo" required></label>
+
       <label>Fecha <input type="date" id="fecha" required></label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <label>Hora inicio <input type="time" id="hora_inicio" required></label>
         <label>Hora fin <input type="time" id="hora_fin" required></label>
       </div>
-      <label>Tipo
-        <select id="tipo">
-          <option value="individual">Individual</option>
-          <option value="grupal">Grupal</option>
-          <option value="clinica">Clínica</option>
-          <option value="partido">Partido</option>
-        </select>
-      </label>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <label>Tipo
+          <select id="tipo">
+            <option value="individual">Individual</option>
+            <option value="grupal">Grupal</option>
+            <option value="clinica">Clínica</option>
+            <option value="partido">Partido</option>
+          </select>
+        </label>
+        <label>Nivel
+          <select id="nivel_filtro">
+            <option value="">Todos los niveles</option>
+            <option value="iniciacion">Iniciación</option>
+            <option value="intermedio">Intermedio</option>
+            <option value="avanzado">Avanzado</option>
+            <option value="competicion">Competición</option>
+          </select>
+        </label>
+      </div>
+
       <label>Ejercicio del catálogo
         <select id="ejercicio_id">
           <option value="">— Sin ejercicio —</option>
         </select>
       </label>
+
       <label>O escribe un ejercicio libre
         <input type="text" id="ejercicio_libre" placeholder="Ej: Partidillos, Calentamiento...">
       </label>
-      <label>Alumnos (Ctrl+clic para varios)
-        <select id="alumnos" multiple size="5"></select>
+
+      <label>Alumnos <span id="contador-alumnos" style="color:var(--pista-azul-hielo);font-weight:600;"></span>
+        <select id="alumnos" multiple size="6"></select>
+        <small style="color:var(--texto-secundario);font-size:0.75rem;">Ctrl+clic (o Cmd+clic en Mac) para seleccionar varios</small>
       </label>
+
+      <!-- ============================
+           REPETICIÓN SEMANAL
+           ============================ -->
+      <div id="bloque-repetir" style="background:var(--fondo-app);border:1px solid var(--borde-card);border-radius:8px;padding:12px;margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer;">
+          <input type="checkbox" id="repetir_semanal" style="width:auto;min-height:auto;">
+          <span style="font-weight:600;color:var(--texto-principal);">🔁 Repetir esta clase todas las semanas</span>
+        </label>
+
+        <div id="campos-repetir" style="display:none;">
+          <label>Repetir hasta (inclusive)
+            <input type="date" id="repetir_hasta">
+          </label>
+          <div id="preview-repeticion" style="font-size:0.8rem;color:var(--pista-azul-hielo);margin-top:4px;"></div>
+        </div>
+      </div>
+
       <label>Notas <textarea id="notas" rows="3"></textarea></label>
+
       <div class="modal-actions">
         <button type="button" class="btn-secondary" id="btn-cancelar">Cancelar</button>
         <button type="button" class="btn-secondary" id="btn-realizada" style="display:none;">✅ Marcar realizada</button>
-        <button type="submit" class="btn-primary">Guardar</button>
+        <button type="submit" class="btn-primary" id="btn-guardar">Guardar</button>
       </div>
     </form>
   </dialog>
@@ -65,19 +102,125 @@
     const form = document.getElementById('form-clase')
     const selectAlumnos = document.getElementById('alumnos')
     const selectEjercicio = document.getElementById('ejercicio_id')
+    const selectNivel = document.getElementById('nivel_filtro')
+    const checkRepetir = document.getElementById('repetir_semanal')
+    const camposRepetir = document.getElementById('campos-repetir')
+    const inputRepetirHasta = document.getElementById('repetir_hasta')
+    const previewRepeticion = document.getElementById('preview-repeticion')
+    const contadorAlumnos = document.getElementById('contador-alumnos')
 
-    // Cargar alumnos
-    const { data: alumnos } = await supabase
-      .from(TABLES.alumnos).select('id, nombre').eq('activo', true).order('nombre')
-    selectAlumnos.innerHTML = (alumnos || [])
-      .map(a => `<option value="${a.id}">${a.nombre}</option>`).join('')
+    // Cache de alumnos
+    let alumnosCache = []
 
+    // ============================
+    // Cargar alumnos (con nivel para filtrar)
+    // ============================
+    async function cargarAlumnos() {
+      const { data } = await supabase
+        .from(TABLES.alumnos)
+        .select('id, nombre, nivel')
+        .eq('activo', true)
+        .order('nombre')
+      alumnosCache = data || []
+    }
+    await cargarAlumnos()
+
+    // ============================
+    // Pintar alumnos según nivel
+    // ============================
+    function pintarAlumnos(nivel, seleccionados = []) {
+      const filtrados = nivel
+        ? alumnosCache.filter(a => a.nivel === nivel)
+        : alumnosCache
+
+      selectAlumnos.innerHTML = filtrados
+        .map(a => `<option value="${a.id}">${a.nombre} <span style="color:#8a9ba8;">(${a.nivel})</span></option>`).join('')
+        || '<option disabled>— Sin alumnos de este nivel —</option>'
+
+      // Restaurar selección previa si sigue estando disponible
+      Array.from(selectAlumnos.options).forEach(o => {
+        o.selected = seleccionados.includes(o.value)
+      })
+
+      actualizarContador()
+    }
+
+    function actualizarContador() {
+      const n = selectAlumnos.selectedOptions.length
+      contadorAlumnos.textContent = n > 0 ? `(${n} seleccionado${n > 1 ? 's' : ''})` : ''
+    }
+
+    selectAlumnos.addEventListener('change', actualizarContador)
+
+    // ============================
     // Cargar ejercicios
+    // ============================
     const { data: ejercicios } = await supabase
       .from(TABLES.ejercicios).select('id, titulo').order('titulo')
     selectEjercicio.innerHTML = '<option value="">— Sin ejercicio —</option>' +
       (ejercicios || []).map(e => `<option value="${e.id}">${e.titulo}</option>`).join('')
 
+    // ============================
+    // Cambio de nivel → filtra alumnos (sin perder la selección válida)
+    // ============================
+    selectNivel.addEventListener('change', () => {
+      const seleccionados = Array.from(selectAlumnos.selectedOptions).map(o => o.value)
+      pintarAlumnos(selectNivel.value, seleccionados)
+    })
+
+    // ============================
+    // Repetición semanal
+    // ============================
+    checkRepetir.addEventListener('change', () => {
+      camposRepetir.style.display = checkRepetir.checked ? 'block' : 'none'
+      if (checkRepetir.checked && !inputRepetirHasta.value) {
+        // Sugerir +8 semanas
+        const fechaBase = document.getElementById('fecha').value
+        if (fechaBase) {
+          const d = new Date(fechaBase + 'T12:00:00')
+          d.setDate(d.getDate() + 7 * 8)
+          inputRepetirHasta.value = d.toISOString().split('T')[0]
+        }
+        actualizarPreviewRepeticion()
+      }
+      actualizarPreviewRepeticion()
+    })
+
+    document.getElementById('fecha').addEventListener('change', () => {
+      if (checkRepetir.checked) actualizarPreviewRepeticion()
+    })
+    inputRepetirHasta.addEventListener('change', actualizarPreviewRepeticion)
+
+    function calcularFechasRepeticion(fechaBase, fechaHasta) {
+      if (!fechaBase || !fechaHasta) return []
+      const fechas = []
+      const inicio = new Date(fechaBase + 'T12:00:00')
+      const fin = new Date(fechaHasta + 'T12:00:00')
+      if (fin < inicio) return []
+      const actual = new Date(inicio)
+      while (actual <= fin) {
+        fechas.push(actual.toISOString().split('T')[0])
+        actual.setDate(actual.getDate() + 7)
+        if (fechas.length > 100) break // seguridad
+      }
+      return fechas
+    }
+
+    function actualizarPreviewRepeticion() {
+      if (!checkRepetir.checked) { previewRepeticion.textContent = ''; return }
+      const fechaBase = document.getElementById('fecha').value
+      const fechas = calcularFechasRepeticion(fechaBase, inputRepetirHasta.value)
+      if (fechas.length === 0) {
+        previewRepeticion.textContent = '⚠️ Selecciona una fecha límite válida'
+        return
+      }
+      previewRepeticion.textContent =
+        `📆 Se crearán ${fechas.length} clases (${fechas[0]} → ${fechas[fechas.length - 1]})`
+    }
+
+    // ============================
+    // Cargar clases en el calendario
+    // ============================
     async function cargarClases() {
       const { data, error } = await supabase
         .from(TABLES.clases)
@@ -139,9 +282,14 @@
     })
     calendar.render()
 
+    // ============================
+    // Abrir modal (nueva o editar)
+    // ============================
     function abrirModal(clase) {
       const btnRealizada = document.getElementById('btn-realizada')
+
       if (clase?.id) {
+        // ===== EDITAR =====
         document.getElementById('modal-titulo').textContent = 'Editar Clase'
         document.getElementById('clase-id').value = clase.id
         document.getElementById('titulo').value = clase.title.replace(/^🚫\s*/, '')
@@ -152,10 +300,17 @@
         document.getElementById('ejercicio_id').value = clase.extendedProps.ejercicioId || ''
         document.getElementById('ejercicio_libre').value = clase.extendedProps.ejercicioLibre || ''
         document.getElementById('notas').value = clase.extendedProps.notas || ''
-        const ids = clase.extendedProps.alumnosIds || []
-        Array.from(selectAlumnos.options).forEach(o => o.selected = ids.includes(o.value))
 
-        // Mostrar botón "Realizada" sólo si no está realizada ni anulada
+        // Al editar: no filtrar por nivel, mostrar todos y marcar seleccionados
+        selectNivel.value = ''
+        const ids = clase.extendedProps.alumnosIds || []
+        pintarAlumnos('', ids)
+
+        // Ocultar bloque repetir al editar (no tiene sentido)
+        document.getElementById('bloque-repetir').style.display = 'none'
+        document.getElementById('btn-guardar').textContent = 'Guardar cambios'
+
+        // Botón "Realizada" solo si procede
         const estado = clase.extendedProps.estado
         btnRealizada.style.display = (estado === 'programada' || estado === 'reprogramada') ? 'inline-flex' : 'none'
         btnRealizada.onclick = async () => {
@@ -165,25 +320,40 @@
           calendar.addEventSource(await cargarClases())
         }
       } else {
+        // ===== NUEVA =====
         form.reset()
         document.getElementById('modal-titulo').textContent = 'Nueva Clase'
         document.getElementById('clase-id').value = ''
         document.getElementById('fecha').value = clase?.fecha || ''
         btnRealizada.style.display = 'none'
+
+        // Mostrar bloque repetir
+        document.getElementById('bloque-repetir').style.display = 'block'
+        document.getElementById('btn-guardar').textContent = 'Guardar'
+
+        // Reset nivel y alumnos
+        selectNivel.value = ''
+        pintarAlumnos('')
+
+        // Sugerir horas por defecto
+        document.getElementById('hora_inicio').value = '09:00'
+        document.getElementById('hora_fin').value = '10:00'
       }
       modal.showModal()
     }
 
     document.getElementById('btn-cancelar').onclick = () => modal.close()
 
+    // ============================
+    // Guardar (nueva o editar) + repetición semanal
+    // ============================
     form.addEventListener('submit', async (e) => {
       e.preventDefault()
       const id = document.getElementById('clase-id').value
       const alumnosIds = Array.from(selectAlumnos.selectedOptions).map(o => o.value)
 
-      const datos = {
+      const datosBase = {
         titulo: document.getElementById('titulo').value,
-        fecha: document.getElementById('fecha').value,
         hora_inicio: document.getElementById('hora_inicio').value,
         hora_fin: document.getElementById('hora_fin').value,
         tipo: document.getElementById('tipo').value,
@@ -192,25 +362,77 @@
         notas: document.getElementById('notas').value
       }
 
-      let claseId = id
+      const fechaBase = document.getElementById('fecha').value
+
+      // ============================
+      // MODO EDICIÓN (sin repetición)
+      // ============================
       if (id) {
-        await supabase.from(TABLES.clases).update(datos).eq('id', id)
+        await supabase.from(TABLES.clases).update({
+          ...datosBase,
+          fecha: fechaBase
+        }).eq('id', id)
+
         await supabase.from(TABLES.claseAlumnos).delete().eq('clase_id', id)
-      } else {
-        const { data, error } = await supabase.from(TABLES.clases).insert(datos).select().single()
-        if (error) { alert(error.message); return }
-        claseId = data.id
+        if (alumnosIds.length) {
+          await supabase.from(TABLES.claseAlumnos).insert(
+            alumnosIds.map(aid => ({ clase_id: id, alumno_id: aid }))
+          )
+        }
+
+        modal.close()
+        calendar.removeAllEvents()
+        calendar.addEventSource(await cargarClases())
+        return
       }
 
-      if (alumnosIds.length) {
-        await supabase.from(TABLES.claseAlumnos).insert(
-          alumnosIds.map(aid => ({ clase_id: claseId, alumno_id: aid }))
-        )
+      // ============================
+      // MODO NUEVA (con o sin repetición)
+      // ============================
+      let fechas = [fechaBase]
+
+      if (checkRepetir.checked) {
+        fechas = calcularFechasRepeticion(fechaBase, inputRepetirHasta.value)
+        if (fechas.length === 0) {
+          alert('La fecha límite de repetición no es válida')
+          return
+        }
+        if (fechas.length > 100) {
+          alert('Demasiadas repeticiones (>100). Reduce el rango.')
+          return
+        }
+      }
+
+      // Insertar todas las clases de golpe
+      const clasesAInsertar = fechas.map(f => ({ ...datosBase, fecha: f }))
+
+      const { data: insertadas, error } = await supabase
+        .from(TABLES.clases)
+        .insert(clasesAInsertar)
+        .select()
+
+      if (error) { alert('Error: ' + error.message); return }
+
+      // Asociar alumnos a TODAS las clases creadas
+      if (alumnosIds.length && insertadas?.length) {
+        const relaciones = []
+        insertadas.forEach(c => {
+          alumnosIds.forEach(aid => {
+            relaciones.push({ clase_id: c.id, alumno_id: aid })
+          })
+        })
+        await supabase.from(TABLES.claseAlumnos).insert(relaciones)
       }
 
       modal.close()
       calendar.removeAllEvents()
       calendar.addEventSource(await cargarClases())
+
+      if (fechas.length > 1) {
+        setTimeout(() => {
+          alert(`✅ Se han creado ${fechas.length} clases (una por semana)\nDesde ${fechas[0]} hasta ${fechas[fechas.length - 1]}`)
+        }, 200)
+      }
     })
   </script>
 
