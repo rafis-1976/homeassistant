@@ -98,12 +98,17 @@
 
       <div id="estado-info" class="estado-info" style="display:none;"></div>
 
+      <!-- AVISO DE CLASES EXISTENTES ESE DÍA (solo al crear) -->
+      <div id="aviso-dia" class="aviso-dia" style="display:none;"></div>
+
       <div class="modal-actions">
         <button type="button" class="btn-secondary" id="btn-cancelar">Cerrar</button>
         <button type="button" class="btn-estado btn-realizada" id="btn-realizada" style="display:none;">✅ Marcar realizada</button>
         <button type="button" class="btn-estado btn-anular" id="btn-anular" style="display:none;">🚫 Anular clase</button>
         <button type="button" class="btn-estado btn-reabrir" id="btn-reabrir" style="display:none;">↩️ Reabrir como programada</button>
-        <button type="submit" class="btn-primary" id="btn-guardar">Guardar</button>
+        <button type="button" class="btn-secondary" id="btn-nueva-mismo-dia" style="display:none;">➕ Otra clase este día</button>
+        <button type="button" class="btn-primary btn-guardar-otra" id="btn-guardar-otra" style="display:none;">💾➕ Guardar y añadir otra</button>
+        <button type="submit" class="btn-primary" id="btn-guardar">💾 Guardar</button>
       </div>
     </form>
   </dialog>
@@ -128,12 +133,17 @@
     const btnRealizada = document.getElementById('btn-realizada')
     const btnAnular = document.getElementById('btn-anular')
     const btnReabrir = document.getElementById('btn-reabrir')
+    const btnNuevaMismoDia = document.getElementById('btn-nueva-mismo-dia')
+    const btnGuardarOtra = document.getElementById('btn-guardar-otra')
     const estadoInfo = document.getElementById('estado-info')
+    const avisoDia = document.getElementById('aviso-dia')
+    const inputFecha = document.getElementById('fecha')
 
     let alumnosCache = []
     let alumnosSeleccionados = new Set()
     let claseActualId = null
     let claseActualEstado = null
+    let modoGuardarYContinuar = false
 
     // ============================
     // Cargar alumnos
@@ -220,7 +230,7 @@
     checkRepetir.addEventListener('change', () => {
       camposRepetir.style.display = checkRepetir.checked ? 'block' : 'none'
       if (checkRepetir.checked && !inputRepetirHasta.value) {
-        const fechaBase = document.getElementById('fecha').value
+        const fechaBase = inputFecha.value
         if (fechaBase) {
           const d = new Date(fechaBase + 'T12:00:00')
           d.setDate(d.getDate() + 7 * 8)
@@ -230,8 +240,9 @@
       actualizarPreviewRepeticion()
     })
 
-    document.getElementById('fecha').addEventListener('change', () => {
+    inputFecha.addEventListener('change', () => {
       if (checkRepetir.checked) actualizarPreviewRepeticion()
+      if (!claseActualId) actualizarAvisoDia()
     })
     inputRepetirHasta.addEventListener('change', actualizarPreviewRepeticion)
 
@@ -252,8 +263,7 @@
 
     function actualizarPreviewRepeticion() {
       if (!checkRepetir.checked) { previewRepeticion.textContent = ''; return }
-      const fechaBase = document.getElementById('fecha').value
-      const fechas = calcularFechasRepeticion(fechaBase, inputRepetirHasta.value)
+      const fechas = calcularFechasRepeticion(inputFecha.value, inputRepetirHasta.value)
       if (fechas.length === 0) {
         previewRepeticion.textContent = '⚠️ Selecciona una fecha límite válida'
         return
@@ -263,7 +273,43 @@
     }
 
     // ============================
-    // Cargar clases
+    // Aviso de clases ya existentes ese día
+    // ============================
+    async function actualizarAvisoDia() {
+      const fecha = inputFecha.value
+      if (!fecha) { avisoDia.style.display = 'none'; return }
+
+      const { data } = await supabase
+        .from(TABLES.clases)
+        .select('id, titulo, hora_inicio, hora_fin, estado')
+        .eq('fecha', fecha)
+        .order('hora_inicio')
+
+      if (!data || data.length === 0) {
+        avisoDia.style.display = 'none'
+        return
+      }
+
+      avisoDia.style.display = 'block'
+      avisoDia.innerHTML = `
+        <div class="aviso-titulo">📌 Ya hay <strong>${data.length}</strong> clase${data.length > 1 ? 's' : ''} este día:</div>
+        <ul class="aviso-lista">
+          ${data.map(c => `
+            <li>
+              <span class="aviso-hora">${c.hora_inicio?.slice(0,5)}–${c.hora_fin?.slice(0,5)}</span>
+              <span class="aviso-nombre">${escapar(c.titulo)}</span>
+            </li>
+          `).join('')}
+        </ul>
+      `
+    }
+
+    function escapar(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
+    // ============================
+    // Cargar clases en el calendario
     // ============================
     async function cargarClases() {
       const { data, error } = await supabase
@@ -335,56 +381,47 @@
     }
 
     // ============================
-    // Detectar móvil (con listener)
+    // FullCalendar
     // ============================
     const esMovil = window.innerWidth < 768
 
-    // ============================
-    // FullCalendar — CON VISTAS EN MÓVIL
-    // ============================
     const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
       initialView: esMovil ? 'timeGridWeek' : 'dayGridMonth',
       locale: 'es',
       headerToolbar: esMovil
-        ? {
-            left: 'prev,next',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay'
-          }
-        : {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay'
-          },
-      buttonText: {
-        today: 'Hoy',
-        month: 'Mes',
-        week: 'Sem',
-        day: 'Día',
-        list: 'Lista'
-      },
-      // En móvil, acortar los títulos de los botones
-      views: {
-        dayGridMonth: { buttonText: esMovil ? 'Mes' : 'Mes' },
-        timeGridWeek: { buttonText: esMovil ? 'Sem' : 'Semana' },
-        timeGridDay:  { buttonText: esMovil ? 'Día' : 'Día' }
-      },
+        ? { left: 'prev,next', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }
+        : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
+      buttonText: { today: 'Hoy', month: 'Mes', week: 'Sem', day: 'Día' },
       events: await cargarClases(),
       eventContent: renderEvento,
       editable: !esMovil,
       selectable: true,
-      dayMaxEvents: 3,
+      selectMirror: true,
+      // ⬇️ Ahora permite 5 eventos por día visibles en la vista mensual
+      dayMaxEvents: esMovil ? 5 : 4,
+      moreLinkText: (n) => `+${n} más`,
       nowIndicator: true,
       slotMinTime: '07:00:00',
       slotMaxTime: '23:00:00',
       allDaySlot: false,
+      // Al pulsar un hueco horario en vista semanal/diaria, pre-rellena la hora
+      select: (info) => {
+        const fecha = info.startStr.split('T')[0]
+        const horaInicio = info.startStr.includes('T') ? info.startStr.split('T')[1].slice(0, 5) : '09:00'
+        const horaFin = info.endStr.includes('T') ? info.endStr.split('T')[1].slice(0, 5) : '10:00'
+        abrirModal({ fecha, horaInicio, horaFin })
+      },
       dateClick: (info) => abrirModal({ fecha: info.dateStr }),
       eventClick: (info) => abrirModal(info.event),
       eventDrop: async (info) => {
         await supabase.from(TABLES.clases)
           .update({ fecha: info.event.startStr.split('T')[0] })
           .eq('id', info.event.id)
-      }
+      },
+      eventOverlap: false,
+      // Al hacer clic en "+N más", mostrar todos del día
+      moreLinkClick: 'popover',
+      dayPopoverFormat: { month: 'long', day: 'numeric', year: 'numeric' }
     })
     calendar.render()
 
@@ -392,14 +429,24 @@
     // Abrir modal
     // ============================
     function abrirModal(clase) {
+      // Resetear visibilidad de botones
+      btnRealizada.style.display = 'none'
+      btnAnular.style.display = 'none'
+      btnReabrir.style.display = 'none'
+      btnNuevaMismoDia.style.display = 'none'
+      btnGuardarOtra.style.display = 'none'
+      estadoInfo.style.display = 'none'
+      avisoDia.style.display = 'none'
+
       if (clase?.id) {
+        // ===== EDITAR =====
         claseActualId = clase.id
         claseActualEstado = clase.extendedProps.estado
 
         document.getElementById('modal-titulo').textContent = 'Editar Clase'
         document.getElementById('clase-id').value = clase.id
         document.getElementById('titulo').value = clase.title
-        document.getElementById('fecha').value = clase.startStr.split('T')[0]
+        inputFecha.value = clase.startStr.split('T')[0]
         document.getElementById('hora_inicio').value = clase.startStr.split('T')[1]?.slice(0,5) || '09:00'
         document.getElementById('hora_fin').value = clase.endStr?.split('T')[1]?.slice(0,5) || '10:00'
         document.getElementById('tipo').value = clase.extendedProps.tipo
@@ -416,35 +463,45 @@
         pintarAlumnos(selectNivel.value)
 
         document.getElementById('bloque-repetir').style.display = 'none'
-        document.getElementById('btn-guardar').textContent = 'Guardar cambios'
+        document.getElementById('btn-guardar').textContent = '💾 Guardar cambios'
+
+        // Botón "➕ Otra clase este día" (copia fecha del actual)
+        btnNuevaMismoDia.style.display = 'inline-flex'
 
         actualizarBotonesEstado(claseActualEstado)
       } else {
+        // ===== NUEVA =====
         claseActualId = null
         claseActualEstado = 'programada'
 
         form.reset()
         document.getElementById('modal-titulo').textContent = 'Nueva Clase'
         document.getElementById('clase-id').value = ''
-        document.getElementById('fecha').value = clase?.fecha || ''
-        document.getElementById('hora_inicio').value = '09:00'
-        document.getElementById('hora_fin').value = '10:00'
+        inputFecha.value = clase?.fecha || ''
+        document.getElementById('hora_inicio').value = clase?.horaInicio || '09:00'
+        document.getElementById('hora_fin').value = clase?.horaFin || '10:00'
 
         document.getElementById('bloque-repetir').style.display = 'block'
-        document.getElementById('btn-guardar').textContent = 'Guardar'
+        document.getElementById('btn-guardar').textContent = '💾 Guardar'
+
+        // Mostrar botón "Guardar y añadir otra"
+        btnGuardarOtra.style.display = 'inline-flex'
 
         alumnosSeleccionados = new Set()
         selectNivel.value = ''
         pintarAlumnos('')
 
-        btnRealizada.style.display = 'none'
-        btnAnular.style.display = 'none'
-        btnReabrir.style.display = 'none'
-        estadoInfo.style.display = 'none'
+        // Comprobar clases ya existentes ese día
+        if (clase?.fecha) actualizarAvisoDia()
       }
+
+      modoGuardarYContinuar = false
       modal.showModal()
     }
 
+    // ============================
+    // Botones de estado
+    // ============================
     function actualizarBotonesEstado(estado) {
       btnRealizada.style.display = 'none'
       btnAnular.style.display = 'none'
@@ -468,7 +525,6 @@
 
     async function cambiarEstado(nuevoEstado) {
       if (!claseActualId) return
-
       if (nuevoEstado === 'anulada') {
         const motivo = prompt('Motivo de la anulación (opcional):', '')
         if (motivo === null) return
@@ -480,7 +536,6 @@
           .update({ estado: nuevoEstado, motivo_anulacion: nuevoEstado === 'realizada' ? null : undefined })
           .eq('id', claseActualId)
       }
-
       claseActualEstado = nuevoEstado
       actualizarBotonesEstado(nuevoEstado)
       calendar.removeAllEvents()
@@ -494,7 +549,28 @@
     document.getElementById('btn-cancelar').onclick = () => modal.close()
 
     // ============================
-    // Guardar
+    // Botón "Otra clase este día" (desde editar)
+    // ============================
+    btnNuevaMismoDia.onclick = () => {
+      const fechaActual = inputFecha.value
+      modal.close()
+      // Abrir un modal nuevo con la misma fecha
+      setTimeout(() => {
+        abrirModal({ fecha: fechaActual })
+      }, 150)
+    }
+
+    // ============================
+    // Guardar y añadir otra
+    // ============================
+    btnGuardarOtra.addEventListener('click', () => {
+      modoGuardarYContinuar = true
+      // Disparamos el submit del form manualmente
+      form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+    })
+
+    // ============================
+    // Guardar (submit)
     // ============================
     form.addEventListener('submit', async (e) => {
       e.preventDefault()
@@ -511,8 +587,11 @@
         notas: document.getElementById('notas').value
       }
 
-      const fechaBase = document.getElementById('fecha').value
+      const fechaBase = inputFecha.value
 
+      // ============================
+      // EDITAR
+      // ============================
       if (id) {
         await supabase.from(TABLES.clases).update({
           ...datosBase,
@@ -532,18 +611,21 @@
         return
       }
 
+      // ============================
+      // NUEVA
+      // ============================
       let fechas = [fechaBase]
       if (checkRepetir.checked) {
         fechas = calcularFechasRepeticion(fechaBase, inputRepetirHasta.value)
-        if (fechas.length === 0) { alert('La fecha límite de repetición no es válida'); return }
-        if (fechas.length > 100) { alert('Demasiadas repeticiones (>100). Reduce el rango.'); return }
+        if (fechas.length === 0) { alert('La fecha límite de repetición no es válida'); modoGuardarYContinuar = false; return }
+        if (fechas.length > 100) { alert('Demasiadas repeticiones (>100). Reduce el rango.'); modoGuardarYContinuar = false; return }
       }
 
       const clasesAInsertar = fechas.map(f => ({ ...datosBase, fecha: f }))
       const { data: insertadas, error } = await supabase
         .from(TABLES.clases).insert(clasesAInsertar).select()
 
-      if (error) { alert('Error: ' + error.message); return }
+      if (error) { alert('Error: ' + error.message); modoGuardarYContinuar = false; return }
 
       if (alumnosIds.length && insertadas?.length) {
         const relaciones = []
@@ -555,9 +637,54 @@
         await supabase.from(TABLES.claseAlumnos).insert(relaciones)
       }
 
-      modal.close()
       calendar.removeAllEvents()
       calendar.addEventSource(await cargarClases())
+
+      // Si era "Guardar y añadir otra": reabrir modal limpio con la misma fecha
+      if (modoGuardarYContinuar) {
+        modoGuardarYContinuar = false
+        const fechaGuardada = fechaBase
+
+        // Feedback visual sin cerrar el modal
+        const aviso = document.createElement('div')
+        aviso.className = 'toast-guardado'
+        aviso.textContent = '✅ Clase guardada — añade otra'
+        document.body.appendChild(aviso)
+        setTimeout(() => aviso.remove(), 2000)
+
+        // Resetear campos manteniendo fecha y nivel
+        document.getElementById('titulo').value = ''
+        document.getElementById('hora_inicio').value = document.getElementById('hora_fin').value
+        // Sugerir 1h después
+        const hf = document.getElementById('hora_fin').value
+        if (hf) {
+          const [h, m] = hf.split(':').map(Number)
+          const nh = String((h + 1) % 24).padStart(2, '0')
+          const nm = String(m).padStart(2, '0')
+          document.getElementById('hora_inicio').value = `${nh}:${nm}`
+          document.getElementById('hora_fin').value = `${String((h + 2) % 24).padStart(2, '0')}:${nm}`
+        }
+        document.getElementById('ejercicio_id').value = ''
+        document.getElementById('ejercicio_libre').value = ''
+        document.getElementById('notas').value = ''
+        document.getElementById('bloque-repetir').style.display = 'block'
+        checkRepetir.checked = false
+        camposRepetir.style.display = 'none'
+        previewRepeticion.textContent = ''
+        document.getElementById('modal-titulo').textContent = 'Nueva Clase (mismo día)'
+        inputFecha.value = fechaGuardada
+
+        // Refrescar aviso del día (ahora incluirá la que acaba de guardarse)
+        actualizarAvisoDia()
+
+        // Scroll al principio del modal
+        modal.scrollTop = 0
+        document.getElementById('titulo').focus()
+        return
+      }
+
+      // Modo normal: cerrar
+      modal.close()
 
       if (fechas.length > 1) {
         setTimeout(() => {
@@ -590,38 +717,24 @@
     .dot-anulada    { background: #7a1a1a; border: 1px solid #e74c3c; }
 
     /* ============================
-       Evento contenido
+       Evento
        ============================ */
     .evento-contenido {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      overflow: hidden;
-      white-space: nowrap;
-      padding: 0 2px;
+      display: flex; align-items: center; gap: 4px;
+      overflow: hidden; white-space: nowrap; padding: 0 2px;
       font-size: 0.78rem;
     }
     .evento-icono { flex-shrink: 0; font-size: 0.85rem; line-height: 1; }
     .evento-hora  { flex-shrink: 0; opacity: 0.85; font-variant-numeric: tabular-nums; }
     .evento-titulo { overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 
-    .evento-anulado .evento-titulo {
-      text-decoration: line-through;
-      opacity: 0.9;
-    }
+    .evento-anulado .evento-titulo { text-decoration: line-through; opacity: 0.9; }
     .evento-anulado::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: repeating-linear-gradient(
-        45deg,
-        transparent,
-        transparent 4px,
-        rgba(0,0,0,0.18) 4px,
-        rgba(0,0,0,0.18) 8px
-      );
-      pointer-events: none;
-      border-radius: 2px;
+      content: ''; position: absolute; inset: 0;
+      background: repeating-linear-gradient(45deg,
+        transparent, transparent 4px,
+        rgba(0,0,0,0.18) 4px, rgba(0,0,0,0.18) 8px);
+      pointer-events: none; border-radius: 2px;
     }
     .evento-realizado .evento-titulo { font-weight: 600; }
     .fc-event { position: relative; }
@@ -637,13 +750,9 @@
       margin-bottom: 12px;
     }
     .lista-alumnos-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin: 10px 0 6px;
-      font-size: 0.85rem;
-      color: var(--texto-secundario);
-      font-weight: 600;
+      display: flex; justify-content: space-between; align-items: center;
+      margin: 10px 0 6px; font-size: 0.85rem;
+      color: var(--texto-secundario); font-weight: 600;
     }
     .contador { color: var(--pista-azul-hielo); font-weight: 700; }
     .acciones-lista { display: flex; gap: 6px; }
@@ -651,40 +760,26 @@
       background: var(--pista-azul-oscuro);
       color: var(--texto-principal);
       border: 1px solid var(--borde-card);
-      padding: 3px 10px;
-      border-radius: 4px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      cursor: pointer;
-      min-height: auto;
+      padding: 3px 10px; border-radius: 4px;
+      font-size: 0.72rem; font-weight: 600;
+      cursor: pointer; min-height: auto;
     }
     .btn-mini:hover { background: var(--pista-azul-claro); border-color: var(--pista-azul-claro); }
 
     .lista-alumnos {
-      max-height: 200px;
-      overflow-y: auto;
+      max-height: 200px; overflow-y: auto;
       border: 1px solid var(--borde-card);
-      border-radius: 6px;
-      background: var(--fondo-card);
-      padding: 4px;
+      border-radius: 6px; background: var(--fondo-card); padding: 4px;
     }
     .lista-alumnos .vacio {
-      padding: 12px;
-      text-align: center;
-      color: var(--texto-secundario);
-      font-size: 0.82rem;
-      margin: 0;
+      padding: 12px; text-align: center;
+      color: var(--texto-secundario); font-size: 0.82rem; margin: 0;
     }
     .item-alumno {
-      display: flex !important;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      margin: 0 !important;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      color: var(--texto-principal);
+      display: flex !important; align-items: center; gap: 10px;
+      padding: 8px 10px; margin: 0 !important;
+      border-radius: 5px; cursor: pointer;
+      font-size: 0.9rem; color: var(--texto-principal);
       transition: background 0.12s;
     }
     .item-alumno:hover { background: rgba(58, 143, 191, 0.15); }
@@ -728,6 +823,55 @@
       font-size: 0.85rem;
       color: var(--texto-secundario);
     }
+
+    /* ============================
+       Aviso de clases del día
+       ============================ */
+    .aviso-dia {
+      background: rgba(58, 143, 191, 0.1);
+      border: 1px solid var(--pista-azul-claro);
+      border-left: 4px solid var(--pista-azul-claro);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 0.83rem;
+    }
+    .aviso-titulo {
+      color: var(--pista-azul-hielo);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .aviso-lista {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+    .aviso-lista li {
+      display: flex;
+      gap: 8px;
+      padding: 3px 0;
+      color: var(--texto-secundario);
+      border-bottom: 1px dashed rgba(138, 155, 168, 0.2);
+      font-size: 0.8rem;
+    }
+    .aviso-lista li:last-child { border-bottom: none; }
+    .aviso-hora {
+      font-family: monospace;
+      color: var(--pista-azul-hielo);
+      flex-shrink: 0;
+    }
+    .aviso-nombre {
+      color: var(--texto-principal);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ============================
+       Botones de estado
+       ============================ */
     .btn-estado { font-weight: 600; }
     .btn-estado.btn-realizada { background: #1e8449; color: white; border: none; }
     .btn-estado.btn-realizada:hover { background: #166638; }
@@ -735,10 +879,43 @@
     .btn-estado.btn-anular:hover { background: #a02d1f; }
     .btn-estado.btn-reabrir { background: var(--pista-azul-medio); color: white; border: none; }
     .btn-estado.btn-reabrir:hover { background: var(--pista-azul-oscuro); }
+
+    /* Botón "Guardar y añadir otra" con estilo propio */
+    .btn-guardar-otra {
+      background: linear-gradient(135deg, #2a6b9c, #1a3a5c);
+      border: 1px solid var(--pista-azul-hielo);
+    }
+    .btn-guardar-otra:hover {
+      background: linear-gradient(135deg, #3a8fbf, #2a6b9c);
+    }
+
     .modal-actions { flex-wrap: wrap; gap: 8px; }
 
     /* ============================
-       FullCalendar — estilos base
+       Toast de guardado
+       ============================ */
+    .toast-guardado {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e8449;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      z-index: 9999;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      animation: toastIn 0.3s ease;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translate(-50%, 20px); }
+      to   { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    /* ============================
+       FullCalendar base
        ============================ */
     #calendar {
       background: var(--fondo-card);
@@ -762,59 +939,39 @@
     .fc .fc-timegrid-slot { height: 2.5em; }
     .fc .fc-timegrid-now-indicator-line { border-color: #e8ff3a; }
     .fc .fc-timegrid-now-indicator-arrow { border-color: #e8ff3a; background: #e8ff3a; }
+    .fc .fc-more-link { color: var(--pista-azul-hielo); font-weight: 600; }
 
     /* ============================
-       FullCalendar — MÓVIL
+       FullCalendar móvil
        ============================ */
     @media (max-width: 768px) {
       #calendar { padding: 6px; }
-
-      /* Toolbar compacto en 2 filas */
       .fc .fc-toolbar {
         flex-direction: column !important;
         gap: 8px !important;
         margin-bottom: 10px !important;
       }
-      .fc .fc-toolbar-chunk {
-        display: flex;
-        justify-content: center;
-        width: 100%;
-      }
-      .fc .fc-toolbar-title {
-        font-size: 1.05rem !important;
-        text-align: center;
-      }
-
-      /* Botones más grandes y táctiles */
+      .fc .fc-toolbar-chunk { display: flex; justify-content: center; width: 100%; }
+      .fc .fc-toolbar-title { font-size: 1.05rem !important; text-align: center; }
       .fc .fc-button {
         padding: 7px 11px !important;
         font-size: 0.8rem !important;
         border-radius: 6px !important;
-        text-transform: capitalize;
       }
-      .fc .fc-button-group > .fc-button {
-        border-radius: 6px !important;
-        margin: 0 2px;
-      }
-
-      /* Botones de navegación (prev/next/today) */
+      .fc .fc-button-group > .fc-button { border-radius: 6px !important; margin: 0 2px; }
       .fc .fc-button-group:first-child .fc-button,
-      .fc .fc-toolbar-chunk:first-child .fc-button {
-        min-width: 44px;
-      }
+      .fc .fc-toolbar-chunk:first-child .fc-button { min-width: 44px; }
 
-      /* Eventos */
       .evento-contenido { font-size: 0.72rem; gap: 2px; }
-      .evento-hora { display: none; } /* en móvil, quita la hora en eventos del mes */
-
-      /* Vista semanal/diaria: horas más compactas */
+      .evento-hora { display: none; }
       .fc .fc-timegrid-slot { height: 2em; }
       .fc .fc-timegrid-slot-label { font-size: 0.7rem; }
       .fc .fc-col-header-cell-cushion { font-size: 0.75rem; padding: 4px 2px; }
       .fc .fc-timegrid-axis-cushion { font-size: 0.7rem; }
-
-      /* Ajustar ancho del eje horario */
       .fc .fc-timegrid-axis { width: 42px; }
+
+      /* Popover de "+N más" en móvil */
+      .fc .fc-popover { max-width: 90vw !important; }
     }
 
     @media (max-width: 480px) {
@@ -824,12 +981,6 @@
       }
       .fc .fc-toolbar-title { font-size: 0.95rem !important; }
       .evento-contenido { font-size: 0.68rem; }
-    }
-
-    /* ============================
-       Modal en móvil
-       ============================ */
-    @media (max-width: 480px) {
       .modal-actions { flex-direction: column; }
       .modal-actions > button { width: 100%; }
     }
