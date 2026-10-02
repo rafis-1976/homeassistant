@@ -56,9 +56,6 @@
         <input type="text" id="ejercicio_libre" placeholder="Ej: Partidillos, Calentamiento...">
       </label>
 
-      <!-- ============================
-           NIVEL + ALUMNOS
-           ============================ -->
       <div class="bloque-alumnos">
         <label style="margin-bottom:8px;">Nivel
           <select id="nivel_filtro">
@@ -83,9 +80,6 @@
         </div>
       </div>
 
-      <!-- ============================
-           REPETICIÓN SEMANAL
-           ============================ -->
       <div id="bloque-repetir" class="bloque-repetir">
         <label class="check-repetir">
           <input type="checkbox" id="repetir_semanal">
@@ -102,9 +96,6 @@
 
       <label>Notas <textarea id="notas" rows="3"></textarea></label>
 
-      <!-- ============================
-           ESTADO ACTUAL (solo al editar)
-           ============================ -->
       <div id="estado-info" class="estado-info" style="display:none;"></div>
 
       <div class="modal-actions">
@@ -272,7 +263,7 @@
     }
 
     // ============================
-    // Cargar clases en el calendario
+    // Cargar clases
     // ============================
     async function cargarClases() {
       const { data, error } = await supabase
@@ -325,21 +316,14 @@
       return []
     }
 
-    // ============================
-    // Render personalizado del evento (con ✅/🚫)
-    // ============================
     function renderEvento(info) {
       const { estado } = info.event.extendedProps
       const titulo = info.event.title
-
-      // Icono
       const icono = estado === 'realizada' ? '✅'
                   : estado === 'anulada'  ? '🚫'
                   : estado === 'reprogramada' ? '🔄'
                   : ''
-
       const hora = info.timeText || ''
-
       const contenedor = document.createElement('div')
       contenedor.className = 'evento-contenido'
       contenedor.innerHTML = `
@@ -350,19 +334,50 @@
       return { domNodes: [contenedor] }
     }
 
+    // ============================
+    // Detectar móvil (con listener)
+    // ============================
     const esMovil = window.innerWidth < 768
 
+    // ============================
+    // FullCalendar — CON VISTAS EN MÓVIL
+    // ============================
     const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-      initialView: 'dayGridMonth',
+      initialView: esMovil ? 'timeGridWeek' : 'dayGridMonth',
       locale: 'es',
       headerToolbar: esMovil
-        ? { left: 'prev,next', center: 'title', right: 'today' }
-        : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
+        ? {
+            left: 'prev,next',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+          }
+        : {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+          },
+      buttonText: {
+        today: 'Hoy',
+        month: 'Mes',
+        week: 'Sem',
+        day: 'Día',
+        list: 'Lista'
+      },
+      // En móvil, acortar los títulos de los botones
+      views: {
+        dayGridMonth: { buttonText: esMovil ? 'Mes' : 'Mes' },
+        timeGridWeek: { buttonText: esMovil ? 'Sem' : 'Semana' },
+        timeGridDay:  { buttonText: esMovil ? 'Día' : 'Día' }
+      },
       events: await cargarClases(),
       eventContent: renderEvento,
       editable: !esMovil,
       selectable: true,
       dayMaxEvents: 3,
+      nowIndicator: true,
+      slotMinTime: '07:00:00',
+      slotMaxTime: '23:00:00',
+      allDaySlot: false,
       dateClick: (info) => abrirModal({ fecha: info.dateStr }),
       eventClick: (info) => abrirModal(info.event),
       eventDrop: async (info) => {
@@ -378,7 +393,6 @@
     // ============================
     function abrirModal(clase) {
       if (clase?.id) {
-        // ===== EDITAR =====
         claseActualId = clase.id
         claseActualEstado = clase.extendedProps.estado
 
@@ -404,10 +418,8 @@
         document.getElementById('bloque-repetir').style.display = 'none'
         document.getElementById('btn-guardar').textContent = 'Guardar cambios'
 
-        // Botones según estado
         actualizarBotonesEstado(claseActualEstado)
       } else {
-        // ===== NUEVA =====
         claseActualId = null
         claseActualEstado = 'programada'
 
@@ -425,7 +437,6 @@
         selectNivel.value = ''
         pintarAlumnos('')
 
-        // Sin botones de estado en nueva clase
         btnRealizada.style.display = 'none'
         btnAnular.style.display = 'none'
         btnReabrir.style.display = 'none'
@@ -434,11 +445,7 @@
       modal.showModal()
     }
 
-    // ============================
-    // Mostrar/ocultar botones según estado
-    // ============================
     function actualizarBotonesEstado(estado) {
-      // Reset
       btnRealizada.style.display = 'none'
       btnAnular.style.display = 'none'
       btnReabrir.style.display = 'none'
@@ -459,16 +466,12 @@
       }
     }
 
-    // ============================
-    // Acciones de estado
-    // ============================
     async function cambiarEstado(nuevoEstado) {
       if (!claseActualId) return
 
-      // Confirmación para anular
       if (nuevoEstado === 'anulada') {
         const motivo = prompt('Motivo de la anulación (opcional):', '')
-        if (motivo === null) return // cancelado
+        if (motivo === null) return
         await supabase.from(TABLES.clases)
           .update({ estado: 'anulada', motivo_anulacion: motivo || null })
           .eq('id', claseActualId)
@@ -478,11 +481,8 @@
           .eq('id', claseActualId)
       }
 
-      // Actualizar estado actual y botones en el modal
       claseActualEstado = nuevoEstado
       actualizarBotonesEstado(nuevoEstado)
-
-      // Refrescar calendario
       calendar.removeAllEvents()
       calendar.addEventSource(await cargarClases())
     }
@@ -494,7 +494,7 @@
     document.getElementById('btn-cancelar').onclick = () => modal.close()
 
     // ============================
-    // Guardar (editar o crear)
+    // Guardar
     // ============================
     form.addEventListener('submit', async (e) => {
       e.preventDefault()
@@ -590,7 +590,7 @@
     .dot-anulada    { background: #7a1a1a; border: 1px solid #e74c3c; }
 
     /* ============================
-       Contenido del evento
+       Evento contenido
        ============================ */
     .evento-contenido {
       display: flex;
@@ -605,9 +605,6 @@
     .evento-hora  { flex-shrink: 0; opacity: 0.85; font-variant-numeric: tabular-nums; }
     .evento-titulo { overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 
-    /* ============================
-       Evento anulado
-       ============================ */
     .evento-anulado .evento-titulo {
       text-decoration: line-through;
       opacity: 0.9;
@@ -626,18 +623,11 @@
       pointer-events: none;
       border-radius: 2px;
     }
-
-    /* ============================
-       Evento realizado
-       ============================ */
-    .evento-realizado .evento-titulo {
-      font-weight: 600;
-    }
-
+    .evento-realizado .evento-titulo { font-weight: 600; }
     .fc-event { position: relative; }
 
     /* ============================
-       Bloque de alumnos con checkboxes
+       Bloques en el modal
        ============================ */
     .bloque-alumnos {
       background: var(--fondo-app);
@@ -646,7 +636,6 @@
       padding: 12px;
       margin-bottom: 12px;
     }
-
     .lista-alumnos-header {
       display: flex;
       justify-content: space-between;
@@ -656,11 +645,8 @@
       color: var(--texto-secundario);
       font-weight: 600;
     }
-
     .contador { color: var(--pista-azul-hielo); font-weight: 700; }
-
     .acciones-lista { display: flex; gap: 6px; }
-
     .btn-mini {
       background: var(--pista-azul-oscuro);
       color: var(--texto-principal);
@@ -682,7 +668,6 @@
       background: var(--fondo-card);
       padding: 4px;
     }
-
     .lista-alumnos .vacio {
       padding: 12px;
       text-align: center;
@@ -690,7 +675,6 @@
       font-size: 0.82rem;
       margin: 0;
     }
-
     .item-alumno {
       display: flex !important;
       align-items: center;
@@ -713,9 +697,6 @@
       font-weight: 600; color: var(--pista-azul-hielo);
     }
 
-    /* ============================
-       Repetición
-       ============================ */
     .bloque-repetir {
       background: var(--fondo-app);
       border: 1px solid var(--borde-card);
@@ -738,9 +719,6 @@
       font-size: 0.8rem; color: var(--pista-azul-hielo); margin-top: 6px;
     }
 
-    /* ============================
-       Info del estado actual
-       ============================ */
     .estado-info {
       background: var(--fondo-app);
       border: 1px solid var(--borde-card);
@@ -750,29 +728,107 @@
       font-size: 0.85rem;
       color: var(--texto-secundario);
     }
+    .btn-estado { font-weight: 600; }
+    .btn-estado.btn-realizada { background: #1e8449; color: white; border: none; }
+    .btn-estado.btn-realizada:hover { background: #166638; }
+    .btn-estado.btn-anular { background: #c0392b; color: white; border: none; }
+    .btn-estado.btn-anular:hover { background: #a02d1f; }
+    .btn-estado.btn-reabrir { background: var(--pista-azul-medio); color: white; border: none; }
+    .btn-estado.btn-reabrir:hover { background: var(--pista-azul-oscuro); }
+    .modal-actions { flex-wrap: wrap; gap: 8px; }
 
     /* ============================
-       Botones de estado
+       FullCalendar — estilos base
        ============================ */
-    .btn-estado { font-weight: 600; }
-    .btn-estado.btn-realizada {
-      background: #1e8449; color: white; border: none;
+    #calendar {
+      background: var(--fondo-card);
+      padding: 12px;
+      border-radius: var(--radio);
+      border: 1px solid var(--borde-card);
+      overflow-x: auto;
     }
-    .btn-estado.btn-realizada:hover { background: #166638; }
-    .btn-estado.btn-anular {
-      background: #c0392b; color: white; border: none;
+    .fc { color: var(--texto-principal); }
+    .fc-theme-standard td, .fc-theme-standard th { border-color: var(--borde-card); }
+    .fc .fc-button-primary {
+      background: var(--pista-azul-claro);
+      border-color: var(--pista-azul-claro);
     }
-    .btn-estado.btn-anular:hover { background: #a02d1f; }
-    .btn-estado.btn-reabrir {
-      background: var(--pista-azul-medio); color: white; border: none;
+    .fc .fc-button-primary:hover { background: var(--pista-azul-medio); }
+    .fc .fc-button-primary:not(:disabled).fc-button-active {
+      background: var(--pista-azul-oscuro);
+      border-color: var(--pista-azul-oscuro);
     }
-    .btn-estado.btn-reabrir:hover { background: var(--pista-azul-oscuro); }
+    .fc-day-today { background: rgba(232, 255, 58, 0.08) !important; }
+    .fc .fc-timegrid-slot { height: 2.5em; }
+    .fc .fc-timegrid-now-indicator-line { border-color: #e8ff3a; }
+    .fc .fc-timegrid-now-indicator-arrow { border-color: #e8ff3a; background: #e8ff3a; }
 
-    /* Ajuste modal-actions para muchos botones */
-    .modal-actions {
-      flex-wrap: wrap;
-      gap: 8px;
+    /* ============================
+       FullCalendar — MÓVIL
+       ============================ */
+    @media (max-width: 768px) {
+      #calendar { padding: 6px; }
+
+      /* Toolbar compacto en 2 filas */
+      .fc .fc-toolbar {
+        flex-direction: column !important;
+        gap: 8px !important;
+        margin-bottom: 10px !important;
+      }
+      .fc .fc-toolbar-chunk {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+      }
+      .fc .fc-toolbar-title {
+        font-size: 1.05rem !important;
+        text-align: center;
+      }
+
+      /* Botones más grandes y táctiles */
+      .fc .fc-button {
+        padding: 7px 11px !important;
+        font-size: 0.8rem !important;
+        border-radius: 6px !important;
+        text-transform: capitalize;
+      }
+      .fc .fc-button-group > .fc-button {
+        border-radius: 6px !important;
+        margin: 0 2px;
+      }
+
+      /* Botones de navegación (prev/next/today) */
+      .fc .fc-button-group:first-child .fc-button,
+      .fc .fc-toolbar-chunk:first-child .fc-button {
+        min-width: 44px;
+      }
+
+      /* Eventos */
+      .evento-contenido { font-size: 0.72rem; gap: 2px; }
+      .evento-hora { display: none; } /* en móvil, quita la hora en eventos del mes */
+
+      /* Vista semanal/diaria: horas más compactas */
+      .fc .fc-timegrid-slot { height: 2em; }
+      .fc .fc-timegrid-slot-label { font-size: 0.7rem; }
+      .fc .fc-col-header-cell-cushion { font-size: 0.75rem; padding: 4px 2px; }
+      .fc .fc-timegrid-axis-cushion { font-size: 0.7rem; }
+
+      /* Ajustar ancho del eje horario */
+      .fc .fc-timegrid-axis { width: 42px; }
     }
+
+    @media (max-width: 480px) {
+      .fc .fc-button {
+        padding: 6px 8px !important;
+        font-size: 0.72rem !important;
+      }
+      .fc .fc-toolbar-title { font-size: 0.95rem !important; }
+      .evento-contenido { font-size: 0.68rem; }
+    }
+
+    /* ============================
+       Modal en móvil
+       ============================ */
     @media (max-width: 480px) {
       .modal-actions { flex-direction: column; }
       .modal-actions > button { width: 100%; }
