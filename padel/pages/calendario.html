@@ -23,15 +23,27 @@
       <div id="calendar"></div>
 
       <!-- ============================
-           LISTADO RESUMEN
+           LISTADO DE CLASES
            ============================ -->
-      <section class="resumen-clases" id="resumen-clases">
-        <div class="resumen-header">
-          <h2 id="resumen-titulo">📋 Resumen</h2>
-          <span class="resumen-contador" id="resumen-contador"></span>
+      <section class="listado-clases" id="listado-clases">
+        <div class="listado-header">
+          <h2 id="listado-titulo">📋 Listado de clases</h2>
+          <div class="listado-contador" id="listado-contador"></div>
         </div>
-        <div id="resumen-lista" class="resumen-lista">
-          <p class="resumen-vacio">Sin clases en este período</p>
+
+        <div class="listado-toolbar">
+          <div class="listado-filtros">
+            <button class="filtro-chip active" data-filtro="todas">Todas</button>
+            <button class="filtro-chip" data-filtro="programada">📅 Programadas</button>
+            <button class="filtro-chip" data-filtro="realizada">✅ Realizadas</button>
+            <button class="filtro-chip" data-filtro="anulada">🚫 Anuladas</button>
+            <button class="filtro-chip" data-filtro="recuperacion">🔄 Recuperaciones</button>
+          </div>
+          <input type="search" id="listado-buscador" class="listado-buscador" placeholder="🔍 Buscar clase o alumno...">
+        </div>
+
+        <div id="listado-contenido" class="listado-contenido">
+          <p class="listado-vacio">Sin clases en este período</p>
         </div>
       </section>
     </main>
@@ -168,9 +180,11 @@
     const listaRecuperar = document.getElementById('lista-recuperar')
     const contadorRecuperar = document.getElementById('contador-recuperar')
 
-    const resumenTitulo = document.getElementById('resumen-titulo')
-    const resumenContador = document.getElementById('resumen-contador')
-    const resumenLista = document.getElementById('resumen-lista')
+    // Listado
+    const listadoTitulo = document.getElementById('listado-titulo')
+    const listadoContador = document.getElementById('listado-contador')
+    const listadoContenido = document.getElementById('listado-contenido')
+    const listadoBuscador = document.getElementById('listado-buscador')
 
     let alumnosCache = []
     let alumnosSeleccionados = new Set()
@@ -180,7 +194,12 @@
     let claseActualEstado = null
     let modoGuardarYContinuar = false
     let clasesCache = []
-    let eventosCache = []   // Para el resumen
+    let eventosCache = []
+
+    // Filtros del listado
+    let listadoFiltro = 'todas'
+    let listadoBusqueda = ''
+    let listadoRango = null  // { start, end, tipo }
 
     // ============================
     // Utilidades tiempo
@@ -553,14 +572,14 @@
     }
 
     // ============================
-    // FullCalendar — CON SEMANA LUNES-DOMINGO
+    // FullCalendar — Semana Lunes a Domingo
     // ============================
     const esMovil = window.innerWidth < 768
 
     const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
       initialView: esMovil ? 'timeGridWeek' : 'dayGridMonth',
       locale: 'es',
-      firstDay: 1,               // ⬅️ 1 = LUNES
+      firstDay: 1,             // ⬅️ Lunes
       weekNumbers: false,
       headerToolbar: esMovil
         ? { left: 'prev,next', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }
@@ -611,9 +630,9 @@
         if (error) { info.revert(); alert('Error: ' + error.message); return }
         await refrescarTodo()
       },
-      // ⬇️ Actualizar el resumen cada vez que cambia la vista/fecha
       datesSet: (info) => {
-        pintarResumen(info.start, info.end, info.view.type)
+        listadoRango = { start: info.start, end: info.end, tipo: info.view.type }
+        pintarListado()
       },
       eventOverlap: false,
       moreLinkClick: 'popover',
@@ -622,48 +641,71 @@
     calendar.render()
 
     // ============================
-    // LISTADO RESUMEN
+    // LISTADO DE CLASES
     // ============================
-    function pintarResumen(start, end, viewType) {
-      // end es exclusivo en FullCalendar: restamos 1 día para mostrarlo al usuario
+    function pintarListado() {
+      if (!listadoRango) return
+      const { start, end, tipo } = listadoRango
       const finInclusivo = new Date(end)
       finInclusivo.setDate(finInclusivo.getDate() - 1)
 
       // Título del período
-      let titulo = ''
-      if (viewType === 'timeGridDay') {
-        titulo = `📋 Clases del ${formatearFechaLarga(start)}`
-      } else if (viewType === 'timeGridWeek') {
-        titulo = `📋 Clases de la semana (${formatearFechaCorta(start)} – ${formatearFechaCorta(finInclusivo)})`
+      if (tipo === 'timeGridDay') {
+        listadoTitulo.textContent = `📋 Listado del ${formatearFechaLarga(start)}`
+      } else if (tipo === 'timeGridWeek') {
+        listadoTitulo.textContent = `📋 Listado de la semana (${formatearFechaCorta(start)} – ${formatearFechaCorta(finInclusivo)})`
       } else {
-        titulo = `📋 Clases del mes de ${meses[inicioMesDe(start)]} ${start.getFullYear()}`
+        listadoTitulo.textContent = `📋 Listado de ${meses[start.getMonth()]} ${start.getFullYear()}`
       }
-      resumenTitulo.textContent = titulo
 
-      // Filtrar clases dentro del rango
-      const enRango = eventosCache.filter(ev => {
+      // Filtrar por rango
+      let enRango = eventosCache.filter(ev => {
         const t = new Date(ev.start).getTime()
         return t >= start.getTime() && t < end.getTime()
       })
 
-      // Ordenar por fecha y hora
+      // Filtro por estado
+      if (listadoFiltro !== 'todas') {
+        if (listadoFiltro === 'recuperacion') {
+          enRango = enRango.filter(e => e.extendedProps.esRecuperacion)
+        } else {
+          enRango = enRango.filter(e => e.extendedProps.estado === listadoFiltro)
+        }
+      }
+
+      // Buscador
+      if (listadoBusqueda.trim()) {
+        const q = listadoBusqueda.trim().toLowerCase()
+        enRango = enRango.filter(e => {
+          const p = e.extendedProps
+          const alumnos = (p.alumnosNombres || []).join(' ').toLowerCase()
+          const titulo = (e.title || '').toLowerCase()
+          const tipo = (p.tipo || '').toLowerCase()
+          return titulo.includes(q) || alumnos.includes(q) || tipo.includes(q)
+        })
+      }
+
+      // Ordenar
       enRango.sort((a, b) => new Date(a.start) - new Date(b.start))
 
-      // Contador
+      // Contadores
       const total = enRango.length
       const programadas = enRango.filter(e => e.extendedProps.estado === 'programada').length
       const realizadas = enRango.filter(e => e.extendedProps.estado === 'realizada').length
       const anuladas = enRango.filter(e => e.extendedProps.estado === 'anulada').length
-      resumenContador.innerHTML =
-        total === 0
-          ? ''
-          : `<span class="chip-resumen">${total} total</span>` +
-            (programadas > 0 ? `<span class="chip-resumen chip-prog">${programadas} 📅</span>` : '') +
-            (realizadas > 0 ? `<span class="chip-resumen chip-real">${realizadas} ✅</span>` : '') +
-            (anuladas > 0 ? `<span class="chip-resumen chip-anul">${anuladas} 🚫</span>` : '')
+
+      listadoContador.innerHTML = total === 0
+        ? ''
+        : `<span class="chip-resumen">${total} total</span>` +
+          (programadas > 0 ? `<span class="chip-resumen chip-prog">${programadas} 📅</span>` : '') +
+          (realizadas > 0 ? `<span class="chip-resumen chip-real">${realizadas} ✅</span>` : '') +
+          (anuladas > 0 ? `<span class="chip-resumen chip-anul">${anuladas} 🚫</span>` : '')
 
       if (enRango.length === 0) {
-        resumenLista.innerHTML = '<p class="resumen-vacio">Sin clases en este período</p>'
+        const msg = listadoBusqueda.trim()
+          ? `Sin resultados para "${listadoBusqueda}"`
+          : (listadoFiltro !== 'todas' ? 'Sin clases con este filtro en el período' : 'Sin clases en este período')
+        listadoContenido.innerHTML = `<p class="listado-vacio">${msg}</p>`
         return
       }
 
@@ -675,30 +717,30 @@
         porFecha[fecha].push(ev)
       })
 
-      // Pintar
-      resumenLista.innerHTML = Object.entries(porFecha)
+      // Pintar días
+      listadoContenido.innerHTML = Object.entries(porFecha)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([fecha, clases]) => {
           const fechaObj = new Date(fecha + 'T12:00:00')
           const diaSemana = diasSemana[fechaObj.getDay()]
           const esHoy = fecha === new Date().toISOString().split('T')[0]
           return `
-            <div class="resumen-dia ${esHoy ? 'resumen-hoy' : ''}">
-              <div class="resumen-dia-header">
-                <span class="resumen-dia-fecha">${formatearFechaCorta(fechaObj)}</span>
-                <span class="resumen-dia-nombre">${diaSemana}</span>
-                ${esHoy ? '<span class="resumen-hoy-tag">HOY</span>' : ''}
-                <span class="resumen-dia-count">${clases.length} clase${clases.length > 1 ? 's' : ''}</span>
+            <div class="listado-dia ${esHoy ? 'listado-hoy' : ''}">
+              <div class="listado-dia-header">
+                <span class="listado-dia-fecha">${formatearFechaCorta(fechaObj)}</span>
+                <span class="listado-dia-nombre">${diaSemana}</span>
+                ${esHoy ? '<span class="listado-hoy-tag">HOY</span>' : ''}
+                <span class="listado-dia-count">${clases.length} clase${clases.length > 1 ? 's' : ''}</span>
               </div>
-              <div class="resumen-clases-dia">
-                ${clases.map(c => pintarItemResumen(c)).join('')}
+              <div class="listado-clases-dia">
+                ${clases.map(c => pintarItemListado(c)).join('')}
               </div>
             </div>
           `
         }).join('')
     }
 
-    function pintarItemResumen(ev) {
+    function pintarItemListado(ev) {
       const p = ev.extendedProps
       const icono = p.estado === 'realizada' ? '✅'
                   : p.estado === 'anulada' ? '🚫'
@@ -707,7 +749,7 @@
       const hora = `${ev.start.split('T')[1].slice(0,5)}–${ev.end.split('T')[1].slice(0,5)}`
       const alumnos = p.alumnosNombres || []
       const alumnosTxt = alumnos.length > 0
-        ? (alumnos.length > 3 ? `${alumnos.slice(0,3).join(', ')} +${alumnos.length-3}` : alumnos.join(', '))
+        ? (alumnos.length > 5 ? `${alumnos.slice(0,5).join(', ')} +${alumnos.length-5}` : alumnos.join(', '))
         : 'Sin alumnos'
       const colorBar = p.estado === 'realizada' ? '#1e8449'
                      : p.estado === 'anulada' ? '#7a1a1a'
@@ -715,25 +757,42 @@
                      : '#3a8fbf'
 
       return `
-        <div class="resumen-clase" data-id="${ev.id}" style="border-left-color: ${colorBar};">
-          <div class="resumen-clase-hora">${hora}</div>
-          <div class="resumen-clase-info">
-            <div class="resumen-clase-titulo">${icono} ${escapar(ev.title)}</div>
-            <div class="resumen-clase-alumnos">👥 ${escapar(alumnosTxt)}</div>
+        <div class="listado-clase" data-id="${ev.id}" style="border-left-color: ${colorBar};">
+          <div class="listado-clase-hora">${hora}</div>
+          <div class="listado-clase-info">
+            <div class="listado-clase-titulo">
+              <span class="listado-clase-icono">${icono}</span>
+              ${escapar(ev.title)}
+              <span class="listado-clase-tipo">${p.tipo}</span>
+            </div>
+            <div class="listado-clase-alumnos">👥 ${escapar(alumnosTxt)}</div>
           </div>
         </div>
       `
     }
 
-    // Click en un item del resumen → abre el modal
-    resumenLista.addEventListener('click', (e) => {
-      const item = e.target.closest('.resumen-clase')
+    // Click en item → abre el modal
+    listadoContenido.addEventListener('click', (e) => {
+      const item = e.target.closest('.listado-clase')
       if (!item) return
-      const ev = eventosCache.find(x => x.id === item.dataset.id)
-      if (ev) {
-        const evFull = calendar.getEventById(ev.id)
-        if (evFull) abrirModal(evFull)
+      const evFull = calendar.getEventById(item.dataset.id)
+      if (evFull) abrirModal(evFull)
+    })
+
+    // Filtros
+    document.querySelectorAll('.filtro-chip').forEach(chip => {
+      chip.onclick = () => {
+        document.querySelectorAll('.filtro-chip').forEach(c => c.classList.remove('active'))
+        chip.classList.add('active')
+        listadoFiltro = chip.dataset.filtro
+        pintarListado()
       }
+    })
+
+    // Buscador
+    listadoBuscador.addEventListener('input', (e) => {
+      listadoBusqueda = e.target.value
+      pintarListado()
     })
 
     // Helpers de fecha
@@ -741,18 +800,11 @@
     const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
 
     function formatearFechaCorta(d) {
-      const dia = String(d.getDate()).padStart(2, '0')
-      const mes = String(d.getMonth() + 1).padStart(2, '0')
-      return `${dia}/${mes}`
-    }
-    function formatearFechaCortaStr(iso) {
-      const [y, m, d] = iso.split('-')
-      return `${d}/${m}`
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
     }
     function formatearFechaLarga(d) {
       return `${diasSemana[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]}`
     }
-    function inicioMesDe(d) { return d.getMonth() }
 
     // ============================
     // Abrir modal
@@ -1025,27 +1077,19 @@
     })
 
     // ============================
-    // Refrescar calendario + resumen
+    // Refrescar
     // ============================
     async function refrescarTodo() {
       const eventos = await cargarClases()
       calendar.removeAllEvents()
       calendar.addEventSource(eventos)
-      // Repintar resumen con el rango actual
-      const view = calendar.view
-      if (view) pintarResumen(view.activeStart, view.activeEnd, view.type)
+      pintarListado()
     }
 
-    // ============================
-    // Reconfigurar al redimensionar
-    // ============================
     let resizeTimer
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer)
-      resizeTimer = setTimeout(() => {
-        const view = calendar.view
-        if (view) pintarResumen(view.activeStart, view.activeEnd, view.type)
-      }, 200)
+      resizeTimer = setTimeout(() => pintarListado(), 200)
     })
   </script>
 
@@ -1265,22 +1309,24 @@
     .fc .fc-more-link { color: var(--pista-azul-hielo); font-weight: 600; }
     .fc-highlight { background: rgba(232, 255, 58, 0.2) !important; }
 
-    /* ⬇️ Forzar días de la semana empezando en lunes (colores) */
+    /* Fin de semana destacado */
     .fc .fc-col-header-cell.fc-day-sat, .fc .fc-col-header-cell.fc-day-sun {
       background: rgba(232, 255, 58, 0.04);
     }
 
-    /* ============================
-       RESUMEN
-       ============================ */
-    .resumen-clases {
+    /* ============================================================
+       LISTADO DE CLASES
+       ============================================================ */
+    .listado-clases {
       margin-top: 24px;
       background: var(--fondo-card);
-      border: 1px solid var(--borde-card);
+      border: 1px solid var(--pista-azul-claro);
       border-radius: var(--radio);
-      padding: 16px;
+      padding: 18px;
+      box-shadow: 0 0 0 2px rgba(58, 143, 191, 0.1) inset;
     }
-    .resumen-header {
+
+    .listado-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -1288,12 +1334,12 @@
       margin-bottom: 12px;
       flex-wrap: wrap;
     }
-    .resumen-header h2 {
-      font-size: 1.05rem;
+    .listado-header h2 {
+      font-size: 1.1rem;
       margin: 0;
       color: var(--texto-principal);
     }
-    .resumen-contador {
+    .listado-contador {
       display: flex;
       gap: 6px;
       flex-wrap: wrap;
@@ -1312,115 +1358,176 @@
     .chip-real { border-color: #1e8449; color: #2ecc71; }
     .chip-anul { border-color: #c0392b; color: #e74c3c; }
 
-    .resumen-lista {
+    /* Toolbar del listado */
+    .listado-toolbar {
       display: flex;
-      flex-direction: column;
+      align-items: center;
       gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--borde-card);
     }
-    .resumen-vacio {
-      text-align: center;
-      padding: 20px;
+    .listado-filtros {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      flex: 1;
+    }
+    .filtro-chip {
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
       color: var(--texto-secundario);
-      font-size: 0.85rem;
-      margin: 0;
-      font-style: italic;
+      padding: 6px 12px;
+      border-radius: 16px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      min-height: auto;
+      white-space: nowrap;
+    }
+    .filtro-chip:hover { border-color: var(--pista-azul-claro); color: var(--texto-principal); }
+    .filtro-chip.active {
+      background: var(--pista-azul-claro);
+      border-color: var(--pista-azul-claro);
+      color: white;
+    }
+    .listado-buscador {
+      min-width: 200px;
+      max-width: 320px;
+      flex: 1;
     }
 
-    .resumen-dia {
+    /* Contenido del listado */
+    .listado-contenido {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .listado-vacio {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--texto-secundario);
+      font-size: 0.9rem;
+      margin: 0;
+      font-style: italic;
+      background: var(--fondo-app);
+      border: 1px dashed var(--borde-card);
+      border-radius: 8px;
+    }
+
+    /* Día */
+    .listado-dia {
       background: var(--fondo-app);
       border: 1px solid var(--borde-card);
       border-radius: 8px;
-      padding: 10px 12px;
+      padding: 12px 14px;
     }
-    .resumen-dia.resumen-hoy {
+    .listado-dia.listado-hoy {
       border-color: var(--pista-azul-hielo);
       box-shadow: 0 0 0 1px rgba(91, 184, 212, 0.3) inset;
     }
-    .resumen-dia-header {
+    .listado-dia-header {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-      padding-bottom: 6px;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
       border-bottom: 1px solid var(--borde-card);
       flex-wrap: wrap;
     }
-    .resumen-dia-fecha {
+    .listado-dia-fecha {
       font-family: monospace;
-      font-size: 0.95rem;
+      font-size: 1rem;
       font-weight: 700;
       color: var(--texto-principal);
     }
-    .resumen-dia-nombre {
-      font-size: 0.85rem;
+    .listado-dia-nombre {
+      font-size: 0.88rem;
       color: var(--pista-azul-hielo);
       font-weight: 500;
     }
-    .resumen-hoy-tag {
+    .listado-hoy-tag {
       background: var(--amarillo-pelota);
       color: #1a2a42;
-      padding: 1px 6px;
+      padding: 2px 8px;
       border-radius: 8px;
-      font-size: 0.62rem;
+      font-size: 0.65rem;
       font-weight: 700;
       letter-spacing: 0.5px;
     }
-    .resumen-dia-count {
+    .listado-dia-count {
       margin-left: auto;
-      font-size: 0.72rem;
+      font-size: 0.75rem;
       color: var(--texto-secundario);
     }
 
-    .resumen-clases-dia {
+    /* Clase item */
+    .listado-clases-dia {
       display: flex;
       flex-direction: column;
       gap: 6px;
     }
-    .resumen-clase {
+    .listado-clase {
       display: flex;
       align-items: flex-start;
-      gap: 10px;
+      gap: 12px;
       background: var(--fondo-card);
-      border-left: 3px solid #3a8fbf;
+      border-left: 4px solid #3a8fbf;
       border-radius: 6px;
-      padding: 8px 10px;
+      padding: 10px 12px;
       cursor: pointer;
       transition: transform 0.12s, background 0.12s;
     }
-    .resumen-clase:hover {
+    .listado-clase:hover {
       background: rgba(58, 143, 191, 0.1);
-      transform: translateX(2px);
+      transform: translateX(3px);
     }
-    .resumen-clase-hora {
+    .listado-clase-hora {
       font-family: monospace;
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       font-weight: 700;
       color: var(--pista-azul-hielo);
       flex-shrink: 0;
       padding-top: 1px;
-      min-width: 90px;
+      min-width: 105px;
     }
-    .resumen-clase-info { flex: 1; min-width: 0; }
-    .resumen-clase-titulo {
-      font-size: 0.88rem;
+    .listado-clase-info { flex: 1; min-width: 0; }
+    .listado-clase-titulo {
+      font-size: 0.92rem;
       font-weight: 600;
       color: var(--texto-principal);
-      margin-bottom: 2px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
     }
-    .resumen-clase-alumnos {
-      font-size: 0.75rem;
+    .listado-clase-icono { font-size: 0.95rem; flex-shrink: 0; }
+    .listado-clase-tipo {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      color: var(--texto-secundario);
+      padding: 1px 6px;
+      border-radius: 8px;
+    }
+    .listado-clase-alumnos {
+      font-size: 0.78rem;
       color: var(--texto-secundario);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    /* ============================
+    /* ============================================================
        MÓVIL
-       ============================ */
+       ============================================================ */
     @media (max-width: 768px) {
       #calendar { padding: 6px; }
       .fc .fc-toolbar {
@@ -1448,16 +1555,26 @@
       .fc .fc-timegrid-axis { width: 42px; }
       .fc .fc-popover { max-width: 90vw !important; }
 
-      /* Resumen destacado */
-      .resumen-clases {
+      .listado-clases {
         margin-top: 16px;
         padding: 12px 10px;
-        border-color: var(--pista-azul-claro);
-        box-shadow: 0 0 0 2px rgba(58, 143, 191, 0.15) inset;
       }
-      .resumen-header h2 { font-size: 0.98rem; }
-      .resumen-clase-hora { font-size: 0.75rem; min-width: 76px; }
-      .resumen-clase-titulo { font-size: 0.82rem; }
+      .listado-header h2 { font-size: 1rem; }
+      .listado-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .listado-buscador {
+        max-width: 100%;
+        min-width: 100%;
+      }
+      .listado-clase-hora {
+        font-size: 0.78rem;
+        min-width: 88px;
+      }
+      .listado-clase-titulo { font-size: 0.85rem; }
+      .listado-clase-alumnos { font-size: 0.72rem; }
     }
 
     @media (max-width: 480px) {
@@ -1466,8 +1583,8 @@
       .evento-contenido { font-size: 0.68rem; }
       .modal-actions { flex-direction: column; }
       .modal-actions > button { width: 100%; }
-      .resumen-clase { flex-direction: column; gap: 4px; }
-      .resumen-clase-hora { min-width: auto; }
+      .listado-clase { flex-direction: column; gap: 4px; }
+      .listado-clase-hora { min-width: auto; }
     }
   </style>
 </body>
