@@ -10,7 +10,7 @@
   <div class="layout">
     <nav class="sidebar"></nav>
     <main class="content">
-      <h1>📄 Informe mensual de clases realizadas</h1>
+      <h1>📄 Informe mensual</h1>
 
       <div class="card" style="margin-bottom:16px;">
         <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
@@ -23,7 +23,12 @@
 
       <div id="resumen" style="margin-bottom:16px;"></div>
 
-      <h2>Detalle de clases realizadas</h2>
+      <!-- ============================
+           REALIZADAS
+           ============================ -->
+      <h2 class="seccion-titulo seccion-realizadas">
+        ✅ Clases realizadas <span id="cont-realizadas" class="seccion-count"></span>
+      </h2>
       <div class="tabla-wrapper">
         <table class="tabla">
           <thead>
@@ -32,7 +37,61 @@
               <th>Ejercicio</th><th>Alumnos</th><th>Notas</th>
             </tr>
           </thead>
-          <tbody id="tbody-informe"></tbody>
+          <tbody id="tbody-realizadas"></tbody>
+        </table>
+      </div>
+
+      <!-- ============================
+           REPROGRAMADAS
+           ============================ -->
+      <h2 class="seccion-titulo seccion-reprogramadas" style="margin-top:24px;">
+        🔄 Clases reprogramadas <span id="cont-reprogramadas" class="seccion-count"></span>
+      </h2>
+      <div class="tabla-wrapper">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th>
+              <th>Ejercicio</th><th>Alumnos</th><th>Notas</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-reprogramadas"></tbody>
+        </table>
+      </div>
+
+      <!-- ============================
+           ANULADAS
+           ============================ -->
+      <h2 class="seccion-titulo seccion-anuladas" style="margin-top:24px;">
+        🚫 Clases anuladas <span id="cont-anuladas" class="seccion-count"></span>
+      </h2>
+      <div class="tabla-wrapper">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th>
+              <th>Alumnos</th><th>Motivo</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-anuladas"></tbody>
+        </table>
+      </div>
+
+      <!-- ============================
+           PROGRAMADAS (no realizadas todavía)
+           ============================ -->
+      <h2 class="seccion-titulo seccion-programadas" style="margin-top:24px;">
+        📅 Clases aún programadas <span id="cont-programadas" class="seccion-count"></span>
+      </h2>
+      <div class="tabla-wrapper">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th>
+              <th>Ejercicio</th><th>Alumnos</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-programadas"></tbody>
         </table>
       </div>
     </main>
@@ -48,8 +107,10 @@
     document.getElementById('mes').value = new Date().toISOString().slice(0, 7)
     document.getElementById('btn-generar').onclick = generarYDescargar
 
+    let informeActual = null
+
     // ============================================
-    // Generar informe + PDF (todo en uno)
+    // Generar informe + PDF
     // ============================================
     async function generarYDescargar() {
       const mes = document.getElementById('mes').value
@@ -79,26 +140,29 @@
 
         if (error) throw error
 
-        const realizadas = (clases || []).filter(c => c.estado === 'realizada')
-        const anuladas = (clases || []).filter(c => c.estado === 'anulada')
-        const programadas = (clases || []).filter(c => c.estado === 'programada')
+        const realizadas     = (clases || []).filter(c => c.estado === 'realizada')
+        const anuladas       = (clases || []).filter(c => c.estado === 'anulada')
+        const reprogramadas  = (clases || []).filter(c => c.estado === 'reprogramada')
+        const programadas    = (clases || []).filter(c => c.estado === 'programada')
 
         const porTipo = {}
         realizadas.forEach(c => {
           porTipo[c.tipo] = (porTipo[c.tipo] || 0) + 1
         })
 
-        const informe = { mes, realizadas, anuladas, programadas, porTipo }
+        informeActual = { mes, realizadas, anuladas, reprogramadas, programadas, porTipo }
 
-        // Pintar resumen en pantalla
-        pintarResumen(informe)
-        pintarTabla(realizadas)
+        pintarResumen(informeActual)
+        pintarTablaRealizadas(realizadas)
+        pintarTablaReprogramadas(reprogramadas)
+        pintarTablaAnuladas(anuladas)
+        pintarTablaProgramadas(programadas)
 
-        // Generar y descargar PDF
-        generarPDF(informe)
+        generarPDF(informeActual)
 
       } catch (err) {
         alert('Error: ' + err.message)
+        console.error(err)
       } finally {
         btn.disabled = false
         btn.textContent = textoOriginal
@@ -106,16 +170,29 @@
     }
 
     // ============================================
-    // Pintar resumen en la web
+    // Resumen arriba
     // ============================================
     function pintarResumen(informe) {
       document.getElementById('resumen').innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
-          <div class="card"><div style="font-size:1.8rem;color:#27ae60;font-weight:700;">${informe.realizadas.length}</div><div style="color:var(--texto-secundario);font-size:0.85rem;">Clases realizadas</div></div>
-          <div class="card"><div style="font-size:1.8rem;color:#3a8fbf;font-weight:700;">${informe.programadas.length}</div><div style="color:var(--texto-secundario);font-size:0.85rem;">Aún programadas</div></div>
-          <div class="card"><div style="font-size:1.8rem;color:#e74c3c;font-weight:700;">${informe.anuladas.length}</div><div style="color:var(--texto-secundario);font-size:0.85rem;">Anuladas</div></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">
+          <div class="card stat-box">
+            <div class="stat-num" style="color:#27ae60;">${informe.realizadas.length}</div>
+            <div class="stat-label">✅ Realizadas</div>
+          </div>
+          <div class="card stat-box">
+            <div class="stat-num" style="color:#e67e22;">${informe.reprogramadas.length}</div>
+            <div class="stat-label">🔄 Reprogramadas</div>
+          </div>
+          <div class="card stat-box">
+            <div class="stat-num" style="color:#e74c3c;">${informe.anuladas.length}</div>
+            <div class="stat-label">🚫 Anuladas</div>
+          </div>
+          <div class="card stat-box">
+            <div class="stat-num" style="color:#3a8fbf;">${informe.programadas.length}</div>
+            <div class="stat-label">📅 Programadas</div>
+          </div>
         </div>
-        <h3 style="margin-top:16px;font-size:1rem;">Por tipo</h3>
+        <h3 style="margin-top:16px;font-size:1rem;">Realizadas por tipo</h3>
         <div class="tabla-wrapper">
           <table class="tabla">
             <thead><tr><th>Tipo</th><th>Clases realizadas</th></tr></thead>
@@ -127,61 +204,118 @@
     }
 
     // ============================================
-    // Pintar tabla en la web
+    // Helpers comunes
     // ============================================
-    function pintarTabla(realizadas) {
-      document.getElementById('tbody-informe').innerHTML = realizadas.map(c => {
-        const ej = c.padel_ejercicios?.titulo || c.ejercicio_libre || '—'
-        const alumnos = (c.padel_clase_alumnos || []).map(a => a.padel_alumnos.nombre).join(', ') || '—'
-        return `
-          <tr>
-            <td>${c.fecha}</td>
-            <td>${c.hora_inicio?.slice(0,5)}–${c.hora_fin?.slice(0,5)}</td>
-            <td>${c.titulo}</td>
-            <td>${c.tipo}</td>
-            <td class="wrap">${ej}</td>
-            <td class="wrap">${alumnos}</td>
-            <td class="wrap">${c.notas || '—'}</td>
-          </tr>
-        `
-      }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--texto-secundario);">Sin clases realizadas este mes</td></tr>'
+    function alumnosTxt(c) {
+      return (c.padel_clase_alumnos || []).map(a => a.padel_alumnos?.nombre).filter(Boolean).join(', ') || '—'
+    }
+    function ejercicioTxt(c) {
+      return c.padel_ejercicios?.titulo || c.ejercicio_libre || '—'
+    }
+    function horaTxt(c) {
+      return `${(c.hora_inicio || '').slice(0,5)}–${(c.hora_fin || '').slice(0,5)}`
+    }
+    function escapar(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+    function emptyRow(cols, msg) {
+      return `<tr><td colspan="${cols}" style="text-align:center;color:var(--texto-secundario);">${msg}</td></tr>`
     }
 
     // ============================================
-    // Generar PDF
+    // Tablas
+    // ============================================
+    function pintarTablaRealizadas(lista) {
+      document.getElementById('cont-realizadas').textContent = `(${lista.length})`
+      document.getElementById('tbody-realizadas').innerHTML = lista.map(c => `
+        <tr>
+          <td>${c.fecha}</td>
+          <td>${horaTxt(c)}</td>
+          <td>${escapar(c.titulo)}</td>
+          <td>${c.tipo}</td>
+          <td class="wrap">${escapar(ejercicioTxt(c))}</td>
+          <td class="wrap">${escapar(alumnosTxt(c))}</td>
+          <td class="wrap">${escapar(c.notas || '—')}</td>
+        </tr>
+      `).join('') || emptyRow(7, 'Sin clases realizadas este mes')
+    }
+
+    function pintarTablaReprogramadas(lista) {
+      document.getElementById('cont-reprogramadas').textContent = `(${lista.length})`
+      document.getElementById('tbody-reprogramadas').innerHTML = lista.map(c => `
+        <tr>
+          <td>${c.fecha}</td>
+          <td>${horaTxt(c)}</td>
+          <td>${escapar(c.titulo)}</td>
+          <td>${c.tipo}</td>
+          <td class="wrap">${escapar(ejercicioTxt(c))}</td>
+          <td class="wrap">${escapar(alumnosTxt(c))}</td>
+          <td class="wrap">${escapar(c.notas || '—')}</td>
+        </tr>
+      `).join('') || emptyRow(7, 'Sin clases reprogramadas este mes')
+    }
+
+    function pintarTablaAnuladas(lista) {
+      document.getElementById('cont-anuladas').textContent = `(${lista.length})`
+      document.getElementById('tbody-anuladas').innerHTML = lista.map(c => `
+        <tr>
+          <td>${c.fecha}</td>
+          <td>${horaTxt(c)}</td>
+          <td>${escapar(c.titulo)}</td>
+          <td>${c.tipo}</td>
+          <td class="wrap">${escapar(alumnosTxt(c))}</td>
+          <td class="wrap">${escapar(c.motivo_anulacion || '—')}</td>
+        </tr>
+      `).join('') || emptyRow(6, 'Sin clases anuladas este mes')
+    }
+
+    function pintarTablaProgramadas(lista) {
+      document.getElementById('cont-programadas').textContent = `(${lista.length})`
+      document.getElementById('tbody-programadas').innerHTML = lista.map(c => `
+        <tr>
+          <td>${c.fecha}</td>
+          <td>${horaTxt(c)}</td>
+          <td>${escapar(c.titulo)}</td>
+          <td>${c.tipo}</td>
+          <td class="wrap">${escapar(ejercicioTxt(c))}</td>
+          <td class="wrap">${escapar(alumnosTxt(c))}</td>
+        </tr>
+      `).join('') || emptyRow(6, 'Sin clases programadas este mes')
+    }
+
+    // ============================================
+    // PDF
     // ============================================
     function generarPDF(informe) {
       const { jsPDF } = window.jspdf
       const doc = new jsPDF()
 
-      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageWidth  = doc.internal.pageSize.getWidth()
       const pageHeight = doc.internal.pageSize.getHeight()
-      const margenIzq = 15
-      const margenDer = 15
-      const anchoUtil = pageWidth - margenIzq - margenDer
+      const margenIzq  = 15
+      const margenDer  = 15
+      const anchoUtil  = pageWidth - margenIzq - margenDer
 
       const [year, month] = informe.mes.split('-')
       const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
       const nombreMes = meses[parseInt(month) - 1] + ' ' + year
 
-      // ============ CABECERA ============
+      // ====== CABECERA ======
       doc.setFillColor(26, 58, 92)
       doc.rect(0, 0, pageWidth, 30, 'F')
-
       doc.setTextColor(255, 255, 255)
       doc.setFontSize(18)
       doc.setFont('helvetica', 'bold')
-      doc.text('Informe de clases realizadas', margenIzq, 14)
-
+      doc.text('Informe mensual de clases', margenIzq, 14)
       doc.setFontSize(11)
       doc.setFont('helvetica', 'normal')
       doc.text(`Mes: ${nombreMes}`, margenIzq, 23)
-
       doc.setFontSize(9)
       doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')}`, pageWidth - margenDer, 23, { align: 'right' })
 
-      // ============ RESUMEN ============
       let y = 42
+
+      // ====== RESUMEN ======
       doc.setTextColor(0, 0, 0)
       doc.setFontSize(12)
       doc.setFont('helvetica', 'bold')
@@ -190,97 +324,70 @@
 
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(10)
-      doc.text(`Clases realizadas: ${informe.realizadas.length}`, margenIzq, y)
-      doc.text(`Clases anuladas: ${informe.anuladas.length}`, margenIzq + 70, y)
-      doc.text(`Aún programadas: ${informe.programadas.length}`, margenIzq + 130, y)
-      y += 8
+      const total = informe.realizadas.length + informe.reprogramadas.length + informe.anuladas.length + informe.programadas.length
+      doc.text(`Total clases del mes: ${total}`, margenIzq, y); y += 5
+      doc.text(`✅ Realizadas: ${informe.realizadas.length}`, margenIzq, y)
+      doc.text(`🔄 Reprogramadas: ${informe.reprogramadas.length}`, margenIzq + 60, y)
+      doc.text(`🚫 Anuladas: ${informe.anuladas.length}`, margenIzq + 130, y); y += 5
+      doc.text(`📅 Programadas: ${informe.programadas.length}`, margenIzq, y); y += 8
 
+      // Desglose por tipo (de realizadas)
       if (Object.keys(informe.porTipo).length > 0) {
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(10)
-        doc.text('Por tipo:', margenIzq, y)
+        doc.text('Realizadas por tipo:', margenIzq, y); y += 5
         doc.setFont('helvetica', 'normal')
-        y += 5
         Object.entries(informe.porTipo).forEach(([k, v]) => {
-          doc.text(`•  ${k}: ${v} clase${v > 1 ? 's' : ''}`, margenIzq + 4, y)
+          doc.text(`•  ${k}: ${v}`, margenIzq + 4, y)
           y += 5
         })
       }
+      y += 3
 
-      y += 4
-
-      // ============ LISTADO ============
-      doc.setDrawColor(42, 107, 156)
-      doc.setLineWidth(0.5)
-      doc.line(margenIzq, y, pageWidth - margenDer, y)
-      y += 6
-
-      doc.setFontSize(12)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Listado de clases realizadas', margenIzq, y)
-      y += 8
-
-      const colFecha = margenIzq
-      const colHora = margenIzq + 25
-      const colTitulo = margenIzq + 52
-      const colTipo = margenIzq + 110
-      const colAlumnos = margenIzq + 135
-
-      function pintarCabeceraTabla() {
-        doc.setFillColor(240, 244, 248)
-        doc.rect(margenIzq - 2, y - 4, anchoUtil + 4, 7, 'F')
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(26, 58, 92)
-        doc.text('Fecha', colFecha, y)
-        doc.text('Hora', colHora, y)
-        doc.text('Título', colTitulo, y)
-        doc.text('Tipo', colTipo, y)
-        doc.text('Alumnos', colAlumnos, y)
-        y += 6
-        doc.setTextColor(0, 0, 0)
-        doc.setFont('helvetica', 'normal')
-      }
-
-      pintarCabeceraTabla()
-
-      const clasesOrdenadas = [...informe.realizadas].sort((a, b) => {
-        if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha)
-        return (a.hora_inicio || '').localeCompare(b.hora_inicio || '')
+      // ====================================================
+      // 1. REALIZADAS
+      // ====================================================
+      y = seccionPDF(doc, {
+        titulo: '✅ CLASES REALIZADAS',
+        color: [39, 174, 96],
+        clases: informe.realizadas,
+        tipo: 'realizada',
+        y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight
       })
 
-      clasesOrdenadas.forEach((c, idx) => {
-        if (y > pageHeight - 25) {
-          doc.addPage()
-          y = 20
-          pintarCabeceraTabla()
-        }
-
-        if (idx % 2 === 0) {
-          doc.setFillColor(250, 252, 254)
-          doc.rect(margenIzq - 2, y - 4, anchoUtil + 4, 6, 'F')
-        }
-
-        doc.text(formatearFechaCorta(c.fecha), colFecha, y)
-        const horaStr = `${(c.hora_inicio || '').slice(0,5)}–${(c.hora_fin || '').slice(0,5)}`
-        doc.text(horaStr, colHora, y)
-        doc.text(truncar(c.titulo || '', 32), colTitulo, y)
-        doc.text(c.tipo || '', colTipo, y)
-        const alumnosStr = (c.padel_clase_alumnos || [])
-          .map(a => a.padel_alumnos.nombre)
-          .join(', ')
-        doc.text(truncar(alumnosStr || '—', 28), colAlumnos, y)
-
-        y += 6
+      // ====================================================
+      // 2. REPROGRAMADAS
+      // ====================================================
+      y = seccionPDF(doc, {
+        titulo: '🔄 CLASES REPROGRAMADAS',
+        color: [230, 126, 34],
+        clases: informe.reprogramadas,
+        tipo: 'reprogramada',
+        y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight
       })
 
-      if (clasesOrdenadas.length === 0) {
-        doc.setTextColor(138, 155, 168)
-        doc.setFont('helvetica', 'italic')
-        doc.text('No hay clases realizadas este mes', margenIzq, y)
-      }
+      // ====================================================
+      // 3. ANULADAS
+      // ====================================================
+      y = seccionPDF(doc, {
+        titulo: '🚫 CLASES ANULADAS',
+        color: [192, 57, 43],
+        clases: informe.anuladas,
+        tipo: 'anulada',
+        y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight
+      })
 
-      // ============ PIE DE PÁGINA ============
+      // ====================================================
+      // 4. PROGRAMADAS
+      // ====================================================
+      y = seccionPDF(doc, {
+        titulo: '📅 CLASES AÚN PROGRAMADAS',
+        color: [58, 143, 191],
+        clases: informe.programadas,
+        tipo: 'programada',
+        y, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight
+      })
+
+      // ====== PIE DE PÁGINA ======
       const totalPaginas = doc.internal.getNumberOfPages()
       for (let i = 1; i <= totalPaginas; i++) {
         doc.setPage(i)
@@ -299,6 +406,125 @@
     }
 
     // ============================================
+    // Sección del PDF (cabecera + tabla)
+    // ============================================
+    function seccionPDF(doc, opts) {
+      const { titulo, color, clases, tipo, margenIzq, margenDer, anchoUtil, pageWidth, pageHeight } = opts
+      let y = opts.y
+
+      // Salto de página si no caben al menos 4 filas
+      if (y > pageHeight - 40) {
+        doc.addPage()
+        y = 20
+      }
+
+      // Barra de título de la sección
+      doc.setFillColor(color[0], color[1], color[2])
+      doc.rect(margenIzq - 2, y - 5, anchoUtil + 4, 8, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`${titulo}  (${clases.length})`, margenIzq + 2, y)
+      y += 10
+
+      // Si no hay clases
+      if (clases.length === 0) {
+        doc.setTextColor(138, 155, 168)
+        doc.setFont('helvetica', 'italic')
+        doc.setFontSize(9)
+        doc.text('Sin clases en esta categoría este mes', margenIzq + 4, y)
+        y += 10
+        doc.setTextColor(0, 0, 0)
+        doc.setFont('helvetica', 'normal')
+        return y
+      }
+
+      // Columnas (varían según tipo)
+      // Anuladas no tiene ejercicio, sino motivo
+      const cols = tipo === 'anulada'
+        ? { fecha: margenIzq, hora: margenIzq + 25, titulo: margenIzq + 52, tipo: margenIzq + 110, alumnos: margenIzq + 132, motivo: margenIzq + 178 }
+        : { fecha: margenIzq, hora: margenIzq + 25, titulo: margenIzq + 52, tipo: margenIzq + 110, alumnos: margenIzq + 132, motivo: margenIzq + 178 }
+
+      const headersAnulada = ['Fecha','Hora','Título','Tipo','Alumnos','Motivo']
+      const headersNormal  = ['Fecha','Hora','Título','Tipo','Alumnos','Ejercicio']
+
+      // Cabecera de tabla
+      function pintarCabecera() {
+        doc.setFillColor(240, 244, 248)
+        doc.rect(margenIzq - 2, y - 4, anchoUtil + 4, 7, 'F')
+        doc.setFontSize(8.5)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(26, 58, 92)
+        const hs = tipo === 'anulada' ? headersAnulada : headersNormal
+        doc.text(hs[0], cols.fecha, y)
+        doc.text(hs[1], cols.hora, y)
+        doc.text(hs[2], cols.titulo, y)
+        doc.text(hs[3], cols.tipo, y)
+        doc.text(hs[4], cols.alumnos, y)
+        doc.text(hs[5], cols.motivo, y)
+        y += 6
+        doc.setTextColor(0, 0, 0)
+        doc.setFont('helvetica', 'normal')
+      }
+
+      pintarCabecera()
+
+      // Ordenar por fecha
+      const ordenadas = [...clases].sort((a, b) => {
+        if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha)
+        return (a.hora_inicio || '').localeCompare(b.hora_inicio || '')
+      })
+
+      ordenadas.forEach((c, idx) => {
+        if (y > pageHeight - 20) {
+          doc.addPage()
+          y = 20
+          // Repetir título de sección en la nueva página
+          doc.setFillColor(color[0], color[1], color[2])
+          doc.rect(margenIzq - 2, y - 5, anchoUtil + 4, 8, 'F')
+          doc.setTextColor(255, 255, 255)
+          doc.setFontSize(10)
+          doc.setFont('helvetica', 'bold')
+          doc.text(`${titulo} (cont.)`, margenIzq + 2, y)
+          y += 10
+          doc.setTextColor(0, 0, 0)
+          pintarCabecera()
+        }
+
+        if (idx % 2 === 0) {
+          doc.setFillColor(250, 252, 254)
+          doc.rect(margenIzq - 2, y - 4, anchoUtil + 4, 6, 'F')
+        }
+
+        // Fecha
+        doc.setFontSize(8.5)
+        doc.text(formatearFechaCorta(c.fecha), cols.fecha, y)
+        // Hora
+        doc.text(horaTxt(c), cols.hora, y)
+        // Título
+        doc.text(truncar(c.titulo || '', 30), cols.titulo, y)
+        // Tipo
+        doc.text(c.tipo || '', cols.tipo, y)
+        // Alumnos
+        doc.text(truncar(alumnosTxt(c), 26), cols.alumnos, y)
+
+        // Última columna: motivo (anuladas) o ejercicio (resto)
+        if (tipo === 'anulada') {
+          const motivo = c.motivo_anulacion || '—'
+          doc.text(truncar(motivo, 24), cols.motivo, y)
+        } else {
+          const ej = c.padel_ejercicios?.titulo || c.ejercicio_libre || '—'
+          doc.text(truncar(ej, 24), cols.motivo, y)
+        }
+
+        y += 6
+      })
+
+      y += 4 // Espacio entre secciones
+      return y
+    }
+
+    // ============================================
     // Helpers
     // ============================================
     function formatearFechaCorta(fechaISO) {
@@ -313,9 +539,43 @@
     }
 
     // ============================================
-    // Generar al cargar la página
+    // Arrancar
     // ============================================
     generarYDescargar()
   </script>
+
+  <style>
+    .seccion-titulo {
+      font-size: 1.15rem;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-left: 12px;
+      border-left: 5px solid var(--pista-azul-claro);
+    }
+    .seccion-realizadas { border-left-color: #27ae60; }
+    .seccion-reprogramadas { border-left-color: #e67e22; }
+    .seccion-anuladas { border-left-color: #e74c3c; }
+    .seccion-programadas { border-left-color: #3a8fbf; }
+
+    .seccion-count {
+      font-size: 0.85rem;
+      color: var(--texto-secundario);
+      font-weight: 500;
+    }
+
+    .stat-box { text-align: center; }
+    .stat-num {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 0.82rem;
+      color: var(--texto-secundario);
+      margin-top: 6px;
+    }
+  </style>
 </body>
 </html>
