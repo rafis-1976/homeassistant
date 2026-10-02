@@ -21,70 +21,80 @@
         </div>
       </div>
 
-      <div id="resumen" style="margin-bottom:16px;"></div>
+      <!-- Resumen en una línea -->
+      <div id="resumen-linea" class="resumen-linea" style="display:none;"></div>
 
-      <!-- REALIZADAS -->
-      <h2 class="seccion-titulo seccion-realizadas">
-        ✅ Clases realizadas <span id="cont-realizadas" class="seccion-count"></span>
-      </h2>
-      <div class="tabla-wrapper">
-        <table class="tabla">
-          <thead>
-            <tr>
-              <th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th>
-              <th>Ejercicio</th><th>Alumnos</th><th>Notas</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-realizadas"></tbody>
-        </table>
+      <!-- Mensaje inicial -->
+      <div id="placeholder" class="placeholder">
+        <div class="placeholder-icon">📄</div>
+        <p>Selecciona un mes y pulsa <strong>Generar informe PDF</strong> para ver el listado y descargar el informe.</p>
       </div>
 
-      <!-- REPROGRAMADAS -->
-      <h2 class="seccion-titulo seccion-reprogramadas" style="margin-top:24px;">
-        🔄 Clases reprogramadas <span id="cont-reprogramadas" class="seccion-count"></span>
-      </h2>
-      <div class="tabla-wrapper">
-        <table class="tabla">
-          <thead>
-            <tr>
-              <th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th>
-              <th>Ejercicio</th><th>Alumnos</th><th>Notas</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-reprogramadas"></tbody>
-        </table>
-      </div>
+      <!-- Contenido del informe (oculto hasta generar) -->
+      <div id="contenido-informe" style="display:none;">
+        <!-- REALIZADAS -->
+        <h2 class="seccion-titulo seccion-realizadas">
+          ✅ Clases realizadas <span id="cont-realizadas" class="seccion-count"></span>
+        </h2>
+        <div class="tabla-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th>
+                <th>Ejercicio</th><th>Alumnos</th><th>Notas</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-realizadas"></tbody>
+          </table>
+        </div>
 
-      <!-- ANULADAS -->
-      <h2 class="seccion-titulo seccion-anuladas" style="margin-top:24px;">
-        🚫 Clases anuladas <span id="cont-anuladas" class="seccion-count"></span>
-      </h2>
-      <div class="tabla-wrapper">
-        <table class="tabla">
-          <thead>
-            <tr>
-              <th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th>
-              <th>Alumnos</th><th>Motivo</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-anuladas"></tbody>
-        </table>
-      </div>
+        <!-- REPROGRAMADAS -->
+        <h2 class="seccion-titulo seccion-reprogramadas" style="margin-top:24px;">
+          🔄 Clases reprogramadas <span id="cont-reprogramadas" class="seccion-count"></span>
+        </h2>
+        <div class="tabla-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th>
+                <th>Ejercicio</th><th>Alumnos</th><th>Notas</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-reprogramadas"></tbody>
+          </table>
+        </div>
 
-      <!-- PROGRAMADAS -->
-      <h2 class="seccion-titulo seccion-programadas" style="margin-top:24px;">
-        📅 Clases aún programadas <span id="cont-programadas" class="seccion-count"></span>
-      </h2>
-      <div class="tabla-wrapper">
-        <table class="tabla">
-          <thead>
-            <tr>
-              <th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th>
-              <th>Ejercicio</th><th>Alumnos</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-programadas"></tbody>
-        </table>
+        <!-- ANULADAS -->
+        <h2 class="seccion-titulo seccion-anuladas" style="margin-top:24px;">
+          🚫 Clases anuladas <span id="cont-anuladas" class="seccion-count"></span>
+        </h2>
+        <div class="tabla-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th>
+                <th>Alumnos</th><th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-anuladas"></tbody>
+          </table>
+        </div>
+
+        <!-- PROGRAMADAS -->
+        <h2 class="seccion-titulo seccion-programadas" style="margin-top:24px;">
+          📅 Clases aún programadas <span id="cont-programadas" class="seccion-count"></span>
+        </h2>
+        <div class="tabla-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Fecha</th><th>Hora</th><th>Título</th><th>Tipo</th>
+                <th>Ejercicio</th><th>Alumnos</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-programadas"></tbody>
+          </table>
+        </div>
       </div>
     </main>
   </div>
@@ -99,10 +109,8 @@
     document.getElementById('mes').value = new Date().toISOString().slice(0, 7)
     document.getElementById('btn-generar').onclick = generarYDescargar
 
-    let informeActual = null
-
     // ============================================
-    // Generar informe + PDF
+    // Generar informe + PDF (SOLO al pulsar botón)
     // ============================================
     async function generarYDescargar() {
       const mes = document.getElementById('mes').value
@@ -137,20 +145,19 @@
         const reprogramadas  = (clases || []).filter(c => c.estado === 'reprogramada')
         const programadas    = (clases || []).filter(c => c.estado === 'programada')
 
-        const porTipo = {}
-        realizadas.forEach(c => {
-          porTipo[c.tipo] = (porTipo[c.tipo] || 0) + 1
-        })
+        const informe = { mes, realizadas, anuladas, reprogramadas, programadas }
 
-        informeActual = { mes, realizadas, anuladas, reprogramadas, programadas, porTipo }
+        // Mostrar contenido
+        document.getElementById('placeholder').style.display = 'none'
+        document.getElementById('contenido-informe').style.display = 'block'
 
-        pintarResumen(informeActual)
+        pintarResumenLinea(informe)
         pintarTablaRealizadas(realizadas)
         pintarTablaReprogramadas(reprogramadas)
         pintarTablaAnuladas(anuladas)
         pintarTablaProgramadas(programadas)
 
-        generarPDF(informeActual)
+        generarPDF(informe)
 
       } catch (err) {
         alert('Error: ' + err.message)
@@ -162,41 +169,28 @@
     }
 
     // ============================================
-    // Resumen en pantalla (con emojis OK)
+    // Resumen en una sola línea
     // ============================================
-    function pintarResumen(informe) {
-      document.getElementById('resumen').innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">
-          <div class="card stat-box">
-            <div class="stat-num" style="color:#27ae60;">${informe.realizadas.length}</div>
-            <div class="stat-label">✅ Realizadas</div>
-          </div>
-          <div class="card stat-box">
-            <div class="stat-num" style="color:#e67e22;">${informe.reprogramadas.length}</div>
-            <div class="stat-label">🔄 Reprogramadas</div>
-          </div>
-          <div class="card stat-box">
-            <div class="stat-num" style="color:#e74c3c;">${informe.anuladas.length}</div>
-            <div class="stat-label">🚫 Anuladas</div>
-          </div>
-          <div class="card stat-box">
-            <div class="stat-num" style="color:#3a8fbf;">${informe.programadas.length}</div>
-            <div class="stat-label">📅 Programadas</div>
-          </div>
-        </div>
-        <h3 style="margin-top:16px;font-size:1rem;">Realizadas por tipo</h3>
-        <div class="tabla-wrapper">
-          <table class="tabla">
-            <thead><tr><th>Tipo</th><th>Clases realizadas</th></tr></thead>
-            <tbody>${Object.entries(informe.porTipo).map(([k, v]) =>
-              `<tr><td>${k}</td><td>${v}</td></tr>`).join('') || '<tr><td colspan="2" style="text-align:center;color:var(--texto-secundario);">—</td></tr>'}</tbody>
-          </table>
-        </div>
+    function pintarResumenLinea(informe) {
+      const total = informe.realizadas.length + informe.reprogramadas.length +
+                    informe.anuladas.length + informe.programadas.length
+
+      document.getElementById('resumen-linea').style.display = 'block'
+      document.getElementById('resumen-linea').innerHTML = `
+        <span class="res-item res-total">Total: <strong>${total}</strong></span>
+        <span class="res-sep">·</span>
+        <span class="res-item res-realizada">✅ Realizadas: <strong>${informe.realizadas.length}</strong></span>
+        <span class="res-sep">·</span>
+        <span class="res-item res-reprogramada">🔄 Reprogramadas: <strong>${informe.reprogramadas.length}</strong></span>
+        <span class="res-sep">·</span>
+        <span class="res-item res-anulada">🚫 Anuladas: <strong>${informe.anuladas.length}</strong></span>
+        <span class="res-sep">·</span>
+        <span class="res-item res-programada">📅 Programadas: <strong>${informe.programadas.length}</strong></span>
       `
     }
 
     // ============================================
-    // Helpers comunes (pantalla)
+    // Helpers
     // ============================================
     function alumnosTxt(c) {
       return (c.padel_clase_alumnos || []).map(a => a.padel_alumnos?.nombre).filter(Boolean).join(', ') || '—'
@@ -215,7 +209,7 @@
     }
 
     // ============================================
-    // Tablas en pantalla
+    // Tablas
     // ============================================
     function pintarTablaRealizadas(lista) {
       document.getElementById('cont-realizadas').textContent = `(${lista.length})`
@@ -276,7 +270,7 @@
     }
 
     // ============================================
-    // PDF (sin emojis, sin ejercicios/tipo/alumnos/motivo)
+    // PDF (sin emojis, resumen en 1 línea, sin "por tipo")
     // ============================================
     function generarPDF(informe) {
       const { jsPDF } = window.jspdf
@@ -307,39 +301,25 @@
 
       let y = 42
 
-      // ====== RESUMEN (texto plano, sin emojis ni acentos raros) ======
-      doc.setTextColor(0, 0, 0)
-      doc.setFontSize(12)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Resumen', margenIzq, y)
-      y += 6
-
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(10)
-
+      // ====== RESUMEN EN UNA LÍNEA ======
       const total = informe.realizadas.length + informe.reprogramadas.length +
                     informe.anuladas.length + informe.programadas.length
 
-      doc.text(`Total clases del mes: ${total}`, margenIzq, y); y += 6
-      doc.text(`Realizadas: ${informe.realizadas.length}`, margenIzq, y); y += 5
-      doc.text(`Reprogramadas: ${informe.reprogramadas.length}`, margenIzq, y); y += 5
-      doc.text(`Anuladas: ${informe.anuladas.length}`, margenIzq, y); y += 5
-      doc.text(`Programadas: ${informe.programadas.length}`, margenIzq, y); y += 8
+      doc.setTextColor(0, 0, 0)
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
 
-      // Desglose por tipo (texto plano)
-      if (Object.keys(informe.porTipo).length > 0) {
-        doc.setFont('helvetica', 'bold')
-        doc.text('Realizadas por tipo:', margenIzq, y); y += 5
-        doc.setFont('helvetica', 'normal')
-        Object.entries(informe.porTipo).forEach(([k, v]) => {
-          doc.text(`- ${k}: ${v}`, margenIzq + 4, y)
-          y += 5
-        })
-      }
-      y += 3
+      const resumenLinea = `Total: ${total}   Realizadas: ${informe.realizadas.length}   Reprogramadas: ${informe.reprogramadas.length}   Anuladas: ${informe.anuladas.length}   Programadas: ${informe.programadas.length}`
+
+      // Fondo suave para la línea de resumen
+      doc.setFillColor(240, 244, 248)
+      doc.rect(margenIzq - 2, y - 5, anchoUtil + 4, 8, 'F')
+      doc.text(resumenLinea, margenIzq + 2, y)
+
+      y += 14
 
       // ====================================================
-      // SECCIONES (solo Fecha | Hora | Titulo)
+      // SECCIONES (solo Fecha | Hora | Título)
       // ====================================================
       y = seccionPDF(doc, {
         titulo: 'CLASES REALIZADAS',
@@ -419,7 +399,6 @@
         return y
       }
 
-      // Columnas: Fecha | Hora | Título
       const colFecha  = margenIzq
       const colHora   = margenIzq + 30
       const colTitulo = margenIzq + 75
@@ -492,9 +471,9 @@
     }
 
     // ============================================
-    // Arrancar
+    // NO se ejecuta nada al cargar. Solo cuando
+    // el usuario pulsa el botón "Generar informe PDF".
     // ============================================
-    generarYDescargar()
   </script>
 
   <style>
@@ -518,16 +497,79 @@
       font-weight: 500;
     }
 
-    .stat-box { text-align: center; }
-    .stat-num {
-      font-size: 2rem;
-      font-weight: 700;
-      line-height: 1;
-    }
-    .stat-label {
-      font-size: 0.82rem;
+    /* ============================
+       Placeholder inicial
+       ============================ */
+    .placeholder {
+      text-align: center;
+      padding: 60px 20px;
+      background: var(--fondo-card);
+      border: 2px dashed var(--borde-card);
+      border-radius: var(--radio);
       color: var(--texto-secundario);
-      margin-top: 6px;
+    }
+    .placeholder-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+      opacity: 0.6;
+    }
+    .placeholder p {
+      font-size: 0.95rem;
+      margin: 0;
+      line-height: 1.5;
+    }
+    .placeholder strong {
+      color: var(--pista-azul-hielo);
+    }
+
+    /* ============================
+       Resumen en una línea
+       ============================ */
+    .resumen-linea {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      background: var(--fondo-card);
+      border: 1px solid var(--borde-card);
+      border-left: 5px solid var(--pista-azul-claro);
+      border-radius: var(--radio);
+      margin-bottom: 20px;
+      font-size: 0.92rem;
+      color: var(--texto-principal);
+      line-height: 1.6;
+    }
+    .resumen-linea .res-item {
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .resumen-linea .res-item strong {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .resumen-linea .res-sep {
+      color: var(--texto-secundario);
+      opacity: 0.5;
+    }
+    .resumen-linea .res-total { color: var(--texto-principal); }
+    .resumen-linea .res-total strong { color: var(--pista-azul-hielo); }
+    .resumen-linea .res-realizada { color: #27ae60; }
+    .resumen-linea .res-realizada strong { color: #2ecc71; }
+    .resumen-linea .res-reprogramada { color: #e67e22; }
+    .resumen-linea .res-reprogramada strong { color: #f39c12; }
+    .resumen-linea .res-anulada { color: #e74c3c; }
+    .resumen-linea .res-anulada strong { color: #ff6b5b; }
+    .resumen-linea .res-programada { color: #3a8fbf; }
+    .resumen-linea .res-programada strong { color: var(--pista-azul-hielo); }
+
+    @media (max-width: 600px) {
+      .resumen-linea {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+      .resumen-linea .res-sep { display: none; }
     }
   </style>
 </body>
