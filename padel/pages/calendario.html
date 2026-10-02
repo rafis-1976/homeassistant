@@ -59,25 +59,21 @@
       </label>
 
       <!-- ============================
-           RECUPERACIÓN DE FALTA
+           ALUMNOS + RECUPERACIONES
            ============================ -->
-      <div id="bloque-recuperacion" class="bloque-recuperacion">
-        <label class="check-recuperacion">
-          <input type="checkbox" id="es_recuperacion">
-          <span>🔄 Esta clase es una recuperación de falta</span>
-        </label>
-
-        <div id="campos-recuperacion" style="display:none;">
-          <div class="info-recuperacion">
-            Selecciona la falta pendiente que se recupera con esta clase:
-          </div>
-          <div id="lista-recuperaciones">
-            <p class="vacio-recuperacion">Cargando faltas pendientes...</p>
-          </div>
-        </div>
-      </div>
-
       <div class="bloque-alumnos">
+
+        <!-- ⬇️ ALUMNOS CON FALTAS PENDIENTES -->
+        <div id="seccion-recuperar" class="seccion-recuperar" style="display:none;">
+          <div class="seccion-recuperar-titulo">
+            🔄 Alumnos con faltas por recuperar
+            <span id="contador-recuperar" class="contador-recuperar"></span>
+          </div>
+          <div id="lista-recuperar" class="lista-recuperar"></div>
+          <p class="nota-recuperar">Al marcarlos, se vincularán a esta clase para recuperar su falta</p>
+        </div>
+
+        <!-- Selector de nivel -->
         <label style="margin-bottom:8px;">Nivel
           <select id="nivel_filtro">
             <option value="">— Selecciona un nivel —</option>
@@ -124,7 +120,7 @@
         <button type="button" class="btn-secondary" id="btn-cancelar">Cerrar</button>
         <button type="button" class="btn-estado btn-realizada" id="btn-realizada" style="display:none;">✅ Marcar realizada</button>
         <button type="button" class="btn-estado btn-anular" id="btn-anular" style="display:none;">🚫 Anular clase</button>
-        <button type="button" class="btn-estado btn-reabrir" id="btn-reabrir" style="display:none;">↩️ Reabrir como programada</button>
+        <button type="button" class="btn-estado btn-reabrir" id="btn-reabrir" style="display:none;">↩️ Reabrir</button>
         <button type="button" class="btn-secondary" id="btn-nueva-mismo-dia" style="display:none;">➕ Otra clase este día</button>
         <button type="button" class="btn-primary btn-guardar-otra" id="btn-guardar-otra" style="display:none;">💾➕ Guardar y añadir otra</button>
         <button type="submit" class="btn-primary" id="btn-guardar">💾 Guardar</button>
@@ -161,26 +157,22 @@
     const inputHoraInicio = document.getElementById('hora_inicio')
     const inputHoraFin = document.getElementById('hora_fin')
 
-    // Recuperación
-    const checkRecuperacion = document.getElementById('es_recuperacion')
-    const camposRecuperacion = document.getElementById('campos-recuperacion')
-    const listaRecuperaciones = document.getElementById('lista-recuperaciones')
+    // Sección recuperaciones
+    const seccionRecuperar = document.getElementById('seccion-recuperar')
+    const listaRecuperar = document.getElementById('lista-recuperar')
+    const contadorRecuperar = document.getElementById('contador-recuperar')
 
     let alumnosCache = []
-    let alumnosSeleccionados = new Set()
+    let alumnosSeleccionados = new Set()      // Set de alumno_id
+    let faltasARecuperar = new Map()          // alumno_id -> falta_id (faltas que se recuperarán en esta clase)
+    let faltasPendientes = []                 // Faltas pendientes globales (justificada / lesion)
     let claseActualId = null
     let claseActualEstado = null
     let modoGuardarYContinuar = false
-
-    // Faltas pendientes de recuperar
-    let faltasPendientes = []
-    // Falta seleccionada para esta clase
-    let faltaSeleccionadaId = null
-
     let clasesCache = []
 
     // ============================
-    // Utilidades de tiempo
+    // Utilidades tiempo
     // ============================
     function tiempoAMinutos(t) {
       if (!t) return 0
@@ -191,9 +183,7 @@
     function verificarSolapamiento(fecha, horaInicio, horaFin, excludeId = null) {
       const ini = tiempoAMinutos(horaInicio)
       const fin = tiempoAMinutos(horaFin)
-      if (fin <= ini) {
-        return { error: 'La hora de fin debe ser posterior a la de inicio', conflictos: [] }
-      }
+      if (fin <= ini) return { error: 'La hora de fin debe ser posterior a la de inicio', conflictos: [] }
       const conflictos = clasesCache.filter(c => {
         if (excludeId && c.id === excludeId) return false
         if (c.fecha !== fecha) return false
@@ -202,9 +192,7 @@
         const cFin = tiempoAMinutos(c.hora_fin)
         return ini < cFin && fin > cIni
       })
-      if (conflictos.length > 0) {
-        return { error: 'Este horario se solapa con otra clase', conflictos }
-      }
+      if (conflictos.length > 0) return { error: 'Este horario se solapa con otra clase', conflictos }
       return null
     }
 
@@ -228,87 +216,80 @@
     await cargarAlumnos()
 
     // ============================
-    // Cargar faltas pendientes de recuperar
+    // Cargar faltas pendientes (justificada / lesion, sin recuperar)
     // ============================
     async function cargarFaltasPendientes() {
       const { data, error } = await supabase
         .from(TABLES.faltas)
-        .select('id, alumno_id, tipo, fecha_registro, descripcion, padel_alumnos(nombre), padel_clases(titulo, fecha, hora_inicio)')
+        .select('id, alumno_id, tipo, fecha_registro, descripcion')
         .in('tipo', ['justificada', 'lesion'])
         .eq('recuperada', false)
-        .order('fecha_registro', { ascending: false })
+        .is('clase_recuperacion_id', null)
+        .order('fecha_registro', { ascending: true })
 
-      if (error) { console.error(error); faltasPendientes = []; return }
+      if (error) { console.error('Error faltas:', error); faltasPendientes = []; return }
       faltasPendientes = data || []
     }
 
     // ============================
-    // Pintar lista de recuperaciones en el modal
+    // Pintar sección "alumnos con faltas por recuperar"
     // ============================
-    function pintarListaRecuperaciones() {
+    function pintarSeccionRecuperar() {
       if (faltasPendientes.length === 0) {
-        listaRecuperaciones.innerHTML = '<p class="vacio-recuperacion">✅ No hay faltas pendientes de recuperar</p>'
+        seccionRecuperar.style.display = 'none'
+        contadorRecuperar.textContent = ''
         return
       }
 
-      listaRecuperaciones.innerHTML = faltasPendientes.map(f => {
-        const alumno = f.padel_alumnos?.nombre || 'Alumno desconocido'
-        const clase = f.padel_clases
-        const fechaFalta = clase?.fecha || f.fecha_registro?.split('T')[0] || '—'
-        const hora = clase?.hora_inicio ? ' · ' + clase.hora_inicio.slice(0,5) : ''
-        const tituloClase = clase?.titulo || 'Falta sin clase asociada'
-        const tipoLabel = f.tipo === 'lesion' ? '🩹 Lesión' : '📝 Justificada'
-        const checked = faltaSeleccionadaId === f.id ? 'checked' : ''
+      seccionRecuperar.style.display = 'block'
+      const nSel = faltasARecuperar.size
+      contadorRecuperar.textContent = nSel > 0 ? `(${nSel} marcada${nSel > 1 ? 's' : ''})` : ''
 
+      listaRecuperar.innerHTML = faltasPendientes.map(f => {
+        const alumno = alumnosCache.find(a => a.id === f.alumno_id)
+        if (!alumno) return ''
+        const checked = faltasARecuperar.has(f.alumno_id) ? 'checked' : ''
+        const tipoLabel = f.tipo === 'lesion' ? '🩹 Lesión' : '📝 Justificada'
+        const fecha = f.fecha_registro?.split('T')[0] || ''
         return `
-          <label class="item-recuperacion" data-id="${f.id}">
-            <input type="radio" name="falta_recuperar" value="${f.id}" ${checked}>
-            <div class="item-recuperacion-info">
-              <div class="item-recuperacion-nombre">${escapar(alumno)}</div>
-              <div class="item-recuperacion-detalle">
-                <span class="tipo-${f.tipo}">${tipoLabel}</span>
-                · ${fechaFalta}${hora}
+          <label class="item-recuperar" data-alumno="${f.alumno_id}">
+            <input type="checkbox" value="${f.alumno_id}" data-falta="${f.id}" ${checked}>
+            <div class="item-recuperar-info">
+              <div class="item-recuperar-nombre">${escapar(alumno.nombre)}</div>
+              <div class="item-recuperar-detalle">
+                <span class="tipo-falta-${f.tipo}">${tipoLabel}</span> · ${fecha}
               </div>
-              <div class="item-recuperacion-clase">${escapar(tituloClase)}</div>
             </div>
           </label>
         `
       }).join('')
 
-      // Listeners para seleccionar
-      listaRecuperaciones.querySelectorAll('input[name="falta_recuperar"]').forEach(radio => {
-        radio.addEventListener('change', () => {
-          faltaSeleccionadaId = radio.value
-          // Marcar visualmente
-          listaRecuperaciones.querySelectorAll('.item-recuperacion').forEach(el => {
-            el.classList.toggle('seleccionado', el.dataset.id === faltaSeleccionadaId)
-          })
-        })
-      })
+      // Listeners
+      listaRecuperar.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const alumnoId = cb.value
+          const faltaId = cb.dataset.falta
 
-      // Marcar el seleccionado visualmente al abrir
-      listaRecuperaciones.querySelectorAll('.item-recuperacion').forEach(el => {
-        if (el.dataset.id === faltaSeleccionadaId) el.classList.add('seleccionado')
+          if (cb.checked) {
+            // Añadir a la clase y vincular a la falta
+            alumnosSeleccionados.add(alumnoId)
+            faltasARecuperar.set(alumnoId, faltaId)
+          } else {
+            // Quitar de la clase y desvincular la falta
+            alumnosSeleccionados.delete(alumnoId)
+            faltasARecuperar.delete(alumnoId)
+          }
+
+          // Refrescar la lista de alumnos normal (por si el nivel coincide)
+          pintarAlumnos(selectNivel.value)
+          pintarSeccionRecuperar()
+          actualizarContador()
+        })
       })
     }
 
     // ============================
-    // Toggle recuperación
-    // ============================
-    checkRecuperacion.addEventListener('change', async () => {
-      camposRecuperacion.style.display = checkRecuperacion.checked ? 'block' : 'none'
-      if (checkRecuperacion.checked) {
-        // Refrescar faltas al activar
-        await cargarFaltasPendientes()
-        // Filtrar: excluir la falta que ya está asociada a la clase actual (si la hay)
-        pintarListaRecuperaciones()
-      } else {
-        faltaSeleccionadaId = null
-      }
-    })
-
-    // ============================
-    // Pintar alumnos
+    // Pintar alumnos por nivel
     // ============================
     function pintarAlumnos(nivel) {
       if (!nivel) {
@@ -325,18 +306,28 @@
 
       listaAlumnos.innerHTML = filtrados.map(a => {
         const checked = alumnosSeleccionados.has(a.id) ? 'checked' : ''
+        const esRecuperacion = faltasARecuperar.has(a.id)
         return `
-          <label class="item-alumno">
+          <label class="item-alumno ${esRecuperacion ? 'item-alumno-recuperacion' : ''}">
             <input type="checkbox" value="${a.id}" ${checked}>
             <span class="nombre">${a.nombre}</span>
+            ${esRecuperacion ? '<span class="badge-recuperacion">🔄</span>' : ''}
           </label>
         `
       }).join('')
 
       listaAlumnos.querySelectorAll('input[type="checkbox"]').forEach(cb => {
         cb.addEventListener('change', () => {
-          if (cb.checked) alumnosSeleccionados.add(cb.value)
-          else alumnosSeleccionados.delete(cb.value)
+          if (cb.checked) {
+            alumnosSeleccionados.add(cb.value)
+          } else {
+            alumnosSeleccionados.delete(cb.value)
+            // Si estaba en recuperaciones, desvincular la falta
+            if (faltasARecuperar.has(cb.value)) {
+              faltasARecuperar.delete(cb.value)
+              pintarSeccionRecuperar()
+            }
+          }
           actualizarContador()
         })
       })
@@ -351,22 +342,23 @@
 
     document.getElementById('btn-todos').addEventListener('click', () => {
       if (!selectNivel.value) return
-      alumnosCache.filter(a => a.nivel === selectNivel.value)
-        .forEach(a => alumnosSeleccionados.add(a.id))
+      alumnosCache.filter(a => a.nivel === selectNivel.value).forEach(a => alumnosSeleccionados.add(a.id))
       pintarAlumnos(selectNivel.value)
     })
 
     document.getElementById('btn-ninguno').addEventListener('click', () => {
       if (!selectNivel.value) return
-      alumnosCache.filter(a => a.nivel === selectNivel.value)
-        .forEach(a => alumnosSeleccionados.delete(a.id))
+      alumnosCache.filter(a => a.nivel === selectNivel.value).forEach(a => {
+        // No quitar los que están por recuperación
+        if (!faltasARecuperar.has(a.id)) alumnosSeleccionados.delete(a.id)
+      })
       pintarAlumnos(selectNivel.value)
     })
 
     selectNivel.addEventListener('change', () => pintarAlumnos(selectNivel.value))
 
     // ============================
-    // Cargar ejercicios
+    // Ejercicios
     // ============================
     const { data: ejercicios } = await supabase
       .from(TABLES.ejercicios).select('id, titulo').order('titulo')
@@ -379,9 +371,9 @@
     checkRepetir.addEventListener('change', () => {
       camposRepetir.style.display = checkRepetir.checked ? 'block' : 'none'
       if (checkRepetir.checked && !inputRepetirHasta.value) {
-        const fechaBase = inputFecha.value
-        if (fechaBase) {
-          const d = new Date(fechaBase + 'T12:00:00')
+        const fb = inputFecha.value
+        if (fb) {
+          const d = new Date(fb + 'T12:00:00')
           d.setDate(d.getDate() + 7 * 8)
           inputRepetirHasta.value = d.toISOString().split('T')[0]
         }
@@ -398,11 +390,11 @@
     inputHoraFin.addEventListener('change', () => { validarSolapeEnVivo(); actualizarAvisoDia() })
     inputRepetirHasta.addEventListener('change', actualizarPreviewRepeticion)
 
-    function calcularFechasRepeticion(fechaBase, fechaHasta) {
-      if (!fechaBase || !fechaHasta) return []
+    function calcularFechasRepeticion(fb, fh) {
+      if (!fb || !fh) return []
       const fechas = []
-      const inicio = new Date(fechaBase + 'T12:00:00')
-      const fin = new Date(fechaHasta + 'T12:00:00')
+      const inicio = new Date(fb + 'T12:00:00')
+      const fin = new Date(fh + 'T12:00:00')
       if (fin < inicio) return []
       const actual = new Date(inicio)
       while (actual <= fin) {
@@ -427,8 +419,7 @@
       })
       if (conflictosPorFecha.length > 0) {
         previewRepeticion.innerHTML = `
-          <span style="color:#e74c3c;">⚠️ Se crearán ${fechas.length - conflictosPorFecha.length} de ${fechas.length} clases.
-          ${conflictosPorFecha.length} fecha${conflictosPorFecha.length > 1 ? 's' : ''} con conflicto:</span>
+          <span style="color:#e74c3c;">⚠️ Se crearán ${fechas.length - conflictosPorFecha.length} de ${fechas.length} clases.</span>
           <ul style="margin:4px 0 0 16px;padding:0;font-size:0.75rem;color:#e74c3c;">
             ${conflictosPorFecha.map(x => `<li>${x.fecha}</li>`).join('')}
           </ul>
@@ -444,12 +435,7 @@
         avisoSolape.style.display = 'none'
         return
       }
-      const res = verificarSolapamiento(
-        inputFecha.value,
-        inputHoraInicio.value,
-        inputHoraFin.value,
-        claseActualId
-      )
+      const res = verificarSolapamiento(inputFecha.value, inputHoraInicio.value, inputHoraFin.value, claseActualId)
       if (res) {
         avisoSolape.style.display = 'block'
         if (res.conflictos.length === 0) {
@@ -499,7 +485,7 @@
     async function cargarClases() {
       const { data, error } = await supabase
         .from(TABLES.clases)
-        .select('id, titulo, fecha, hora_inicio, hora_fin, tipo, estado, notas, motivo_anulacion, ejercicio_id, ejercicio_libre, falta_recuperada_id, padel_clase_alumnos(alumno_id, padel_alumnos(id, nombre)), padel_ejercicios(id, titulo)')
+        .select('id, titulo, fecha, hora_inicio, hora_fin, tipo, estado, notas, motivo_anulacion, ejercicio_id, ejercicio_libre, padel_clase_alumnos(alumno_id, padel_alumnos(id, nombre)), padel_ejercicios(id, titulo)')
       if (error) { console.error(error); return [] }
 
       clasesCache = data.map(c => ({
@@ -510,6 +496,17 @@
         titulo: c.titulo,
         estado: c.estado
       }))
+
+      // Detectar si alguna clase tiene vinculadas faltas de recuperación
+      const claseIds = data.map(c => c.id)
+      let clasesConRecuperacion = new Set()
+      if (claseIds.length > 0) {
+        const { data: faltasVinc } = await supabase
+          .from(TABLES.faltas)
+          .select('clase_recuperacion_id')
+          .in('clase_recuperacion_id', claseIds)
+        ;(faltasVinc || []).forEach(f => clasesConRecuperacion.add(f.clase_recuperacion_id))
+      }
 
       return data.map(c => ({
         id: c.id,
@@ -523,22 +520,20 @@
           motivo: c.motivo_anulacion,
           ejercicioId: c.ejercicio_id,
           ejercicioLibre: c.ejercicio_libre,
-          ejercicioTitulo: c.padel_ejercicios?.titulo || c.ejercicio_libre || '',
-          faltaRecuperadaId: c.falta_recuperada_id,
-          esRecuperacion: !!c.falta_recuperada_id,
-          alumnosIds: (c.padel_clase_alumnos || []).map(a => a.alumno_id)
+          alumnosIds: (c.padel_clase_alumnos || []).map(a => a.alumno_id),
+          esRecuperacion: clasesConRecuperacion.has(c.id)
         },
-        backgroundColor: colorPorEstado(c.estado, c.tipo, c.falta_recuperada_id),
-        borderColor: bordePorEstado(c.estado, c.falta_recuperada_id),
+        backgroundColor: colorPorEstado(c.estado, c.tipo, clasesConRecuperacion.has(c.id)),
+        borderColor: bordePorEstado(c.estado, clasesConRecuperacion.has(c.id)),
         classNames: classNamesPorEstado(c.estado)
       }))
     }
 
-    function colorPorEstado(estado, tipo, faltaRecuperadaId) {
+    function colorPorEstado(estado, tipo, esRecuperacion) {
       if (estado === 'anulada') return '#7a1a1a'
       if (estado === 'realizada') return '#1e8449'
       if (estado === 'reprogramada') return '#e67e22'
-      if (faltaRecuperadaId) return '#8e44ad' // morado para recuperaciones
+      if (esRecuperacion) return '#8e44ad'
       return {
         individual: '#3a8fbf',
         grupal:     '#5bb8d4',
@@ -547,10 +542,10 @@
       }[tipo] || '#3a8fbf'
     }
 
-    function bordePorEstado(estado, faltaRecuperadaId) {
+    function bordePorEstado(estado, esRecuperacion) {
       if (estado === 'anulada') return '#e74c3c'
       if (estado === 'realizada') return '#2ecc71'
-      if (faltaRecuperadaId) return '#c39bd3'
+      if (esRecuperacion) return '#c39bd3'
       return 'transparent'
     }
 
@@ -595,12 +590,12 @@
       editable: !esMovil,
       selectable: true,
       selectMirror: true,
-      selectAllow: (selectInfo) => {
-        if (!selectInfo.startStr.includes('T')) return true
-        const fecha = selectInfo.startStr.split('T')[0]
-        const horaInicio = selectInfo.startStr.split('T')[1]?.slice(0,5) || '00:00'
-        const horaFin = selectInfo.endStr.split('T')[1]?.slice(0,5) || '23:59'
-        const res = verificarSolapamiento(fecha, horaInicio, horaFin)
+      selectAllow: (info) => {
+        if (!info.startStr.includes('T')) return true
+        const fecha = info.startStr.split('T')[0]
+        const hi = info.startStr.split('T')[1]?.slice(0,5) || '00:00'
+        const hf = info.endStr.split('T')[1]?.slice(0,5) || '23:59'
+        const res = verificarSolapamiento(fecha, hi, hf)
         return !res || res.conflictos.length === 0
       },
       dayMaxEvents: esMovil ? 5 : 4,
@@ -611,27 +606,27 @@
       allDaySlot: false,
       select: (info) => {
         const fecha = info.startStr.split('T')[0]
-        const horaInicio = info.startStr.includes('T') ? info.startStr.split('T')[1].slice(0, 5) : '09:00'
-        const horaFin = info.endStr.includes('T') ? info.endStr.split('T')[1].slice(0, 5) : '10:00'
-        abrirModal({ fecha, horaInicio, horaFin })
+        const hi = info.startStr.includes('T') ? info.startStr.split('T')[1].slice(0, 5) : '09:00'
+        const hf = info.endStr.includes('T') ? info.endStr.split('T')[1].slice(0, 5) : '10:00'
+        abrirModal({ fecha, horaInicio: hi, horaFin: hf })
       },
       dateClick: (info) => abrirModal({ fecha: info.dateStr }),
       eventClick: (info) => abrirModal(info.event),
       eventDrop: async (info) => {
-        const nuevaFecha = info.event.startStr.split('T')[0]
-        const nuevaHoraInicio = info.event.startStr.split('T')[1]?.slice(0,5)
-        const duracion = (info.event.end - info.event.start) / 60000
-        const [h, m] = nuevaHoraInicio.split(':').map(Number)
-        const finMin = h * 60 + m + duracion
-        const nuevaHoraFin = `${String(Math.floor(finMin/60)).padStart(2,'0')}:${String(finMin%60).padStart(2,'0')}`
-        const res = verificarSolapamiento(nuevaFecha, nuevaHoraInicio, nuevaHoraFin, info.event.id)
+        const nf = info.event.startStr.split('T')[0]
+        const nhi = info.event.startStr.split('T')[1]?.slice(0,5)
+        const dur = (info.event.end - info.event.start) / 60000
+        const [h, m] = nhi.split(':').map(Number)
+        const finMin = h * 60 + m + dur
+        const nhf = `${String(Math.floor(finMin/60)).padStart(2,'0')}:${String(finMin%60).padStart(2,'0')}`
+        const res = verificarSolapamiento(nf, nhi, nhf, info.event.id)
         if (res && res.conflictos.length) {
           info.revert()
           alert(`⚠️ No se puede mover:\n\n${formatearConflictos(res.conflictos)}`)
           return
         }
         const { error } = await supabase.from(TABLES.clases)
-          .update({ fecha: nuevaFecha, hora_inicio: nuevaHoraInicio, hora_fin: nuevaHoraFin })
+          .update({ fecha: nf, hora_inicio: nhi, hora_fin: nhf })
           .eq('id', info.event.id)
         if (error) { info.revert(); alert('Error: ' + error.message); return }
         calendar.removeAllEvents()
@@ -656,11 +651,11 @@
       avisoDia.style.display = 'none'
       avisoSolape.style.display = 'none'
 
-      // Recuperación: cargar faltas pendientes siempre
+      alumnosSeleccionados = new Set()
+      faltasARecuperar = new Map()
+
+      // Cargar faltas pendientes siempre
       await cargarFaltasPendientes()
-      faltaSeleccionadaId = null
-      checkRecuperacion.checked = false
-      camposRecuperacion.style.display = 'none'
 
       if (clase?.id) {
         // ===== EDITAR =====
@@ -678,37 +673,32 @@
         document.getElementById('ejercicio_libre').value = clase.extendedProps.ejercicioLibre || ''
         document.getElementById('notas').value = clase.extendedProps.notas || ''
 
+        // Cargar alumnos ya vinculados
         alumnosSeleccionados = new Set(clase.extendedProps.alumnosIds || [])
+
+        // Cargar faltas vinculadas a ESTA clase
+        const { data: faltasVinc } = await supabase
+          .from(TABLES.faltas)
+          .select('id, alumno_id')
+          .eq('clase_recuperacion_id', clase.id)
+
+        ;(faltasVinc || []).forEach(f => {
+          faltasARecuperar.set(f.alumno_id, f.id)
+          // Asegurar que el alumno está marcado
+          alumnosSeleccionados.add(f.alumno_id)
+        })
+
+        // Detectar nivel común
         selectNivel.value = ''
-        const niveles = new Set(
-          alumnosCache.filter(a => alumnosSeleccionados.has(a.id)).map(a => a.nivel)
-        )
+        const niveles = new Set(alumnosCache.filter(a => alumnosSeleccionados.has(a.id)).map(a => a.nivel))
         if (niveles.size === 1) selectNivel.value = [...niveles][0]
+
         pintarAlumnos(selectNivel.value)
+        pintarSeccionRecuperar()
 
         document.getElementById('bloque-repetir').style.display = 'none'
         document.getElementById('btn-guardar').textContent = '💾 Guardar cambios'
         btnNuevaMismoDia.style.display = 'inline-flex'
-
-        // Recuperación: si esta clase ya es una recuperación, precargar
-        if (clase.extendedProps.faltaRecuperadaId) {
-          checkRecuperacion.checked = true
-          camposRecuperacion.style.display = 'block'
-          faltaSeleccionadaId = clase.extendedProps.faltaRecuperadaId
-          // La falta puede no aparecer en pendientes si ya está vinculada a esta misma clase
-          // La añadimos manualmente para que se muestre
-          const yaEsta = faltasPendientes.some(f => f.id === clase.extendedProps.faltaRecuperadaId)
-          if (!yaEsta) {
-            // Cargar la falta específica
-            const { data: faltaData } = await supabase
-              .from(TABLES.faltas)
-              .select('id, alumno_id, tipo, fecha_registro, descripcion, padel_alumnos(nombre), padel_clases(titulo, fecha, hora_inicio)')
-              .eq('id', clase.extendedProps.faltaRecuperadaId)
-              .single()
-            if (faltaData) faltasPendientes.unshift(faltaData)
-          }
-          pintarListaRecuperaciones()
-        }
 
         actualizarBotonesEstado(claseActualEstado)
       } else {
@@ -727,11 +717,9 @@
         document.getElementById('btn-guardar').textContent = '💾 Guardar'
         btnGuardarOtra.style.display = 'inline-flex'
 
-        alumnosSeleccionados = new Set()
         selectNivel.value = ''
         pintarAlumnos('')
-
-        document.getElementById('bloque-recuperacion').style.display = 'block'
+        pintarSeccionRecuperar()
 
         if (clase?.fecha) {
           actualizarAvisoDia()
@@ -773,38 +761,27 @@
         await supabase.from(TABLES.clases)
           .update({ estado: 'anulada', motivo_anulacion: motivo || null })
           .eq('id', claseActualId)
+        // Al anular, desvincular las faltas
+        await supabase.from(TABLES.faltas)
+          .update({ clase_recuperacion_id: null, recuperada: false })
+          .eq('clase_recuperacion_id', claseActualId)
       } else {
         await supabase.from(TABLES.clases)
           .update({ estado: nuevoEstado, motivo_anulacion: nuevoEstado === 'realizada' ? null : undefined })
           .eq('id', claseActualId)
 
-        // ⬇️ SI SE MARCA COMO REALIZADA → marcar la falta vinculada como recuperada
+        // Si se marca como realizada → marcar faltas vinculadas como recuperadas
         if (nuevoEstado === 'realizada') {
-          const { data: claseData } = await supabase
-            .from(TABLES.clases)
-            .select('falta_recuperada_id')
-            .eq('id', claseActualId)
-            .single()
-
-          if (claseData?.falta_recuperada_id) {
-            await supabase.from(TABLES.faltas)
-              .update({ recuperada: true })
-              .eq('id', claseData.falta_recuperada_id)
-          }
+          await supabase.from(TABLES.faltas)
+            .update({ recuperada: true })
+            .eq('clase_recuperacion_id', claseActualId)
         }
 
-        // ⬇️ SI SE REABRE UNA CLASE REALIZADA QUE ERA RECUPERACIÓN → desmarcar la falta
+        // Si se reabre como programada → desmarcar recuperadas
         if (nuevoEstado === 'programada' && claseActualEstado === 'realizada') {
-          const { data: claseData } = await supabase
-            .from(TABLES.clases)
-            .select('falta_recuperada_id')
-            .eq('id', claseActualId)
-            .single()
-          if (claseData?.falta_recuperada_id) {
-            await supabase.from(TABLES.faltas)
-              .update({ recuperada: false })
-              .eq('id', claseData.falta_recuperada_id)
-          }
+          await supabase.from(TABLES.faltas)
+            .update({ recuperada: false })
+            .eq('clase_recuperacion_id', claseActualId)
         }
       }
 
@@ -821,9 +798,9 @@
     document.getElementById('btn-cancelar').onclick = () => modal.close()
 
     btnNuevaMismoDia.onclick = () => {
-      const fechaActual = inputFecha.value
+      const f = inputFecha.value
       modal.close()
-      setTimeout(() => abrirModal({ fecha: fechaActual }), 150)
+      setTimeout(() => abrirModal({ fecha: f }), 150)
     }
 
     btnGuardarOtra.addEventListener('click', () => {
@@ -846,27 +823,18 @@
         tipo: document.getElementById('tipo').value,
         ejercicio_id: document.getElementById('ejercicio_id').value || null,
         ejercicio_libre: document.getElementById('ejercicio_libre').value || null,
-        notas: document.getElementById('notas').value,
-        falta_recuperada_id: checkRecuperacion.checked ? (faltaSeleccionadaId || null) : null
+        notas: document.getElementById('notas').value
       }
 
       const fechaBase = inputFecha.value
 
-      // Validaciones
       if (tiempoAMinutos(datosBase.hora_fin) <= tiempoAMinutos(datosBase.hora_inicio)) {
         alert('⚠️ La hora de fin debe ser posterior a la hora de inicio')
-        inputHoraFin.focus()
         modoGuardarYContinuar = false
         return
       }
 
-      if (checkRecuperacion.checked && !faltaSeleccionadaId) {
-        alert('⚠️ Has marcado que es una recuperación. Selecciona la falta pendiente que se va a recuperar.')
-        modoGuardarYContinuar = false
-        return
-      }
-
-      // EDITAR
+      // ===== EDITAR =====
       if (id) {
         const res = verificarSolapamiento(fechaBase, datosBase.hora_inicio, datosBase.hora_fin, id)
         if (res && res.conflictos.length) {
@@ -875,16 +843,23 @@
           return
         }
 
-        await supabase.from(TABLES.clases).update({
-          ...datosBase,
-          fecha: fechaBase
-        }).eq('id', id)
+        await supabase.from(TABLES.clases).update({ ...datosBase, fecha: fechaBase }).eq('id', id)
 
         await supabase.from(TABLES.claseAlumnos).delete().eq('clase_id', id)
         if (alumnosIds.length) {
-          await supabase.from(TABLES.claseAlumnos).insert(
-            alumnosIds.map(aid => ({ clase_id: id, alumno_id: aid }))
-          )
+          await supabase.from(TABLES.claseAlumnos).insert(alumnosIds.map(aid => ({ clase_id: id, alumno_id: aid })))
+        }
+
+        // Limpiar faltas vinculadas previas y volver a asignar
+        await supabase.from(TABLES.faltas)
+          .update({ clase_recuperacion_id: null, recuperada: false })
+          .eq('clase_recuperacion_id', id)
+
+        // Vincular las faltas nuevas
+        for (const [alumnoId, faltaId] of faltasARecuperar) {
+          await supabase.from(TABLES.faltas)
+            .update({ clase_recuperacion_id: id })
+            .eq('id', faltaId)
         }
 
         modal.close()
@@ -893,60 +868,54 @@
         return
       }
 
-      // NUEVA
+      // ===== NUEVA =====
       let fechas = [fechaBase]
       if (checkRepetir.checked) {
         fechas = calcularFechasRepeticion(fechaBase, inputRepetirHasta.value)
-        if (fechas.length === 0) {
-          alert('La fecha límite de repetición no es válida')
-          modoGuardarYContinuar = false
-          return
-        }
-        if (fechas.length > 100) {
-          alert('Demasiadas repeticiones (>100). Reduce el rango.')
-          modoGuardarYContinuar = false
-          return
-        }
+        if (fechas.length === 0) { alert('La fecha límite no es válida'); modoGuardarYContinuar = false; return }
+        if (fechas.length > 100) { alert('Demasiadas repeticiones'); modoGuardarYContinuar = false; return }
       }
 
-      const fechasConConflicto = []
       const fechasOk = []
+      const fechasConflicto = []
       for (const f of fechas) {
         const res = verificarSolapamiento(f, datosBase.hora_inicio, datosBase.hora_fin)
-        if (res && res.conflictos.length) fechasConConflicto.push({ fecha: f, conflictos: res.conflictos })
+        if (res && res.conflictos.length) fechasConflicto.push({ fecha: f, conflictos: res.conflictos })
         else fechasOk.push(f)
       }
 
-      if (fechasConConflicto.length > 0) {
-        const detalle = fechasConConflicto
-          .map(x => `📅 ${x.fecha}\n${formatearConflictos(x.conflictos)}`)
-          .join('\n\n')
+      if (fechasConflicto.length > 0) {
+        const detalle = fechasConflicto.map(x => `📅 ${x.fecha}\n${formatearConflictos(x.conflictos)}`).join('\n\n')
         if (fechasOk.length === 0) {
-          alert(`⚠️ No se puede guardar. Todas las fechas tienen conflicto:\n\n${detalle}`)
+          alert(`⚠️ Todas las fechas tienen conflicto:\n\n${detalle}`)
           modoGuardarYContinuar = false
           return
         }
-        const continuar = confirm(
-          `⚠️ Hay conflictos en ${fechasConConflicto.length} de ${fechas.length} fechas:\n\n${detalle}\n\n` +
-          `¿Guardar solo las ${fechasOk.length} fechas sin conflicto?`
-        )
-        if (!continuar) { modoGuardarYContinuar = false; return }
+        const cont = confirm(`⚠️ Conflictos en ${fechasConflicto.length} de ${fechas.length} fechas:\n\n${detalle}\n\n¿Guardar solo las ${fechasOk.length} sin conflicto?`)
+        if (!cont) { modoGuardarYContinuar = false; return }
       }
 
       const clasesAInsertar = fechasOk.map(f => ({ ...datosBase, fecha: f }))
-      const { data: insertadas, error } = await supabase
-        .from(TABLES.clases).insert(clasesAInsertar).select()
+      const { data: insertadas, error } = await supabase.from(TABLES.clases).insert(clasesAInsertar).select()
 
       if (error) { alert('Error: ' + error.message); modoGuardarYContinuar = false; return }
 
       if (alumnosIds.length && insertadas?.length) {
         const relaciones = []
         insertadas.forEach(c => {
-          alumnosIds.forEach(aid => {
-            relaciones.push({ clase_id: c.id, alumno_id: aid })
-          })
+          alumnosIds.forEach(aid => relaciones.push({ clase_id: c.id, alumno_id: aid }))
         })
         await supabase.from(TABLES.claseAlumnos).insert(relaciones)
+      }
+
+      // Vincular faltas SOLO a la primera clase creada (no tiene sentido repetirlas)
+      if (insertadas?.length && faltasARecuperar.size > 0) {
+        const primeraClaseId = insertadas[0].id
+        for (const [alumnoId, faltaId] of faltasARecuperar) {
+          await supabase.from(TABLES.faltas)
+            .update({ clase_recuperacion_id: primeraClaseId })
+            .eq('id', faltaId)
+        }
       }
 
       calendar.removeAllEvents()
@@ -954,8 +923,7 @@
 
       if (modoGuardarYContinuar) {
         modoGuardarYContinuar = false
-        const fechaGuardada = fechaBase
-
+        const fg = fechaBase
         const aviso = document.createElement('div')
         aviso.className = 'toast-guardado'
         aviso.textContent = '✅ Clase guardada — añade otra'
@@ -977,13 +945,15 @@
         camposRepetir.style.display = 'none'
         previewRepeticion.textContent = ''
         document.getElementById('modal-titulo').textContent = 'Nueva Clase (mismo día)'
-        inputFecha.value = fechaGuardada
+        inputFecha.value = fg
 
-        // Reset recuperación
-        checkRecuperacion.checked = false
-        camposRecuperacion.style.display = 'none'
-        faltaSeleccionadaId = null
+        // Reset selección y faltas
+        alumnosSeleccionados = new Set()
+        faltasARecuperar = new Map()
         await cargarFaltasPendientes()
+        selectNivel.value = ''
+        pintarAlumnos('')
+        pintarSeccionRecuperar()
 
         actualizarAvisoDia()
         validarSolapeEnVivo()
@@ -994,9 +964,7 @@
 
       modal.close()
       if (fechasOk.length > 1) {
-        setTimeout(() => {
-          alert(`✅ Se han creado ${fechasOk.length} clases (una por semana)\nDesde ${fechasOk[0]} hasta ${fechasOk[fechasOk.length - 1]}`)
-        }, 200)
+        setTimeout(() => alert(`✅ Se han creado ${fechasOk.length} clases`), 200)
       }
     })
   </script>
@@ -1038,7 +1006,7 @@
     .fc-event { position: relative; }
 
     /* Bloques modal */
-    .bloque-alumnos, .bloque-recuperacion {
+    .bloque-alumnos {
       background: var(--fondo-app);
       border: 1px solid var(--borde-card);
       border-radius: 8px;
@@ -1046,94 +1014,69 @@
       margin-bottom: 12px;
     }
 
-    .bloque-recuperacion {
-      background: linear-gradient(135deg, rgba(142, 68, 173, 0.12), rgba(142, 68, 173, 0.05));
-      border-color: rgba(142, 68, 173, 0.5);
+    /* Sección recuperar */
+    .seccion-recuperar {
+      background: linear-gradient(135deg, rgba(142, 68, 173, 0.15), rgba(142, 68, 173, 0.05));
+      border: 1px solid rgba(142, 68, 173, 0.5);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 14px;
     }
-
-    .check-recuperacion {
-      display: flex; align-items: center; gap: 8px;
-      margin: 0 !important; cursor: pointer;
+    .seccion-recuperar-titulo {
+      font-weight: 700;
+      color: #c39bd3;
+      font-size: 0.88rem;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    .check-recuperacion input[type="checkbox"] {
-      width: 18px; height: 18px; min-height: auto; margin: 0;
-      flex-shrink: 0; accent-color: #8e44ad;
-    }
-    .check-recuperacion span {
-      font-weight: 600; color: #c39bd3; font-size: 0.9rem;
-    }
-
-    .info-recuperacion {
+    .contador-recuperar {
+      color: #e8ff3a;
       font-size: 0.78rem;
-      color: var(--texto-secundario);
-      margin: 10px 0 8px;
-      padding-left: 4px;
     }
-
-    #lista-recuperaciones {
-      max-height: 220px;
+    .lista-recuperar {
+      max-height: 160px;
       overflow-y: auto;
-      border: 1px solid rgba(142, 68, 173, 0.3);
       border-radius: 6px;
       background: var(--fondo-card);
       padding: 4px;
     }
-
-    .vacio-recuperacion {
-      padding: 12px;
-      text-align: center;
-      color: var(--texto-secundario);
-      font-size: 0.82rem;
-      margin: 0;
-    }
-
-    .item-recuperacion {
+    .item-recuperar {
       display: flex !important;
-      align-items: flex-start;
+      align-items: center;
       gap: 10px;
-      padding: 8px 10px;
+      padding: 6px 8px;
       margin: 0 !important;
       border-radius: 5px;
       cursor: pointer;
       transition: background 0.12s;
-      border: 1px solid transparent;
     }
-    .item-recuperacion:hover {
-      background: rgba(142, 68, 173, 0.15);
-    }
-    .item-recuperacion.seleccionado {
-      background: rgba(142, 68, 173, 0.25);
-      border-color: #8e44ad;
-    }
-    .item-recuperacion input[type="radio"] {
-      width: 18px; height: 18px; min-height: auto; margin: 2px 0 0;
+    .item-recuperar:hover { background: rgba(142, 68, 173, 0.2); }
+    .item-recuperar input[type="checkbox"] {
+      width: 18px; height: 18px; min-height: auto; margin: 0;
       flex-shrink: 0; cursor: pointer; accent-color: #8e44ad;
     }
-    .item-recuperacion-info {
-      flex: 1;
-      min-width: 0;
-    }
-    .item-recuperacion-nombre {
+    .item-recuperar-info { flex: 1; min-width: 0; }
+    .item-recuperar-nombre {
       font-weight: 700;
       color: var(--texto-principal);
-      font-size: 0.9rem;
+      font-size: 0.88rem;
     }
-    .item-recuperacion-detalle {
-      font-size: 0.75rem;
+    .item-recuperar-detalle {
+      font-size: 0.72rem;
       color: var(--texto-secundario);
       margin-top: 2px;
     }
-    .item-recuperacion-clase {
-      font-size: 0.75rem;
-      color: var(--pista-azul-hielo);
-      margin-top: 2px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .tipo-falta-justificada { color: #5bb8d4; font-weight: 600; }
+    .tipo-falta-lesion      { color: #e74c3c; font-weight: 600; }
+    .nota-recuperar {
+      font-size: 0.7rem;
+      color: var(--texto-secundario);
+      font-style: italic;
+      margin: 6px 0 0;
+      text-align: center;
     }
-
-    .tipo-justificada { color: #5bb8d4; font-weight: 600; }
-    .tipo-lesion      { color: #e74c3c; font-weight: 600; }
 
     /* Lista alumnos */
     .lista-alumnos-header {
@@ -1178,6 +1121,17 @@
     .item-alumno input[type="checkbox"]:checked + .nombre {
       font-weight: 600; color: var(--pista-azul-hielo);
     }
+    .item-alumno-recuperacion {
+      background: rgba(142, 68, 173, 0.15);
+    }
+    .badge-recuperacion {
+      background: #8e44ad;
+      color: white;
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 10px;
+      flex-shrink: 0;
+    }
 
     .bloque-repetir {
       background: var(--fondo-app);
@@ -1207,7 +1161,6 @@
       font-size: 0.85rem; color: var(--texto-secundario);
     }
 
-    /* Solape */
     .aviso-solape {
       background: rgba(192, 57, 43, 0.15);
       border: 1px solid #e74c3c;
@@ -1220,11 +1173,10 @@
       animation: shakeIn 0.3s ease;
     }
     .aviso-solape strong { color: #e74c3c; }
-    .aviso-solape ul { color: #ffb3b3; }
     @keyframes shakeIn {
-      0%   { transform: translateX(0); }
-      25%  { transform: translateX(-4px); }
-      75%  { transform: translateX(4px); }
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      75% { transform: translateX(4px); }
       100% { transform: translateX(0); }
     }
 
@@ -1237,13 +1189,8 @@
       margin-bottom: 12px;
       font-size: 0.83rem;
     }
-    .aviso-titulo {
-      color: var(--pista-azul-hielo); font-weight: 600; margin-bottom: 6px;
-    }
-    .aviso-lista {
-      list-style: none; padding: 0; margin: 0;
-      max-height: 100px; overflow-y: auto;
-    }
+    .aviso-titulo { color: var(--pista-azul-hielo); font-weight: 600; margin-bottom: 6px; }
+    .aviso-lista { list-style: none; padding: 0; margin: 0; max-height: 100px; overflow-y: auto; }
     .aviso-lista li {
       display: flex; gap: 8px; padding: 3px 0;
       color: var(--texto-secundario);
@@ -1257,7 +1204,6 @@
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
-    /* Botones estado */
     .btn-estado { font-weight: 600; }
     .btn-estado.btn-realizada { background: #1e8449; color: white; border: none; }
     .btn-estado.btn-realizada:hover { background: #166638; }
@@ -1287,7 +1233,6 @@
       to   { opacity: 1; transform: translate(-50%, 0); }
     }
 
-    /* FullCalendar */
     #calendar {
       background: var(--fondo-card); padding: 12px;
       border-radius: var(--radio); border: 1px solid var(--borde-card);
@@ -1309,24 +1254,15 @@
     .fc .fc-more-link { color: var(--pista-azul-hielo); font-weight: 600; }
     .fc-highlight { background: rgba(232, 255, 58, 0.2) !important; }
 
-    /* Móvil */
     @media (max-width: 768px) {
       #calendar { padding: 6px; }
-      .fc .fc-toolbar {
-        flex-direction: column !important;
-        gap: 8px !important; margin-bottom: 10px !important;
-      }
+      .fc .fc-toolbar { flex-direction: column !important; gap: 8px !important; margin-bottom: 10px !important; }
       .fc .fc-toolbar-chunk { display: flex; justify-content: center; width: 100%; }
       .fc .fc-toolbar-title { font-size: 1.05rem !important; text-align: center; }
-      .fc .fc-button {
-        padding: 7px 11px !important;
-        font-size: 0.8rem !important;
-        border-radius: 6px !important;
-      }
+      .fc .fc-button { padding: 7px 11px !important; font-size: 0.8rem !important; border-radius: 6px !important; }
       .fc .fc-button-group > .fc-button { border-radius: 6px !important; margin: 0 2px; }
       .fc .fc-button-group:first-child .fc-button,
       .fc .fc-toolbar-chunk:first-child .fc-button { min-width: 44px; }
-
       .evento-contenido { font-size: 0.72rem; gap: 2px; }
       .evento-hora { display: none; }
       .fc .fc-timegrid-slot { height: 2em; }
