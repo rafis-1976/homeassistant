@@ -12,6 +12,14 @@
     <nav class="sidebar"></nav>
     <main class="content">
       <h1>📅 Calendario de Clases</h1>
+
+      <!-- LEYENDA -->
+      <div class="leyenda-calendario">
+        <span class="leyenda-item"><span class="dot dot-programada"></span> Programada</span>
+        <span class="leyenda-item"><span class="dot dot-realizada"></span> ✅ Realizada</span>
+        <span class="leyenda-item"><span class="dot dot-anulada"></span> 🚫 Anulada</span>
+      </div>
+
       <div id="calendar"></div>
     </main>
   </div>
@@ -49,7 +57,7 @@
       </label>
 
       <!-- ============================
-           NIVEL + ALUMNOS CON CHECKBOXES
+           NIVEL + ALUMNOS
            ============================ -->
       <div class="bloque-alumnos">
         <label style="margin-bottom:8px;">Nivel
@@ -94,9 +102,16 @@
 
       <label>Notas <textarea id="notas" rows="3"></textarea></label>
 
+      <!-- ============================
+           ESTADO ACTUAL (solo al editar)
+           ============================ -->
+      <div id="estado-info" class="estado-info" style="display:none;"></div>
+
       <div class="modal-actions">
-        <button type="button" class="btn-secondary" id="btn-cancelar">Cancelar</button>
-        <button type="button" class="btn-secondary" id="btn-realizada" style="display:none;">✅ Marcar realizada</button>
+        <button type="button" class="btn-secondary" id="btn-cancelar">Cerrar</button>
+        <button type="button" class="btn-estado btn-realizada" id="btn-realizada" style="display:none;">✅ Marcar realizada</button>
+        <button type="button" class="btn-estado btn-anular" id="btn-anular" style="display:none;">🚫 Anular clase</button>
+        <button type="button" class="btn-estado btn-reabrir" id="btn-reabrir" style="display:none;">↩️ Reabrir como programada</button>
         <button type="submit" class="btn-primary" id="btn-guardar">Guardar</button>
       </div>
     </form>
@@ -119,11 +134,15 @@
     const camposRepetir = document.getElementById('campos-repetir')
     const inputRepetirHasta = document.getElementById('repetir_hasta')
     const previewRepeticion = document.getElementById('preview-repeticion')
+    const btnRealizada = document.getElementById('btn-realizada')
+    const btnAnular = document.getElementById('btn-anular')
+    const btnReabrir = document.getElementById('btn-reabrir')
+    const estadoInfo = document.getElementById('estado-info')
 
-    // Cache de alumnos
     let alumnosCache = []
-    // Set de IDs seleccionados (persistente entre cambios de nivel)
     let alumnosSeleccionados = new Set()
+    let claseActualId = null
+    let claseActualEstado = null
 
     // ============================
     // Cargar alumnos
@@ -147,9 +166,7 @@
         actualizarContador()
         return
       }
-
       const filtrados = alumnosCache.filter(a => a.nivel === nivel)
-
       if (filtrados.length === 0) {
         listaAlumnos.innerHTML = '<p class="vacio">No hay alumnos de este nivel</p>'
         actualizarContador()
@@ -166,7 +183,6 @@
         `
       }).join('')
 
-      // Listeners
       listaAlumnos.querySelectorAll('input[type="checkbox"]').forEach(cb => {
         cb.addEventListener('change', () => {
           if (cb.checked) alumnosSeleccionados.add(cb.value)
@@ -183,29 +199,21 @@
       contadorAlumnos.textContent = n > 0 ? `(${n} seleccionado${n > 1 ? 's' : ''})` : ''
     }
 
-    // ============================
-    // Botones Todos / Ninguno (del nivel actual)
-    // ============================
     document.getElementById('btn-todos').addEventListener('click', () => {
       if (!selectNivel.value) return
-      const filtrados = alumnosCache.filter(a => a.nivel === selectNivel.value)
-      filtrados.forEach(a => alumnosSeleccionados.add(a.id))
+      alumnosCache.filter(a => a.nivel === selectNivel.value)
+        .forEach(a => alumnosSeleccionados.add(a.id))
       pintarAlumnos(selectNivel.value)
     })
 
     document.getElementById('btn-ninguno').addEventListener('click', () => {
       if (!selectNivel.value) return
-      const filtrados = alumnosCache.filter(a => a.nivel === selectNivel.value)
-      filtrados.forEach(a => alumnosSeleccionados.delete(a.id))
+      alumnosCache.filter(a => a.nivel === selectNivel.value)
+        .forEach(a => alumnosSeleccionados.delete(a.id))
       pintarAlumnos(selectNivel.value)
     })
 
-    // ============================
-    // Cambio de nivel → repinta
-    // ============================
-    selectNivel.addEventListener('change', () => {
-      pintarAlumnos(selectNivel.value)
-    })
+    selectNivel.addEventListener('change', () => pintarAlumnos(selectNivel.value))
 
     // ============================
     // Cargar ejercicios
@@ -274,7 +282,7 @@
 
       return data.map(c => ({
         id: c.id,
-        title: c.estado === 'anulada' ? '🚫 ' + c.titulo : c.titulo,
+        title: c.titulo,
         start: `${c.fecha}T${c.hora_inicio}`,
         end: `${c.fecha}T${c.hora_fin}`,
         extendedProps: {
@@ -288,14 +296,14 @@
           alumnosIds: (c.padel_clase_alumnos || []).map(a => a.alumno_id)
         },
         backgroundColor: colorPorEstado(c.estado, c.tipo),
-        borderColor: c.estado === 'anulada' ? '#e74c3c' : 'transparent',
-        classNames: c.estado === 'anulada' ? ['evento-anulado'] : []
+        borderColor: bordePorEstado(c.estado),
+        classNames: classNamesPorEstado(c.estado)
       }))
     }
 
     function colorPorEstado(estado, tipo) {
       if (estado === 'anulada') return '#7a1a1a'
-      if (estado === 'realizada') return '#27ae60'
+      if (estado === 'realizada') return '#1e8449'
       if (estado === 'reprogramada') return '#e67e22'
       return {
         individual: '#3a8fbf',
@@ -303,6 +311,43 @@
         clinica:    '#e8ff3a',
         partido:    '#8a9ba8'
       }[tipo] || '#3a8fbf'
+    }
+
+    function bordePorEstado(estado) {
+      if (estado === 'anulada') return '#e74c3c'
+      if (estado === 'realizada') return '#2ecc71'
+      return 'transparent'
+    }
+
+    function classNamesPorEstado(estado) {
+      if (estado === 'anulada') return ['evento-anulado']
+      if (estado === 'realizada') return ['evento-realizado']
+      return []
+    }
+
+    // ============================
+    // Render personalizado del evento (con ✅/🚫)
+    // ============================
+    function renderEvento(info) {
+      const { estado } = info.event.extendedProps
+      const titulo = info.event.title
+
+      // Icono
+      const icono = estado === 'realizada' ? '✅'
+                  : estado === 'anulada'  ? '🚫'
+                  : estado === 'reprogramada' ? '🔄'
+                  : ''
+
+      const hora = info.timeText || ''
+
+      const contenedor = document.createElement('div')
+      contenedor.className = 'evento-contenido'
+      contenedor.innerHTML = `
+        <span class="evento-icono">${icono}</span>
+        <span class="evento-hora">${hora}</span>
+        <span class="evento-titulo">${titulo}</span>
+      `
+      return { domNodes: [contenedor] }
     }
 
     const esMovil = window.innerWidth < 768
@@ -314,6 +359,7 @@
         ? { left: 'prev,next', center: 'title', right: 'today' }
         : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
       events: await cargarClases(),
+      eventContent: renderEvento,
       editable: !esMovil,
       selectable: true,
       dayMaxEvents: 3,
@@ -331,13 +377,14 @@
     // Abrir modal
     // ============================
     function abrirModal(clase) {
-      const btnRealizada = document.getElementById('btn-realizada')
-
       if (clase?.id) {
         // ===== EDITAR =====
+        claseActualId = clase.id
+        claseActualEstado = clase.extendedProps.estado
+
         document.getElementById('modal-titulo').textContent = 'Editar Clase'
         document.getElementById('clase-id').value = clase.id
-        document.getElementById('titulo').value = clase.title.replace(/^🚫\s*/, '')
+        document.getElementById('titulo').value = clase.title
         document.getElementById('fecha').value = clase.startStr.split('T')[0]
         document.getElementById('hora_inicio').value = clase.startStr.split('T')[1]?.slice(0,5) || '09:00'
         document.getElementById('hora_fin').value = clase.endStr?.split('T')[1]?.slice(0,5) || '10:00'
@@ -346,56 +393,108 @@
         document.getElementById('ejercicio_libre').value = clase.extendedProps.ejercicioLibre || ''
         document.getElementById('notas').value = clase.extendedProps.notas || ''
 
-        // Marcar los alumnos seleccionados
         alumnosSeleccionados = new Set(clase.extendedProps.alumnosIds || [])
-
-        // Al editar: inferir el nivel si TODOS los alumnos seleccionados comparten nivel
         selectNivel.value = ''
-        const nivelesSeleccionados = new Set(
+        const niveles = new Set(
           alumnosCache.filter(a => alumnosSeleccionados.has(a.id)).map(a => a.nivel)
         )
-        if (nivelesSeleccionados.size === 1) {
-          selectNivel.value = [...nivelesSeleccionados][0]
-        }
+        if (niveles.size === 1) selectNivel.value = [...niveles][0]
         pintarAlumnos(selectNivel.value)
 
-        // Ocultar bloque repetir
         document.getElementById('bloque-repetir').style.display = 'none'
         document.getElementById('btn-guardar').textContent = 'Guardar cambios'
 
-        const estado = clase.extendedProps.estado
-        btnRealizada.style.display = (estado === 'programada' || estado === 'reprogramada') ? 'inline-flex' : 'none'
-        btnRealizada.onclick = async () => {
-          await supabase.from(TABLES.clases).update({ estado: 'realizada' }).eq('id', clase.id)
-          modal.close()
-          calendar.removeAllEvents()
-          calendar.addEventSource(await cargarClases())
-        }
+        // Botones según estado
+        actualizarBotonesEstado(claseActualEstado)
       } else {
         // ===== NUEVA =====
+        claseActualId = null
+        claseActualEstado = 'programada'
+
         form.reset()
         document.getElementById('modal-titulo').textContent = 'Nueva Clase'
         document.getElementById('clase-id').value = ''
         document.getElementById('fecha').value = clase?.fecha || ''
         document.getElementById('hora_inicio').value = '09:00'
         document.getElementById('hora_fin').value = '10:00'
-        btnRealizada.style.display = 'none'
 
         document.getElementById('bloque-repetir').style.display = 'block'
         document.getElementById('btn-guardar').textContent = 'Guardar'
 
-        // Reset selección y nivel
         alumnosSeleccionados = new Set()
         selectNivel.value = ''
         pintarAlumnos('')
+
+        // Sin botones de estado en nueva clase
+        btnRealizada.style.display = 'none'
+        btnAnular.style.display = 'none'
+        btnReabrir.style.display = 'none'
+        estadoInfo.style.display = 'none'
       }
       modal.showModal()
     }
 
+    // ============================
+    // Mostrar/ocultar botones según estado
+    // ============================
+    function actualizarBotonesEstado(estado) {
+      // Reset
+      btnRealizada.style.display = 'none'
+      btnAnular.style.display = 'none'
+      btnReabrir.style.display = 'none'
+      estadoInfo.style.display = 'block'
+
+      if (estado === 'programada' || estado === 'reprogramada') {
+        estadoInfo.innerHTML = `Estado actual: <strong style="color:#3a8fbf;">${estado === 'reprogramada' ? '🔄 Reprogramada' : '📅 Programada'}</strong>`
+        btnRealizada.style.display = 'inline-flex'
+        btnAnular.style.display = 'inline-flex'
+      } else if (estado === 'realizada') {
+        estadoInfo.innerHTML = `Estado actual: <strong style="color:#2ecc71;">✅ Realizada</strong>`
+        btnReabrir.style.display = 'inline-flex'
+        btnAnular.style.display = 'inline-flex'
+      } else if (estado === 'anulada') {
+        estadoInfo.innerHTML = `Estado actual: <strong style="color:#e74c3c;">🚫 Anulada</strong>`
+        btnReabrir.style.display = 'inline-flex'
+        btnRealizada.style.display = 'inline-flex'
+      }
+    }
+
+    // ============================
+    // Acciones de estado
+    // ============================
+    async function cambiarEstado(nuevoEstado) {
+      if (!claseActualId) return
+
+      // Confirmación para anular
+      if (nuevoEstado === 'anulada') {
+        const motivo = prompt('Motivo de la anulación (opcional):', '')
+        if (motivo === null) return // cancelado
+        await supabase.from(TABLES.clases)
+          .update({ estado: 'anulada', motivo_anulacion: motivo || null })
+          .eq('id', claseActualId)
+      } else {
+        await supabase.from(TABLES.clases)
+          .update({ estado: nuevoEstado, motivo_anulacion: nuevoEstado === 'realizada' ? null : undefined })
+          .eq('id', claseActualId)
+      }
+
+      // Actualizar estado actual y botones en el modal
+      claseActualEstado = nuevoEstado
+      actualizarBotonesEstado(nuevoEstado)
+
+      // Refrescar calendario
+      calendar.removeAllEvents()
+      calendar.addEventSource(await cargarClases())
+    }
+
+    btnRealizada.onclick = () => cambiarEstado('realizada')
+    btnAnular.onclick = () => cambiarEstado('anulada')
+    btnReabrir.onclick = () => cambiarEstado('programada')
+
     document.getElementById('btn-cancelar').onclick = () => modal.close()
 
     // ============================
-    // Guardar
+    // Guardar (editar o crear)
     // ============================
     form.addEventListener('submit', async (e) => {
       e.preventDefault()
@@ -414,7 +513,6 @@
 
       const fechaBase = document.getElementById('fecha').value
 
-      // ===== MODO EDICIÓN =====
       if (id) {
         await supabase.from(TABLES.clases).update({
           ...datosBase,
@@ -434,27 +532,16 @@
         return
       }
 
-      // ===== MODO NUEVA =====
       let fechas = [fechaBase]
-
       if (checkRepetir.checked) {
         fechas = calcularFechasRepeticion(fechaBase, inputRepetirHasta.value)
-        if (fechas.length === 0) {
-          alert('La fecha límite de repetición no es válida')
-          return
-        }
-        if (fechas.length > 100) {
-          alert('Demasiadas repeticiones (>100). Reduce el rango.')
-          return
-        }
+        if (fechas.length === 0) { alert('La fecha límite de repetición no es válida'); return }
+        if (fechas.length > 100) { alert('Demasiadas repeticiones (>100). Reduce el rango.'); return }
       }
 
       const clasesAInsertar = fechas.map(f => ({ ...datosBase, fecha: f }))
-
       const { data: insertadas, error } = await supabase
-        .from(TABLES.clases)
-        .insert(clasesAInsertar)
-        .select()
+        .from(TABLES.clases).insert(clasesAInsertar).select()
 
       if (error) { alert('Error: ' + error.message); return }
 
@@ -482,6 +569,74 @@
 
   <style>
     /* ============================
+       Leyenda
+       ============================ */
+    .leyenda-calendario {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      background: var(--fondo-card);
+      border: 1px solid var(--borde-card);
+      border-radius: var(--radio-sm);
+      font-size: 0.82rem;
+      color: var(--texto-secundario);
+    }
+    .leyenda-item { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .dot-programada { background: #3a8fbf; }
+    .dot-realizada  { background: #1e8449; }
+    .dot-anulada    { background: #7a1a1a; border: 1px solid #e74c3c; }
+
+    /* ============================
+       Contenido del evento
+       ============================ */
+    .evento-contenido {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow: hidden;
+      white-space: nowrap;
+      padding: 0 2px;
+      font-size: 0.78rem;
+    }
+    .evento-icono { flex-shrink: 0; font-size: 0.85rem; line-height: 1; }
+    .evento-hora  { flex-shrink: 0; opacity: 0.85; font-variant-numeric: tabular-nums; }
+    .evento-titulo { overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+
+    /* ============================
+       Evento anulado
+       ============================ */
+    .evento-anulado .evento-titulo {
+      text-decoration: line-through;
+      opacity: 0.9;
+    }
+    .evento-anulado::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 4px,
+        rgba(0,0,0,0.18) 4px,
+        rgba(0,0,0,0.18) 8px
+      );
+      pointer-events: none;
+      border-radius: 2px;
+    }
+
+    /* ============================
+       Evento realizado
+       ============================ */
+    .evento-realizado .evento-titulo {
+      font-weight: 600;
+    }
+
+    .fc-event { position: relative; }
+
+    /* ============================
        Bloque de alumnos con checkboxes
        ============================ */
     .bloque-alumnos {
@@ -502,15 +657,9 @@
       font-weight: 600;
     }
 
-    .contador {
-      color: var(--pista-azul-hielo);
-      font-weight: 700;
-    }
+    .contador { color: var(--pista-azul-hielo); font-weight: 700; }
 
-    .acciones-lista {
-      display: flex;
-      gap: 6px;
-    }
+    .acciones-lista { display: flex; gap: 6px; }
 
     .btn-mini {
       background: var(--pista-azul-oscuro);
@@ -523,10 +672,7 @@
       cursor: pointer;
       min-height: auto;
     }
-    .btn-mini:hover {
-      background: var(--pista-azul-claro);
-      border-color: var(--pista-azul-claro);
-    }
+    .btn-mini:hover { background: var(--pista-azul-claro); border-color: var(--pista-azul-claro); }
 
     .lista-alumnos {
       max-height: 200px;
@@ -557,25 +703,14 @@
       color: var(--texto-principal);
       transition: background 0.12s;
     }
-    .item-alumno:hover {
-      background: rgba(58, 143, 191, 0.15);
-    }
+    .item-alumno:hover { background: rgba(58, 143, 191, 0.15); }
     .item-alumno input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-      min-height: auto;
-      margin: 0;
-      flex-shrink: 0;
-      cursor: pointer;
-      accent-color: var(--pista-azul-claro);
+      width: 18px; height: 18px; min-height: auto; margin: 0;
+      flex-shrink: 0; cursor: pointer; accent-color: var(--pista-azul-claro);
     }
-    .item-alumno .nombre {
-      flex: 1;
-      user-select: none;
-    }
+    .item-alumno .nombre { flex: 1; user-select: none; }
     .item-alumno input[type="checkbox"]:checked + .nombre {
-      font-weight: 600;
-      color: var(--pista-azul-hielo);
+      font-weight: 600; color: var(--pista-azul-hielo);
     }
 
     /* ============================
@@ -588,55 +723,60 @@
       padding: 12px;
       margin-bottom: 12px;
     }
-
     .check-repetir {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin: 0 !important;
-      cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      margin: 0 !important; cursor: pointer;
     }
     .check-repetir input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-      min-height: auto;
-      margin: 0;
-      flex-shrink: 0;
-      accent-color: var(--pista-azul-claro);
+      width: 18px; height: 18px; min-height: auto; margin: 0;
+      flex-shrink: 0; accent-color: var(--pista-azul-claro);
     }
     .check-repetir span {
-      font-weight: 600;
-      color: var(--texto-principal);
-      font-size: 0.9rem;
+      font-weight: 600; color: var(--texto-principal); font-size: 0.9rem;
     }
-
     .preview-repeticion {
-      font-size: 0.8rem;
-      color: var(--pista-azul-hielo);
-      margin-top: 6px;
+      font-size: 0.8rem; color: var(--pista-azul-hielo); margin-top: 6px;
     }
 
     /* ============================
-       FullCalendar — evento anulado
+       Info del estado actual
        ============================ */
-    .evento-anulado {
-      text-decoration: line-through;
-      opacity: 0.85;
+    .estado-info {
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+      color: var(--texto-secundario);
     }
-    .evento-anulado::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: repeating-linear-gradient(
-        45deg,
-        transparent,
-        transparent 4px,
-        rgba(0,0,0,0.15) 4px,
-        rgba(0,0,0,0.15) 8px
-      );
-      pointer-events: none;
+
+    /* ============================
+       Botones de estado
+       ============================ */
+    .btn-estado { font-weight: 600; }
+    .btn-estado.btn-realizada {
+      background: #1e8449; color: white; border: none;
     }
-    .fc-event { position: relative; }
+    .btn-estado.btn-realizada:hover { background: #166638; }
+    .btn-estado.btn-anular {
+      background: #c0392b; color: white; border: none;
+    }
+    .btn-estado.btn-anular:hover { background: #a02d1f; }
+    .btn-estado.btn-reabrir {
+      background: var(--pista-azul-medio); color: white; border: none;
+    }
+    .btn-estado.btn-reabrir:hover { background: var(--pista-azul-oscuro); }
+
+    /* Ajuste modal-actions para muchos botones */
+    .modal-actions {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    @media (max-width: 480px) {
+      .modal-actions { flex-direction: column; }
+      .modal-actions > button { width: 100%; }
+    }
   </style>
 </body>
 </html>
