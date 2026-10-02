@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Alumnos — Padel Manager</title>
   <link rel="stylesheet" href="../css/theme.css">
 </head>
@@ -9,20 +10,24 @@
   <div class="layout">
     <nav class="sidebar"></nav>
     <main class="content">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div class="page-header">
         <h1>👥 Alumnos</h1>
-        <button class="btn-primary" id="btn-nuevo">+ Nuevo alumno</button>
+        <div class="acciones">
+          <button class="btn-primary" id="btn-nuevo">+ Nuevo alumno</button>
+        </div>
       </div>
 
-      <table class="tabla">
-        <thead>
-          <tr>
-            <th>Nombre</th><th>Nivel</th><th>Email</th><th>Teléfono</th>
-            <th>Alta</th><th>Activo</th><th></th>
-          </tr>
-        </thead>
-        <tbody id="tbody-alumnos"></tbody>
-      </table>
+      <div class="tabla-wrapper">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Nombre</th><th>Nivel</th><th>Email</th><th>Teléfono</th>
+              <th>Alta</th><th>Activo</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody-alumnos"></tbody>
+        </table>
+      </div>
     </main>
   </div>
 
