@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Alumnos — Padel Manager</title>
+  <link rel="stylesheet" href="../css/theme.css">
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar"></nav>
+    <main class="content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h1>👥 Alumnos</h1>
+        <button class="btn-primary" id="btn-nuevo">+ Nuevo alumno</button>
+      </div>
+
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>Nombre</th><th>Nivel</th><th>Email</th><th>Teléfono</th>
+            <th>Alta</th><th>Activo</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-alumnos"></tbody>
+      </table>
+    </main>
+  </div>
+
+  <dialog id="modal-alumno">
+    <form id="form-alumno">
+      <h2 id="modal-titulo">Nuevo alumno</h2>
+      <input type="hidden" id="alumno-id">
+      <label>Nombre <input type="text" id="nombre" required></label>
+      <label>Apellidos <input type="text" id="apellidos" required></label>
+      <label>Email <input type="email" id="email"></label>
+      <label>Teléfono <input type="tel" id="telefono"></label>
+      <label>Nivel
+        <select id="nivel">
+          <option value="iniciacion">Iniciación</option>
+          <option value="intermedio">Intermedio</option>
+          <option value="avanzado">Avanzado</option>
+          <option value="competicion">Competición</option>
+        </select>
+      </label>
+      <label>Notas <textarea id="notas" rows="3"></textarea></label>
+      <label><input type="checkbox" id="activo" checked style="width:auto;"> Activo</label>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="btn-cancelar">Cancelar</button>
+        <button type="submit" class="btn-primary">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">
+    import { supabase, TABLES } from '../js/supabase-client.js'
+    import { renderNav } from '../js/nav.js'
+
+    renderNav('alumnos')
+
+    const modal = document.getElementById('modal-alumno')
+    const form = document.getElementById('form-alumno')
+
+    async function cargarAlumnos() {
+      const { data } = await supabase.from(TABLES.alumnos).select('*').order('apellidos')
+      document.getElementById('tbody-alumnos').innerHTML = (data || []).map(a => `
+        <tr>
+          <td>${a.nombre} ${a.apellidos}</td>
+          <td>${a.nivel}</td>
+          <td>${a.email || '—'}</td>
+          <td>${a.telefono || '—'}</td>
+          <td>${a.fecha_alta}</td>
+          <td>${a.activo ? '✅' : '❌'}</td>
+          <td>
+            <button class="btn-secondary" data-edit="${a.id}">✏️</button>
+            <button class="btn-peligro" data-del="${a.id}">🗑️</button>
+          </td>
+        </tr>
+      `).join('')
+
+      document.querySelectorAll('[data-edit]').forEach(btn => {
+        btn.onclick = () => editar(btn.dataset.edit, data)
+      })
+      document.querySelectorAll('[data-del]').forEach(btn => {
+        btn.onclick = async () => {
+          if (confirm('¿Eliminar alumno?')) {
+            await supabase.from(TABLES.alumnos).delete().eq('id', btn.dataset.del)
+            cargarAlumnos()
+          }
+        }
+      })
+    }
+
+    function editar(id, lista) {
+      const a = lista.find(x => x.id === id)
+      if (!a) return
+      document.getElementById('modal-titulo').textContent = 'Editar alumno'
+      document.getElementById('alumno-id').value = a.id
+      document.getElementById('nombre').value = a.nombre
+      document.getElementById('apellidos').value = a.apellidos
+      document.getElementById('email').value = a.email || ''
+      document.getElementById('telefono').value = a.telefono || ''
+      document.getElementById('nivel').value = a.nivel
+      document.getElementById('notas').value = a.notas || ''
+      document.getElementById('activo').checked = a.activo
+      modal.showModal()
+    }
+
+    document.getElementById('btn-nuevo').onclick = () => {
+      form.reset()
+      document.getElementById('modal-titulo').textContent = 'Nuevo alumno'
+      document.getElementById('alumno-id').value = ''
+      document.getElementById('activo').checked = true
+      modal.showModal()
+    }
+    document.getElementById('btn-cancelar').onclick = () => modal.close()
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const id = document.getElementById('alumno-id').value
+      const datos = {
+        nombre:    document.getElementById('nombre').value,
+        apellidos: document.getElementById('apellidos').value,
+        email:     document.getElementById('email').value || null,
+        telefono:  document.getElementById('telefono').value || null,
+        nivel:     document.getElementById('nivel').value,
+        notas:     document.getElementById('notas').value || null,
+        activo:    document.getElementById('activo').checked
+      }
+      if (id) await supabase.from(TABLES.alumnos).update(datos).eq('id', id)
+      else    await supabase.from(TABLES.alumnos).insert(datos)
+      modal.close()
+      cargarAlumnos()
+    })
+
+    cargarAlumnos()
+  </script>
+</body>
+</html>
