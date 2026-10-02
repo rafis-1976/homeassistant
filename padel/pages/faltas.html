@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Faltas — Padel Manager</title>
   <link rel="stylesheet" href="../css/theme.css">
 </head>
@@ -9,20 +10,24 @@
   <div class="layout">
     <nav class="sidebar"></nav>
     <main class="content">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div class="page-header">
         <h1>⚠️ Registro de Faltas</h1>
-        <button class="btn-primary" id="btn-nueva">+ Registrar falta</button>
+        <div class="acciones">
+          <button class="btn-primary" id="btn-nueva">+ Registrar falta</button>
+        </div>
       </div>
 
-      <table class="tabla">
-        <thead>
-          <tr>
-            <th>Fecha</th><th>Alumno</th><th>Clase</th>
-            <th>Tipo</th><th>Descripción</th><th></th>
-          </tr>
-        </thead>
-        <tbody id="tbody-faltas"></tbody>
-      </table>
+      <div class="tabla-wrapper">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Alumno</th><th>Clase</th>
+              <th>Tipo</th><th>Descripción</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody-faltas"></tbody>
+        </table>
+      </div>
     </main>
   </div>
 
@@ -78,7 +83,7 @@
           <td>${f.padel_alumnos?.nombre} ${f.padel_alumnos?.apellidos}</td>
           <td>${f.padel_clases ? f.padel_clases.fecha + ' — ' + f.padel_clases.titulo : '—'}</td>
           <td><span class="badge ${f.tipo === 'justificada' ? 'badge-realizada' : 'badge-anulada'}">${f.tipo}</span></td>
-          <td>${f.descripcion || '—'}</td>
+          <td class="wrap">${f.descripcion || '—'}</td>
           <td><button class="btn-peligro" data-del="${f.id}">🗑️</button></td>
         </tr>
       `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--texto-secundario);">Sin faltas registradas</td></tr>'
