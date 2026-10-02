@@ -14,6 +14,23 @@ const COURT = {
   netX: 470
 }
 
+// Mapa de iconos con rotación inicial por tipo
+const MAPA_ICONOS = {
+  'jugador-azul-0':   { icon: '#icon-jugador-azul', rot: 0 },
+  'jugador-azul-90':  { icon: '#icon-jugador-azul', rot: 90 },
+  'jugador-azul-180': { icon: '#icon-jugador-azul', rot: 180 },
+  'jugador-azul-270': { icon: '#icon-jugador-azul', rot: 270 },
+  'jugador-rojo-0':   { icon: '#icon-jugador-rojo', rot: 0 },
+  'jugador-rojo-90':  { icon: '#icon-jugador-rojo', rot: 90 },
+  'jugador-rojo-180': { icon: '#icon-jugador-rojo', rot: 180 },
+  'jugador-rojo-270': { icon: '#icon-jugador-rojo', rot: 270 },
+  'carro-bolas':      { icon: '#icon-carro',        rot: 0 },
+  'cono':             { icon: '#icon-cono',         rot: 0 },
+  'escalera':         { icon: '#icon-escalera',     rot: 0 },
+  'pelota':           { icon: '#icon-pelota',       rot: 0 },
+  'flecha-recta':     { icon: '#icon-flecha',       rot: 0 }
+}
+
 let contadorIds = 0
 const elementos = new Map()
 let elementoSeleccionado = null
@@ -38,7 +55,6 @@ export function inicializarPista(svgId) {
       if (tipo === 'trayectoria' || tipo === 'globo') {
         iniciarModoTrayectoria(tipo)
       } else {
-        // Siempre en el centro exacto de la pista
         agregarElemento(tipo, COURT.centerX, COURT.centerY)
       }
     })
@@ -79,8 +95,12 @@ export function inicializarPista(svgId) {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && modo !== 'idle') cancelarTrayectoria()
     if ((e.key === 'Delete' || e.key === 'Backspace') && elementoSeleccionado) {
-      e.preventDefault()
-      eliminarElemento(elementoSeleccionado)
+      const activo = document.activeElement
+      const escribiendo = activo && (activo.tagName === 'INPUT' || activo.tagName === 'TEXTAREA')
+      if (!escribiendo) {
+        e.preventDefault()
+        eliminarElemento(elementoSeleccionado)
+      }
     }
   })
 
@@ -190,10 +210,13 @@ function actualizarPreview() {
 }
 
 // ============================================
-// Crear elementos (con posición inicial aplicada)
+// Crear elementos (con posición inicial en el centro)
 // ============================================
 function agregarElemento(tipo, x, y) {
   const capa = document.getElementById('capa-elementos')
+  const info = MAPA_ICONOS[tipo]
+  if (!info) return
+
   const id = `elem-${++contadorIds}`
 
   const g = document.createElementNS(SVG_NS, 'g')
@@ -201,20 +224,10 @@ function agregarElemento(tipo, x, y) {
   g.setAttribute('data-tipo', tipo)
   g.classList.add('elemento-pista')
   g.style.cursor = 'grab'
-  // ⬇️ APLICAR TRANSFORMACIÓN INICIAL (el elemento aparece centrado)
-  g.setAttribute('transform', `translate(${x}, ${y})`)
+  g.setAttribute('transform', `translate(${x}, ${y}) rotate(${info.rot})`)
 
   const use = document.createElementNS(SVG_NS, 'use')
-  const mapaIconos = {
-    'jugador-azul':  '#icon-jugador-azul',
-    'jugador-rojo':  '#icon-jugador-rojo',
-    'carro-bolas':   '#icon-carro',
-    'cono':          '#icon-cono',
-    'escalera':      '#icon-escalera',
-    'pelota':        '#icon-pelota',
-    'flecha-recta':  '#icon-flecha'
-  }
-  if (mapaIconos[tipo]) use.setAttribute('href', mapaIconos[tipo])
+  use.setAttribute('href', info.icon)
   g.appendChild(use)
 
   g.addEventListener('mousedown', (e) => iniciarArrastre(e, id))
@@ -227,7 +240,7 @@ function agregarElemento(tipo, x, y) {
   })
 
   capa.appendChild(g)
-  elementos.set(id, { tipo, x, y, rotacion: 0, element: g })
+  elementos.set(id, { tipo, x, y, rotacion: info.rot, element: g })
 
   seleccionar(id)
 }
@@ -404,7 +417,7 @@ function soltarElemento() {
 }
 
 // ============================================
-// Selección + botón X de eliminar mejorado
+// Selección + botón X de eliminar
 // ============================================
 function seleccionar(id) {
   deseleccionar()
@@ -458,7 +471,6 @@ function seleccionar(id) {
   circulo.setAttribute('stroke-width', '2.5')
   circulo.setAttribute('filter', 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))')
 
-  // Halo de área táctil más grande (invisible)
   const halo = document.createElementNS(SVG_NS, 'circle')
   halo.setAttribute('cx', cx)
   halo.setAttribute('cy', cy)
@@ -494,7 +506,7 @@ function seleccionar(id) {
 
   document.getElementById('capa-elementos').appendChild(btnX)
 
-  // Panel de propiedades
+  // Panel de propiedades (solo elementos rotables)
   if (elem.tipo !== 'trayectoria' && elem.tipo !== 'globo') {
     rotLabel.style.display = 'block'
     slider.value = elem.rotacion
