@@ -2,6 +2,8 @@
 // Diseñador de pista de pádel interactiva (SVG)
 // ============================================
 
+const SVG_NS = 'http://www.w3.org/2000/svg'
+
 let contadorIds = 0
 const elementos = new Map()
 let elementoSeleccionado = null
@@ -9,212 +11,252 @@ let arrastrando = null
 let offsetX = 0
 let offsetY = 0
 
+// Estado del modo "dibujar trayectoria"
+let modo = 'idle'         // 'idle' | 'trayectoria'
+let puntosTrayectoria = []
+let previewGroup = null
+
+// ============================================
+// Inicialización
+// ============================================
 export function inicializarPista(svgId) {
   const svg = document.getElementById(svgId)
+  const capa = document.getElementById('capa-elementos')
+  const hint = document.getElementById('hint-trayectoria')
 
+  // Botones de herramientas
   document.querySelectorAll('.tool-btn').forEach(btn => {
-    btn.addEventListener('click', () => agregarElemento(btn.dataset.tipo, 200, 100))
+    btn.addEventListener('click', () => {
+      const tipo = btn.dataset.tipo
+      if (tipo === 'trayectoria') {
+        iniciarModoTrayectoria()
+      } else {
+        agregarElemento(tipo, 310, 170)
+      }
+    })
   })
 
+  // Limpiar
   document.getElementById('btn-limpiar').addEventListener('click', () => {
     if (confirm('¿Limpiar toda la pista?')) {
-      document.getElementById('capa-elementos').innerHTML = ''
+      capa.innerHTML = ''
       elementos.clear()
       deseleccionar()
+      cancelarTrayectoria()
     }
   })
 
+  // Click en SVG (añadir punto de trayectoria o deseleccionar)
   svg.addEventListener('click', (e) => {
-    if (e.target === svg || (e.target.tagName === 'rect' && !e.target.dataset.id)) {
-      deseleccionar()
+    if (modo === 'trayectoria') {
+      e.stopPropagation()
+      const pt = getSvgPoint(e, svg)
+      puntosTrayectoria.push(pt)
+      actualizarPreview()
+      return
+    }
+    // Deseleccionar si click en zona vacía
+    const esFondo = e.target === svg ||
+                    (e.target.tagName === 'rect' && !e.target.closest('[data-id]'))
+    if (esFondo) deseleccionar()
+  })
+
+  // Clic derecho → terminar trayectoria
+  svg.addEventListener('contextmenu', (e) => {
+    if (modo === 'trayectoria') {
+      e.preventDefault()
+      finalizarTrayectoria()
     }
   })
 
-  return { svg }
+  // Escape → cancelar
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modo === 'trayectoria') cancelarTrayectoria()
+  })
 }
 
+// ============================================
+// Modo trayectoria
+// ============================================
+function iniciarModoTrayectoria() {
+  cancelarTrayectoria()
+  modo = 'trayectoria'
+  puntosTrayectoria = []
+
+  const svg = document.getElementById('pista-svg')
+  svg.classList.add('drawing')
+  document.getElementById('capa-elementos').style.pointerEvents = 'none'
+  document.getElementById('hint-trayectoria').classList.add('visible')
+
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'))
+  document.querySelector('.tool-btn[data-tipo="trayectoria"]')?.classList.add('active')
+}
+
+function cancelarTrayectoria() {
+  modo = 'idle'
+  puntosTrayectoria = []
+  if (previewGroup) {
+    previewGroup.remove()
+    previewGroup = null
+  }
+  const svg = document.getElementById('pista-svg')
+  if (svg) svg.classList.remove('drawing')
+  const capa = document.getElementById('capa-elementos')
+  if (capa) capa.style.pointerEvents = 'auto'
+  document.getElementById('hint-trayectoria')?.classList.remove('visible')
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'))
+}
+
+function finalizarTrayectoria() {
+  if (puntosTrayectoria.length < 2) {
+    cancelarTrayectoria()
+    return
+  }
+  crearTrayectoria(puntosTrayectoria)
+  cancelarTrayectoria()
+}
+
+function actualizarPreview() {
+  const capa = document.getElementById('capa-elementos')
+  if (!previewGroup) {
+    previewGroup = document.createElementNS(SVG_NS, 'g')
+    previewGroup.classList.add('preview-trayectoria')
+    capa.appendChild(previewGroup)
+  }
+  previewGroup.innerHTML = ''
+
+  if (puntosTrayectoria.length === 0) return
+
+  const d = puntosTrayectoria.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+
+  const path = document.createElementNS(SVG_NS, 'path')
+  path.setAttribute('d', d)
+  path.setAttribute('fill', 'none')
+  path.setAttribute('stroke', '#e8ff3a')
+  path.setAttribute('stroke-width', '2')
+  path.setAttribute('stroke-dasharray', '5,3')
+  path.setAttribute('opacity', '0.8')
+  previewGroup.appendChild(path)
+
+  puntosTrayectoria.forEach((p, i) => {
+    const c = document.createElementNS(SVG_NS, 'circle')
+    c.setAttribute('cx', p.x)
+    c.setAttribute('cy', p.y)
+    c.setAttribute('r', i === 0 ? '4' : '3')
+    c.setAttribute('fill', '#e8ff3a')
+    c.setAttribute('stroke', '#8a9900')
+    c.setAttribute('stroke-width', '0.8')
+    previewGroup.appendChild(c)
+  })
+}
+
+// ============================================
+// Crear elementos
+// ============================================
 function agregarElemento(tipo, x, y) {
   const capa = document.getElementById('capa-elementos')
   const id = `elem-${++contadorIds}`
 
-  let element
-  switch(tipo) {
-    case 'jugador-azul':  element = crearJugador(x, y, '#3a8fbf', '#1a3a5c'); break
-    case 'jugador-rojo':  element = crearJugador(x, y, '#c0392b', '#7a1a1a'); break
-    case 'carro-bolas':   element = crearCarroBolas(x, y); break
-    case 'cono':          element = crearCono(x, y); break
-    case 'seta':          element = crearSeta(x, y); break
-    case 'flecha-recta':  element = crearFlechaRecta(x, y); break
-    case 'flecha-curva':  element = crearFlechaCurva(x, y); break
-    default: return
+  const g = document.createElementNS(SVG_NS, 'g')
+  g.setAttribute('data-id', id)
+  g.setAttribute('data-tipo', tipo)
+  g.classList.add('elemento-pista')
+  g.style.cursor = 'grab'
+
+  // Instanciar el icono correspondiente mediante <use>
+  const use = document.createElementNS(SVG_NS, 'use')
+  const mapaIconos = {
+    'jugador-azul':  '#icon-jugador-azul',
+    'jugador-rojo':  '#icon-jugador-rojo',
+    'carro-bolas':   '#icon-carro',
+    'cono':          '#icon-cono',
+    'seta':          '#icon-seta',
+    'pelota':        '#icon-pelota',
+    'flecha-recta':  '#icon-flecha'
   }
+  if (mapaIconos[tipo]) use.setAttribute('href', mapaIconos[tipo])
+  g.appendChild(use)
 
-  element.setAttribute('data-id', id)
-  element.setAttribute('data-tipo', tipo)
-  element.style.cursor = 'grab'
+  g.addEventListener('mousedown', (e) => iniciarArrastre(e, id))
+  g.addEventListener('click', (e) => { e.stopPropagation(); seleccionar(id) })
 
-  element.addEventListener('mousedown', (e) => iniciarArrastre(e, id))
-  element.addEventListener('click', (e) => { e.stopPropagation(); seleccionar(id) })
-
-  capa.appendChild(element)
-  elementos.set(id, { tipo, x, y, rotacion: 0, element })
+  capa.appendChild(g)
+  elementos.set(id, { tipo, x, y, rotacion: 0, element: g })
 }
 
 // ============================================
-// Creadores de iconos
+// Crear trayectoria con pelota animada
 // ============================================
+function crearTrayectoria(puntos) {
+  const capa = document.getElementById('capa-elementos')
+  const id = `elem-${++contadorIds}`
 
-function crearJugador(x, y, colorPrincipal, colorBorde) {
-  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-  g.setAttribute('transform', `translate(${x}, ${y})`)
+  const d = puntos.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
 
-  const circulo = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-  circulo.setAttribute('r', 10)
-  circulo.setAttribute('fill', colorPrincipal)
-  circulo.setAttribute('stroke', colorBorde)
-  circulo.setAttribute('stroke-width', 2)
+  const g = document.createElementNS(SVG_NS, 'g')
+  g.setAttribute('data-id', id)
+  g.setAttribute('data-tipo', 'trayectoria')
+  g.classList.add('elemento-pista')
+  g.style.cursor = 'grab'
 
-  const raqueta = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse')
-  raqueta.setAttribute('cx', 10); raqueta.setAttribute('cy', -8)
-  raqueta.setAttribute('rx', 5); raqueta.setAttribute('ry', 8)
-  raqueta.setAttribute('fill', 'none')
-  raqueta.setAttribute('stroke', colorBorde)
-  raqueta.setAttribute('stroke-width', 1.5)
-  raqueta.setAttribute('transform', 'rotate(30, 10, -8)')
-
-  const texto = document.createElementNS('http://www.w3.org/2000/svg', 'text')
-  texto.setAttribute('text-anchor', 'middle')
-  texto.setAttribute('y', 3)
-  texto.setAttribute('font-size', '9')
-  texto.setAttribute('fill', 'white')
-  texto.setAttribute('font-weight', 'bold')
-  texto.textContent = 'J'
-
-  g.append(circulo, raqueta, texto)
-  return g
-}
-
-function crearCarroBolas(x, y) {
-  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-  g.setAttribute('transform', `translate(${x}, ${y})`)
-
-  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-  rect.setAttribute('x', -12); rect.setAttribute('y', -8)
-  rect.setAttribute('width', 24); rect.setAttribute('height', 16)
-  rect.setAttribute('rx', 3)
-  rect.setAttribute('fill', '#8a9ba8')
-  rect.setAttribute('stroke', '#5a6b78')
-  rect.setAttribute('stroke-width', 1.5)
-
-  for (let i = 0; i < 6; i++) {
-    const bola = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-    bola.setAttribute('cx', -8 + (i % 3) * 8)
-    bola.setAttribute('cy', -4 + Math.floor(i / 3) * 8)
-    bola.setAttribute('r', 3)
-    bola.setAttribute('fill', '#e8ff3a')
-    g.appendChild(bola)
-  }
-  g.appendChild(rect)
-  return g
-}
-
-function crearCono(x, y) {
-  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-  g.setAttribute('transform', `translate(${x}, ${y})`)
-  const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon')
-  poly.setAttribute('points', '0,-12 -8,8 8,8')
-  poly.setAttribute('fill', '#e67e22')
-  poly.setAttribute('stroke', '#b35c00')
-  poly.setAttribute('stroke-width', 1.5)
-  const base = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse')
-  base.setAttribute('cy', 8); base.setAttribute('rx', 10); base.setAttribute('ry', 3)
-  base.setAttribute('fill', '#b35c00')
-  g.append(poly, base)
-  return g
-}
-
-function crearSeta(x, y) {
-  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-  g.setAttribute('transform', `translate(${x}, ${y})`)
-  const sombrero = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse')
-  sombrero.setAttribute('cy', -4); sombrero.setAttribute('rx', 10); sombrero.setAttribute('ry', 6)
-  sombrero.setAttribute('fill', '#e74c3c')
-  sombrero.setAttribute('stroke', '#a93226')
-  sombrero.setAttribute('stroke-width', 1.5)
-  const tallo = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-  tallo.setAttribute('x', -3); tallo.setAttribute('y', -2)
-  tallo.setAttribute('width', 6); tallo.setAttribute('height', 10)
-  tallo.setAttribute('fill', '#f5f5dc')
-  tallo.setAttribute('stroke', '#ccc')
-  tallo.setAttribute('stroke-width', 1)
-  g.append(sombrero, tallo)
-  return g
-}
-
-function crearFlechaRecta(x, y) {
-  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-  g.setAttribute('transform', `translate(${x}, ${y})`)
-  const linea = document.createElementNS('http://www.w3.org/2000/svg', 'line')
-  linea.setAttribute('x1', 0); linea.setAttribute('y1', 0)
-  linea.setAttribute('x2', 40); linea.setAttribute('y2', 0)
-  linea.setAttribute('stroke', '#e8ff3a')
-  linea.setAttribute('stroke-width', 3)
-  linea.setAttribute('marker-end', 'url(#flecha-end)')
-  asegurarMarcador()
-  g.appendChild(linea)
-  return g
-}
-
-function crearFlechaCurva(x, y) {
-  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-  g.setAttribute('transform', `translate(${x}, ${y})`)
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-  path.setAttribute('d', 'M 0,0 Q 20,-30 40,0')
+  // Path visible con flecha al final
+  const path = document.createElementNS(SVG_NS, 'path')
+  path.setAttribute('d', d)
   path.setAttribute('fill', 'none')
   path.setAttribute('stroke', '#e8ff3a')
-  path.setAttribute('stroke-width', 3)
+  path.setAttribute('stroke-width', '2')
+  path.setAttribute('stroke-dasharray', '6,3')
   path.setAttribute('marker-end', 'url(#flecha-end)')
-  asegurarMarcador()
   g.appendChild(path)
-  return g
-}
 
-function asegurarMarcador() {
-  const svg = document.getElementById('pista-svg')
-  let defs = svg.querySelector('defs')
-  if (!defs) {
-    defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
-    svg.insertBefore(defs, svg.firstChild)
-  }
-  if (defs.querySelector('#flecha-end')) return
-  const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker')
-  marker.setAttribute('id', 'flecha-end')
-  marker.setAttribute('markerWidth', '10')
-  marker.setAttribute('markerHeight', '7')
-  marker.setAttribute('refX', '10')
-  marker.setAttribute('refY', '3.5')
-  marker.setAttribute('orient', 'auto')
-  const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon')
-  poly.setAttribute('points', '0 0, 10 3.5, 0 7')
-  poly.setAttribute('fill', '#e8ff3a')
-  marker.appendChild(poly)
-  defs.appendChild(marker)
+  // Pelota animada
+  const ball = document.createElementNS(SVG_NS, 'g')
+  const ballCircle = document.createElementNS(SVG_NS, 'circle')
+  ballCircle.setAttribute('r', '5')
+  ballCircle.setAttribute('fill', '#e8ff3a')
+  ballCircle.setAttribute('stroke', '#8a9900')
+  ballCircle.setAttribute('stroke-width', '1')
+  const seam1 = document.createElementNS(SVG_NS, 'path')
+  seam1.setAttribute('d', 'M -4,-3 Q -1,0 -4,3')
+  seam1.setAttribute('fill', 'none')
+  seam1.setAttribute('stroke', '#8a9900')
+  seam1.setAttribute('stroke-width', '0.8')
+  const seam2 = document.createElementNS(SVG_NS, 'path')
+  seam2.setAttribute('d', 'M 4,-3 Q 1,0 4,3')
+  seam2.setAttribute('fill', 'none')
+  seam2.setAttribute('stroke', '#8a9900')
+  seam2.setAttribute('stroke-width', '0.8')
+  ball.appendChild(ballCircle)
+  ball.appendChild(seam1)
+  ball.appendChild(seam2)
+
+  const animate = document.createElementNS(SVG_NS, 'animateMotion')
+  animate.setAttribute('dur', '2.5s')
+  animate.setAttribute('repeatCount', 'indefinite')
+  animate.setAttribute('path', d)
+  ball.appendChild(animate)
+
+  g.appendChild(ball)
+
+  g.addEventListener('mousedown', (e) => iniciarArrastre(e, id))
+  g.addEventListener('click', (e) => { e.stopPropagation(); seleccionar(id) })
+
+  capa.appendChild(g)
+  elementos.set(id, { tipo: 'trayectoria', element: g, puntos, x: 0, y: 0, rotacion: 0 })
 }
 
 // ============================================
 // Arrastre
 // ============================================
-
 function iniciarArrastre(e, id) {
   e.preventDefault()
+  e.stopPropagation()
   arrastrando = id
   const elem = elementos.get(id)
   if (!elem) return
 
   const svg = document.getElementById('pista-svg')
-  const pt = svg.createSVGPoint()
-  pt.x = e.clientX; pt.y = e.clientY
-  const svgP = pt.matrixTransform(svg.getScreenCTM().inverse())
+  const svgP = getSvgPoint(e, svg)
   offsetX = svgP.x - elem.x
   offsetY = svgP.y - elem.y
 
@@ -228,15 +270,14 @@ function moverElemento(e) {
   if (!elem) return
 
   const svg = document.getElementById('pista-svg')
-  const pt = svg.createSVGPoint()
-  pt.x = e.clientX; pt.y = e.clientY
-  const svgP = pt.matrixTransform(svg.getScreenCTM().inverse())
+  const svgP = getSvgPoint(e, svg)
 
-  elem.x = Math.max(15, Math.min(385, svgP.x - offsetX))
-  elem.y = Math.max(15, Math.min(185, svgP.y - offsetY))
+  elem.x = Math.max(15, Math.min(605, svgP.x - offsetX))
+  elem.y = Math.max(25, Math.min(315, svgP.y - offsetY))
 
+  const rot = elem.tipo === 'trayectoria' ? 0 : elem.rotacion
   elem.element.setAttribute('transform',
-    `translate(${elem.x}, ${elem.y}) rotate(${elem.rotacion})`)
+    `translate(${elem.x}, ${elem.y}) rotate(${rot})`)
 
   const rectSel = document.getElementById('seleccion-rect')
   if (rectSel) rectSel.setAttribute('transform', elem.element.getAttribute('transform'))
@@ -249,38 +290,52 @@ function soltarElemento() {
 }
 
 // ============================================
-// Selección
+// Selección y propiedades
 // ============================================
-
 function seleccionar(id) {
   deseleccionar()
   elementoSeleccionado = id
   const elem = elementos.get(id)
   if (!elem) return
 
-  const bbox = elem.element.getBBox()
-  const rectSel = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-  rectSel.setAttribute('id', 'seleccion-rect')
-  rectSel.setAttribute('x', bbox.x - 4)
-  rectSel.setAttribute('y', bbox.y - 4)
-  rectSel.setAttribute('width', bbox.width + 8)
-  rectSel.setAttribute('height', bbox.height + 8)
-  rectSel.setAttribute('fill', 'none')
-  rectSel.setAttribute('stroke', '#e8ff3a')
-  rectSel.setAttribute('stroke-width', 2)
-  rectSel.setAttribute('stroke-dasharray', '5,3')
-  rectSel.setAttribute('transform', elem.element.getAttribute('transform'))
-  document.getElementById('capa-elementos').appendChild(rectSel)
+  const panel = document.getElementById('panel-propiedades')
+  const rotLabel = document.getElementById('rot-label')
+  const slider = document.getElementById('prop-rotacion')
+  const rotValor = document.getElementById('rot-valor')
 
-  document.getElementById('panel-propiedades').style.display = 'block'
-  document.getElementById('prop-rotacion').value = elem.rotacion
+  // Rectángulo amarillo discontinuo (solo para elementos con bbox simple)
+  if (elem.tipo !== 'trayectoria') {
+    const bbox = elem.element.getBBox()
+    const rectSel = document.createElementNS(SVG_NS, 'rect')
+    rectSel.setAttribute('id', 'seleccion-rect')
+    rectSel.setAttribute('x', bbox.x - 4)
+    rectSel.setAttribute('y', bbox.y - 4)
+    rectSel.setAttribute('width', bbox.width + 8)
+    rectSel.setAttribute('height', bbox.height + 8)
+    rectSel.setAttribute('fill', 'none')
+    rectSel.setAttribute('stroke', '#e8ff3a')
+    rectSel.setAttribute('stroke-width', '1.5')
+    rectSel.setAttribute('stroke-dasharray', '4,3')
+    rectSel.setAttribute('pointer-events', 'none')
+    rectSel.setAttribute('transform', elem.element.getAttribute('transform') || '')
+    document.getElementById('capa-elementos').appendChild(rectSel)
 
-  document.getElementById('prop-rotacion').oninput = (e) => {
-    elem.rotacion = parseInt(e.target.value)
-    elem.element.setAttribute('transform',
-      `translate(${elem.x}, ${elem.y}) rotate(${elem.rotacion})`)
-    rectSel.setAttribute('transform', elem.element.getAttribute('transform'))
+    rotLabel.style.display = 'block'
+    slider.value = elem.rotacion
+    rotValor.textContent = elem.rotacion + '°'
+
+    slider.oninput = (ev) => {
+      elem.rotacion = parseInt(ev.target.value)
+      rotValor.textContent = elem.rotacion + '°'
+      elem.element.setAttribute('transform',
+        `translate(${elem.x}, ${elem.y}) rotate(${elem.rotacion})`)
+      rectSel.setAttribute('transform', elem.element.getAttribute('transform'))
+    }
+  } else {
+    rotLabel.style.display = 'none'
   }
+
+  panel.style.display = 'block'
 
   document.getElementById('btn-eliminar-elemento').onclick = () => {
     elem.element.remove()
@@ -290,26 +345,85 @@ function seleccionar(id) {
 }
 
 function deseleccionar() {
-  const rect = document.getElementById('seleccion-rect')
-  if (rect) rect.remove()
+  document.getElementById('seleccion-rect')?.remove()
   elementoSeleccionado = null
-  document.getElementById('panel-propiedades').style.display = 'none'
+  const panel = document.getElementById('panel-propiedades')
+  if (panel) panel.style.display = 'none'
 }
 
 // ============================================
-// Exportar datos
+// Utilidades
 // ============================================
+function getSvgPoint(e, svg) {
+  const pt = svg.createSVGPoint()
+  pt.x = e.clientX
+  pt.y = e.clientY
+  const p = pt.matrixTransform(svg.getScreenCTM().inverse())
+  return { x: Math.round(p.x), y: Math.round(p.y) }
+}
 
+// ============================================
+// Exportar datos para guardar en Supabase
+// ============================================
 export function obtenerDatosPista() {
   const datos = []
   elementos.forEach((valor, id) => {
-    datos.push({
-      id,
-      tipo: valor.tipo,
-      x: Math.round(valor.x * 100) / 100,
-      y: Math.round(valor.y * 100) / 100,
-      rotacion: valor.rotacion
-    })
+    if (valor.tipo === 'trayectoria') {
+      datos.push({
+        id,
+        tipo: 'trayectoria',
+        puntos: valor.puntos.map(p => ({
+          x: Math.round(p.x * 100) / 100,
+          y: Math.round(p.y * 100) / 100
+        })),
+        dx: Math.round(valor.x * 100) / 100,
+        dy: Math.round(valor.y * 100) / 100
+      })
+    } else {
+      datos.push({
+        id,
+        tipo: valor.tipo,
+        x: Math.round(valor.x * 100) / 100,
+        y: Math.round(valor.y * 100) / 100,
+        rotacion: valor.rotacion
+      })
+    }
   })
   return datos
+}
+
+// ============================================
+// Reconstruir pista desde datos guardados
+// (opcional, útil si quieres editar un ejercicio)
+// ============================================
+export function cargarDesdeDatos(datos) {
+  const capa = document.getElementById('capa-elementos')
+  capa.innerHTML = ''
+  elementos.clear()
+  deseleccionar()
+
+  ;(datos || []).forEach(item => {
+    if (item.tipo === 'trayectoria') {
+      crearTrayectoria(item.puntos)
+      // Aplicar offset guardado
+      const ids = Array.from(elementos.keys())
+      const ultimo = elementos.get(ids[ids.length - 1])
+      if (ultimo && (item.dx || item.dy)) {
+        ultimo.x = item.dx || 0
+        ultimo.y = item.dy || 0
+        ultimo.element.setAttribute('transform',
+          `translate(${ultimo.x}, ${ultimo.y})`)
+      }
+    } else {
+      agregarElemento(item.tipo, item.x, item.y)
+      // Aplicar rotación guardada
+      const ids = Array.from(elementos.keys())
+      const ultimo = elementos.get(ids[ids.length - 1])
+      if (ultimo) {
+        ultimo.rotacion = item.rotacion || 0
+        ultimo.element.setAttribute('transform',
+          `translate(${ultimo.x}, ${ultimo.y}) rotate(${ultimo.rotacion})`)
+      }
+    }
+  })
 }
