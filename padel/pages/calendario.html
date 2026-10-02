@@ -22,9 +22,6 @@
 
       <div id="calendar"></div>
 
-      <!-- ============================
-           LISTADO DE CLASES
-           ============================ -->
       <section class="listado-clases" id="listado-clases">
         <div class="listado-header">
           <h2 id="listado-titulo">📋 Listado de clases</h2>
@@ -43,7 +40,7 @@
         </div>
 
         <div id="listado-contenido" class="listado-contenido">
-          <p class="listado-vacio">Sin clases en este período</p>
+          <p class="listado-vacio">Cargando clases...</p>
         </div>
       </section>
     </main>
@@ -55,7 +52,6 @@
       <input type="hidden" id="clase-id">
 
       <label>Título <input type="text" id="titulo" required></label>
-
       <label>Fecha <input type="date" id="fecha" required></label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <label>Hora inicio <input type="time" id="hora_inicio" required></label>
@@ -154,6 +150,9 @@
 
     renderNav('calendario')
 
+    // ============================================================
+    // REFERENCIAS DOM
+    // ============================================================
     const modal = document.getElementById('modal-clase')
     const form = document.getElementById('form-clase')
     const selectEjercicio = document.getElementById('ejercicio_id')
@@ -180,12 +179,14 @@
     const listaRecuperar = document.getElementById('lista-recuperar')
     const contadorRecuperar = document.getElementById('contador-recuperar')
 
-    // Listado
     const listadoTitulo = document.getElementById('listado-titulo')
     const listadoContador = document.getElementById('listado-contador')
     const listadoContenido = document.getElementById('listado-contenido')
     const listadoBuscador = document.getElementById('listado-buscador')
 
+    // ============================================================
+    // ESTADO
+    // ============================================================
     let alumnosCache = []
     let alumnosSeleccionados = new Set()
     let faltasARecuperar = new Map()
@@ -193,17 +194,22 @@
     let claseActualId = null
     let claseActualEstado = null
     let modoGuardarYContinuar = false
-    let clasesCache = []
-    let eventosCache = []
 
-    // Filtros del listado
+    let clasesCache = []        // [{ id, fecha, hora_inicio, hora_fin, titulo, estado }]
+    let eventosCache = []       // Eventos completos para el listado
+
+    let calendar = null
+    let listadoRango = null
     let listadoFiltro = 'todas'
     let listadoBusqueda = ''
-    let listadoRango = null  // { start, end, tipo }
 
-    // ============================
-    // Utilidades tiempo
-    // ============================
+    // Helpers fecha
+    const diasSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
+    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+
+    // ============================================================
+    // UTILIDADES TIEMPO
+    // ============================================================
     function tiempoAMinutos(t) {
       if (!t) return 0
       const [h, m] = String(t).slice(0, 5).split(':').map(Number)
@@ -230,19 +236,23 @@
       return conflictos.map(c => `• ${c.hora_inicio.slice(0,5)}–${c.hora_fin.slice(0,5)}  "${c.titulo}"`).join('\n')
     }
 
-    // ============================
-    // Cargar alumnos
-    // ============================
+    function escapar(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
+    // ============================================================
+    // ALUMNOS
+    // ============================================================
     async function cargarAlumnos() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from(TABLES.alumnos).select('id, nombre, nivel').eq('activo', true).order('nombre')
+      if (error) { console.error('Error alumnos:', error); alumnosCache = []; return }
       alumnosCache = data || []
     }
-    await cargarAlumnos()
 
-    // ============================
-    // Faltas pendientes
-    // ============================
+    // ============================================================
+    // FALTAS PENDIENTES
+    // ============================================================
     async function cargarFaltasPendientes() {
       const { data, error } = await supabase
         .from(TABLES.faltas)
@@ -251,7 +261,7 @@
         .eq('recuperada', false)
         .is('clase_recuperacion_id', null)
         .order('fecha_registro', { ascending: true })
-      if (error) { console.error(error); faltasPendientes = []; return }
+      if (error) { console.error('Error faltas:', error); faltasPendientes = []; return }
       faltasPendientes = data || []
     }
 
@@ -302,9 +312,9 @@
       })
     }
 
-    // ============================
-    // Alumnos por nivel
-    // ============================
+    // ============================================================
+    // ALUMNOS POR NIVEL
+    // ============================================================
     function pintarAlumnos(nivel) {
       if (!nivel) {
         listaAlumnos.innerHTML = '<p class="vacio">Elige un nivel para ver los alumnos</p>'
@@ -366,17 +376,310 @@
 
     selectNivel.addEventListener('change', () => pintarAlumnos(selectNivel.value))
 
-    // ============================
-    // Ejercicios
-    // ============================
-    const { data: ejercicios } = await supabase
-      .from(TABLES.ejercicios).select('id, titulo').order('titulo')
-    selectEjercicio.innerHTML = '<option value="">— Sin ejercicio —</option>' +
-      (ejercicios || []).map(e => `<option value="${e.id}">${e.titulo}</option>`).join('')
+    // ============================================================
+    // CARGA DE EJERCICIOS
+    // ============================================================
+    async function cargarEjercicios() {
+      const { data, error } = await supabase
+        .from(TABLES.ejercicios).select('id, titulo').order('titulo')
+      if (error) { console.error('Error ejercicios:', error); return }
+      selectEjercicio.innerHTML = '<option value="">— Sin ejercicio —</option>' +
+        (data || []).map(e => `<option value="${e.id}">${e.titulo}</option>`).join('')
+    }
 
-    // ============================
-    // Repetición semanal
-    // ============================
+    // ============================================================
+    // CARGA DE CLASES (construye cache para validaciones y eventos)
+    // ============================================================
+    async function cargarClases() {
+      const { data, error } = await supabase
+        .from(TABLES.clases)
+        .select(`
+          id, titulo, fecha, hora_inicio, hora_fin, tipo, estado,
+          notas, motivo_anulacion, ejercicio_id, ejercicio_libre,
+          padel_clase_alumnos(alumno_id, padel_alumnos(id, nombre)),
+          padel_ejercicios(id, titulo)
+        `)
+
+      if (error) {
+        console.error('Error cargando clases:', error)
+        clasesCache = []
+        eventosCache = []
+        return []
+      }
+
+      // Cache simple para validaciones
+      clasesCache = (data || []).map(c => ({
+        id: c.id,
+        fecha: c.fecha,
+        hora_inicio: c.hora_inicio,
+        hora_fin: c.hora_fin,
+        titulo: c.titulo,
+        estado: c.estado
+      }))
+
+      // Detectar clases con recuperación
+      const claseIds = (data || []).map(c => c.id)
+      let clasesConRecuperacion = new Set()
+      if (claseIds.length > 0) {
+        const { data: faltasVinc } = await supabase
+          .from(TABLES.faltas)
+          .select('clase_recuperacion_id')
+          .in('clase_recuperacion_id', claseIds)
+        ;(faltasVinc || []).forEach(f => {
+          if (f.clase_recuperacion_id) clasesConRecuperacion.add(f.clase_recuperacion_id)
+        })
+      }
+
+      // Eventos completos
+      eventosCache = (data || []).map(c => {
+        // Parsear fechas de forma segura
+        const startStr = `${c.fecha}T${c.hora_inicio}`
+        const endStr = `${c.fecha}T${c.hora_fin}`
+        return {
+          id: c.id,
+          title: c.titulo,
+          start: startStr,
+          end: endStr,
+          extendedProps: {
+            tipo: c.tipo,
+            estado: c.estado,
+            notas: c.notas,
+            motivo: c.motivo_anulacion,
+            ejercicioId: c.ejercicio_id,
+            ejercicioLibre: c.ejercicio_libre,
+            alumnosIds: (c.padel_clase_alumnos || []).map(a => a.alumno_id),
+            alumnosNombres: (c.padel_clase_alumnos || []).map(a => a.padel_alumnos?.nombre).filter(Boolean),
+            esRecuperacion: clasesConRecuperacion.has(c.id)
+          },
+          backgroundColor: colorPorEstado(c.estado, c.tipo, clasesConRecuperacion.has(c.id)),
+          borderColor: bordePorEstado(c.estado, clasesConRecuperacion.has(c.id)),
+          classNames: classNamesPorEstado(c.estado)
+        }
+      })
+
+      return eventosCache
+    }
+
+    function colorPorEstado(estado, tipo, esRecuperacion) {
+      if (estado === 'anulada') return '#7a1a1a'
+      if (estado === 'realizada') return '#1e8449'
+      if (estado === 'reprogramada') return '#e67e22'
+      if (esRecuperacion) return '#8e44ad'
+      return { individual: '#3a8fbf', grupal: '#5bb8d4', clinica: '#e8ff3a', partido: '#8a9ba8' }[tipo] || '#3a8fbf'
+    }
+
+    function bordePorEstado(estado, esRecuperacion) {
+      if (estado === 'anulada') return '#e74c3c'
+      if (estado === 'realizada') return '#2ecc71'
+      if (esRecuperacion) return '#c39bd3'
+      return 'transparent'
+    }
+
+    function classNamesPorEstado(estado) {
+      if (estado === 'anulada') return ['evento-anulado']
+      if (estado === 'realizada') return ['evento-realizado']
+      return []
+    }
+
+    function renderEvento(info) {
+      const { estado, esRecuperacion } = info.event.extendedProps
+      const icono = estado === 'realizada' ? '✅'
+                  : estado === 'anulada' ? '🚫'
+                  : estado === 'reprogramada' ? '🔄'
+                  : esRecuperacion ? '🔄' : ''
+      const hora = info.timeText || ''
+      const contenedor = document.createElement('div')
+      contenedor.className = 'evento-contenido'
+      contenedor.innerHTML = `
+        <span class="evento-icono">${icono}</span>
+        <span class="evento-hora">${hora}</span>
+        <span class="evento-titulo">${info.event.title}</span>
+      `
+      return { domNodes: [contenedor] }
+    }
+
+    // ============================================================
+    // LISTADO
+    // ============================================================
+    function pintarListado() {
+      if (!listadoRango) {
+        listadoContenido.innerHTML = '<p class="listado-vacio">Preparando calendario...</p>'
+        return
+      }
+
+      const { start, end, tipo, tituloFecha } = listadoRango
+      const startMs = start.getTime()
+      const endMs = end.getTime()
+
+      // Título según vista
+      if (tipo === 'timeGridDay') {
+        listadoTitulo.textContent = `📋 Listado del ${formatearFechaLarga(tituloFecha)}`
+      } else if (tipo === 'timeGridWeek') {
+        const fin = new Date(endMs - 86400000) // Restar 1 día (end es exclusivo)
+        listadoTitulo.textContent = `📋 Listado de la semana (${formatearFechaCorta(start)} – ${formatearFechaCorta(fin)})`
+      } else {
+        listadoTitulo.textContent = `📋 Listado de ${meses[tituloFecha.getMonth()]} ${tituloFecha.getFullYear()}`
+      }
+
+      // Filtrar por rango
+      let enRango = eventosCache.filter(ev => {
+        const fecha = parseFechaLocal(ev.start)
+        const t = fecha.getTime()
+        return t >= startMs && t < endMs
+      })
+
+      // Filtro por estado
+      if (listadoFiltro !== 'todas') {
+        if (listadoFiltro === 'recuperacion') {
+          enRango = enRango.filter(e => e.extendedProps.esRecuperacion)
+        } else {
+          enRango = enRango.filter(e => e.extendedProps.estado === listadoFiltro)
+        }
+      }
+
+      // Buscador
+      if (listadoBusqueda.trim()) {
+        const q = listadoBusqueda.trim().toLowerCase()
+        enRango = enRango.filter(e => {
+          const p = e.extendedProps
+          const alumnos = (p.alumnosNombres || []).join(' ').toLowerCase()
+          const titulo = (e.title || '').toLowerCase()
+          const tipo = (p.tipo || '').toLowerCase()
+          return titulo.includes(q) || alumnos.includes(q) || tipo.includes(q)
+        })
+      }
+
+      // Ordenar
+      enRango.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+
+      // Contadores
+      const total = enRango.length
+      const programadas = enRango.filter(e => e.extendedProps.estado === 'programada').length
+      const realizadas = enRango.filter(e => e.extendedProps.estado === 'realizada').length
+      const anuladas = enRango.filter(e => e.extendedProps.estado === 'anulada').length
+
+      listadoContador.innerHTML = total === 0
+        ? ''
+        : `<span class="chip-resumen">${total} total</span>` +
+          (programadas > 0 ? `<span class="chip-resumen chip-prog">${programadas} 📅</span>` : '') +
+          (realizadas > 0 ? `<span class="chip-resumen chip-real">${realizadas} ✅</span>` : '') +
+          (anuladas > 0 ? `<span class="chip-resumen chip-anul">${anuladas} 🚫</span>` : '')
+
+      if (enRango.length === 0) {
+        const msg = listadoBusqueda.trim()
+          ? `Sin resultados para "${escapar(listadoBusqueda)}"`
+          : (listadoFiltro !== 'todas' ? 'Sin clases con este filtro en el período' : 'Sin clases en este período')
+        listadoContenido.innerHTML = `<p class="listado-vacio">${msg}</p>`
+        return
+      }
+
+      // Agrupar por fecha
+      const porFecha = {}
+      enRango.forEach(ev => {
+        const fecha = ev.start.split('T')[0]
+        if (!porFecha[fecha]) porFecha[fecha] = []
+        porFecha[fecha].push(ev)
+      })
+
+      const hoyISO = new Date().toISOString().split('T')[0]
+
+      listadoContenido.innerHTML = Object.entries(porFecha)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([fecha, clases]) => {
+          const fechaObj = new Date(fecha + 'T12:00:00')
+          const diaSemana = diasSemana[fechaObj.getDay()]
+          const esHoy = fecha === hoyISO
+          return `
+            <div class="listado-dia ${esHoy ? 'listado-hoy' : ''}">
+              <div class="listado-dia-header">
+                <span class="listado-dia-fecha">${formatearFechaCorta(fechaObj)}</span>
+                <span class="listado-dia-nombre">${diaSemana}</span>
+                ${esHoy ? '<span class="listado-hoy-tag">HOY</span>' : ''}
+                <span class="listado-dia-count">${clases.length} clase${clases.length > 1 ? 's' : ''}</span>
+              </div>
+              <div class="listado-clases-dia">
+                ${clases.map(c => pintarItemListado(c)).join('')}
+              </div>
+            </div>
+          `
+        }).join('')
+    }
+
+    function pintarItemListado(ev) {
+      const p = ev.extendedProps
+      const icono = p.estado === 'realizada' ? '✅'
+                  : p.estado === 'anulada' ? '🚫'
+                  : p.estado === 'reprogramada' ? '🔄'
+                  : p.esRecuperacion ? '🔄' : '📅'
+      const hora = `${ev.start.split('T')[1].slice(0,5)}–${ev.end.split('T')[1].slice(0,5)}`
+      const alumnos = p.alumnosNombres || []
+      const alumnosTxt = alumnos.length > 0
+        ? (alumnos.length > 5 ? `${alumnos.slice(0,5).join(', ')} +${alumnos.length-5}` : alumnos.join(', '))
+        : 'Sin alumnos'
+      const colorBar = p.estado === 'realizada' ? '#1e8449'
+                     : p.estado === 'anulada' ? '#7a1a1a'
+                     : p.esRecuperacion ? '#8e44ad'
+                     : '#3a8fbf'
+
+      return `
+        <div class="listado-clase" data-id="${ev.id}" style="border-left-color: ${colorBar};">
+          <div class="listado-clase-hora">${hora}</div>
+          <div class="listado-clase-info">
+            <div class="listado-clase-titulo">
+              <span class="listado-clase-icono">${icono}</span>
+              ${escapar(ev.title)}
+              <span class="listado-clase-tipo">${p.tipo}</span>
+            </div>
+            <div class="listado-clase-alumnos">👥 ${escapar(alumnosTxt)}</div>
+          </div>
+        </div>
+      `
+    }
+
+    // Parse seguro de "2025-01-15T09:00" como hora local
+    function parseFechaLocal(s) {
+      if (!s) return new Date(0)
+      const [fecha, hora] = s.split('T')
+      const [y, m, d] = fecha.split('-').map(Number)
+      const [h, mi] = (hora || '00:00').split(':').map(Number)
+      return new Date(y, m - 1, d, h, mi, 0, 0)
+    }
+
+    function formatearFechaCorta(d) {
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+    }
+
+    function formatearFechaLarga(d) {
+      return `${diasSemana[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]}`
+    }
+
+    // Click en un item → abre modal
+    listadoContenido.addEventListener('click', (e) => {
+      const item = e.target.closest('.listado-clase')
+      if (!item || !calendar) return
+      const evFull = calendar.getEventById(item.dataset.id)
+      if (evFull) abrirModal(evFull)
+    })
+
+    // Filtros
+    document.querySelectorAll('.filtro-chip').forEach(chip => {
+      chip.onclick = () => {
+        document.querySelectorAll('.filtro-chip').forEach(c => c.classList.remove('active'))
+        chip.classList.add('active')
+        listadoFiltro = chip.dataset.filtro
+        pintarListado()
+      }
+    })
+
+    // Buscador
+    listadoBuscador.addEventListener('input', (e) => {
+      listadoBusqueda = e.target.value
+      pintarListado()
+    })
+
+    // ============================================================
+    // CONFIGURACIÓN REPETICIÓN SEMANAL
+    // ============================================================
     checkRepetir.addEventListener('change', () => {
       camposRepetir.style.display = checkRepetir.checked ? 'block' : 'none'
       if (checkRepetir.checked && !inputRepetirHasta.value) {
@@ -483,332 +786,9 @@
       `
     }
 
-    function escapar(s) {
-      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    }
-
-    // ============================
-    // Cargar clases
-    // ============================
-    async function cargarClases() {
-      const { data, error } = await supabase
-        .from(TABLES.clases)
-        .select('id, titulo, fecha, hora_inicio, hora_fin, tipo, estado, notas, motivo_anulacion, ejercicio_id, ejercicio_libre, padel_clase_alumnos(alumno_id, padel_alumnos(id, nombre)), padel_ejercicios(id, titulo)')
-      if (error) { console.error(error); return [] }
-
-      clasesCache = data.map(c => ({
-        id: c.id, fecha: c.fecha, hora_inicio: c.hora_inicio, hora_fin: c.hora_fin,
-        titulo: c.titulo, estado: c.estado
-      }))
-
-      const claseIds = data.map(c => c.id)
-      let clasesConRecuperacion = new Set()
-      if (claseIds.length > 0) {
-        const { data: faltasVinc } = await supabase
-          .from(TABLES.faltas).select('clase_recuperacion_id').in('clase_recuperacion_id', claseIds)
-        ;(faltasVinc || []).forEach(f => clasesConRecuperacion.add(f.clase_recuperacion_id))
-      }
-
-      eventosCache = data.map(c => ({
-        id: c.id,
-        title: c.titulo,
-        start: `${c.fecha}T${c.hora_inicio}`,
-        end: `${c.fecha}T${c.hora_fin}`,
-        extendedProps: {
-          tipo: c.tipo,
-          estado: c.estado,
-          notas: c.notas,
-          motivo: c.motivo_anulacion,
-          ejercicioId: c.ejercicio_id,
-          ejercicioLibre: c.ejercicio_libre,
-          alumnosIds: (c.padel_clase_alumnos || []).map(a => a.alumno_id),
-          alumnosNombres: (c.padel_clase_alumnos || []).map(a => a.padel_alumnos?.nombre).filter(Boolean),
-          esRecuperacion: clasesConRecuperacion.has(c.id)
-        },
-        backgroundColor: colorPorEstado(c.estado, c.tipo, clasesConRecuperacion.has(c.id)),
-        borderColor: bordePorEstado(c.estado, clasesConRecuperacion.has(c.id)),
-        classNames: classNamesPorEstado(c.estado)
-      }))
-
-      return eventosCache
-    }
-
-    function colorPorEstado(estado, tipo, esRecuperacion) {
-      if (estado === 'anulada') return '#7a1a1a'
-      if (estado === 'realizada') return '#1e8449'
-      if (estado === 'reprogramada') return '#e67e22'
-      if (esRecuperacion) return '#8e44ad'
-      return { individual: '#3a8fbf', grupal: '#5bb8d4', clinica: '#e8ff3a', partido: '#8a9ba8' }[tipo] || '#3a8fbf'
-    }
-
-    function bordePorEstado(estado, esRecuperacion) {
-      if (estado === 'anulada') return '#e74c3c'
-      if (estado === 'realizada') return '#2ecc71'
-      if (esRecuperacion) return '#c39bd3'
-      return 'transparent'
-    }
-
-    function classNamesPorEstado(estado) {
-      if (estado === 'anulada') return ['evento-anulado']
-      if (estado === 'realizada') return ['evento-realizado']
-      return []
-    }
-
-    function renderEvento(info) {
-      const { estado, esRecuperacion } = info.event.extendedProps
-      const icono = estado === 'realizada' ? '✅'
-                  : estado === 'anulada' ? '🚫'
-                  : estado === 'reprogramada' ? '🔄'
-                  : esRecuperacion ? '🔄' : ''
-      const hora = info.timeText || ''
-      const contenedor = document.createElement('div')
-      contenedor.className = 'evento-contenido'
-      contenedor.innerHTML = `
-        <span class="evento-icono">${icono}</span>
-        <span class="evento-hora">${hora}</span>
-        <span class="evento-titulo">${info.event.title}</span>
-      `
-      return { domNodes: [contenedor] }
-    }
-
-    // ============================
-    // FullCalendar — Semana Lunes a Domingo
-    // ============================
-    const esMovil = window.innerWidth < 768
-
-    const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-      initialView: esMovil ? 'timeGridWeek' : 'dayGridMonth',
-      locale: 'es',
-      firstDay: 1,             // ⬅️ Lunes
-      weekNumbers: false,
-      headerToolbar: esMovil
-        ? { left: 'prev,next', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }
-        : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
-      buttonText: { today: 'Hoy', month: 'Mes', week: 'Sem', day: 'Día' },
-      events: await cargarClases(),
-      eventContent: renderEvento,
-      editable: !esMovil,
-      selectable: true,
-      selectMirror: true,
-      selectAllow: (info) => {
-        if (!info.startStr.includes('T')) return true
-        const fecha = info.startStr.split('T')[0]
-        const hi = info.startStr.split('T')[1]?.slice(0,5) || '00:00'
-        const hf = info.endStr.split('T')[1]?.slice(0,5) || '23:59'
-        const res = verificarSolapamiento(fecha, hi, hf)
-        return !res || res.conflictos.length === 0
-      },
-      dayMaxEvents: esMovil ? 5 : 4,
-      moreLinkText: (n) => `+${n} más`,
-      nowIndicator: true,
-      slotMinTime: '07:00:00',
-      slotMaxTime: '23:00:00',
-      allDaySlot: false,
-      select: (info) => {
-        const fecha = info.startStr.split('T')[0]
-        const hi = info.startStr.includes('T') ? info.startStr.split('T')[1].slice(0, 5) : '09:00'
-        const hf = info.endStr.includes('T') ? info.endStr.split('T')[1].slice(0, 5) : '10:00'
-        abrirModal({ fecha, horaInicio: hi, horaFin: hf })
-      },
-      dateClick: (info) => abrirModal({ fecha: info.dateStr }),
-      eventClick: (info) => abrirModal(info.event),
-      eventDrop: async (info) => {
-        const nf = info.event.startStr.split('T')[0]
-        const nhi = info.event.startStr.split('T')[1]?.slice(0,5)
-        const dur = (info.event.end - info.event.start) / 60000
-        const [h, m] = nhi.split(':').map(Number)
-        const finMin = h * 60 + m + dur
-        const nhf = `${String(Math.floor(finMin/60)).padStart(2,'0')}:${String(finMin%60).padStart(2,'0')}`
-        const res = verificarSolapamiento(nf, nhi, nhf, info.event.id)
-        if (res && res.conflictos.length) {
-          info.revert()
-          alert(`⚠️ No se puede mover:\n\n${formatearConflictos(res.conflictos)}`)
-          return
-        }
-        const { error } = await supabase.from(TABLES.clases)
-          .update({ fecha: nf, hora_inicio: nhi, hora_fin: nhf }).eq('id', info.event.id)
-        if (error) { info.revert(); alert('Error: ' + error.message); return }
-        await refrescarTodo()
-      },
-      datesSet: (info) => {
-        listadoRango = { start: info.start, end: info.end, tipo: info.view.type }
-        pintarListado()
-      },
-      eventOverlap: false,
-      moreLinkClick: 'popover',
-      dayPopoverFormat: { month: 'long', day: 'numeric', year: 'numeric' }
-    })
-    calendar.render()
-
-    // ============================
-    // LISTADO DE CLASES
-    // ============================
-    function pintarListado() {
-      if (!listadoRango) return
-      const { start, end, tipo } = listadoRango
-      const finInclusivo = new Date(end)
-      finInclusivo.setDate(finInclusivo.getDate() - 1)
-
-      // Título del período
-      if (tipo === 'timeGridDay') {
-        listadoTitulo.textContent = `📋 Listado del ${formatearFechaLarga(start)}`
-      } else if (tipo === 'timeGridWeek') {
-        listadoTitulo.textContent = `📋 Listado de la semana (${formatearFechaCorta(start)} – ${formatearFechaCorta(finInclusivo)})`
-      } else {
-        listadoTitulo.textContent = `📋 Listado de ${meses[start.getMonth()]} ${start.getFullYear()}`
-      }
-
-      // Filtrar por rango
-      let enRango = eventosCache.filter(ev => {
-        const t = new Date(ev.start).getTime()
-        return t >= start.getTime() && t < end.getTime()
-      })
-
-      // Filtro por estado
-      if (listadoFiltro !== 'todas') {
-        if (listadoFiltro === 'recuperacion') {
-          enRango = enRango.filter(e => e.extendedProps.esRecuperacion)
-        } else {
-          enRango = enRango.filter(e => e.extendedProps.estado === listadoFiltro)
-        }
-      }
-
-      // Buscador
-      if (listadoBusqueda.trim()) {
-        const q = listadoBusqueda.trim().toLowerCase()
-        enRango = enRango.filter(e => {
-          const p = e.extendedProps
-          const alumnos = (p.alumnosNombres || []).join(' ').toLowerCase()
-          const titulo = (e.title || '').toLowerCase()
-          const tipo = (p.tipo || '').toLowerCase()
-          return titulo.includes(q) || alumnos.includes(q) || tipo.includes(q)
-        })
-      }
-
-      // Ordenar
-      enRango.sort((a, b) => new Date(a.start) - new Date(b.start))
-
-      // Contadores
-      const total = enRango.length
-      const programadas = enRango.filter(e => e.extendedProps.estado === 'programada').length
-      const realizadas = enRango.filter(e => e.extendedProps.estado === 'realizada').length
-      const anuladas = enRango.filter(e => e.extendedProps.estado === 'anulada').length
-
-      listadoContador.innerHTML = total === 0
-        ? ''
-        : `<span class="chip-resumen">${total} total</span>` +
-          (programadas > 0 ? `<span class="chip-resumen chip-prog">${programadas} 📅</span>` : '') +
-          (realizadas > 0 ? `<span class="chip-resumen chip-real">${realizadas} ✅</span>` : '') +
-          (anuladas > 0 ? `<span class="chip-resumen chip-anul">${anuladas} 🚫</span>` : '')
-
-      if (enRango.length === 0) {
-        const msg = listadoBusqueda.trim()
-          ? `Sin resultados para "${listadoBusqueda}"`
-          : (listadoFiltro !== 'todas' ? 'Sin clases con este filtro en el período' : 'Sin clases en este período')
-        listadoContenido.innerHTML = `<p class="listado-vacio">${msg}</p>`
-        return
-      }
-
-      // Agrupar por fecha
-      const porFecha = {}
-      enRango.forEach(ev => {
-        const fecha = ev.start.split('T')[0]
-        if (!porFecha[fecha]) porFecha[fecha] = []
-        porFecha[fecha].push(ev)
-      })
-
-      // Pintar días
-      listadoContenido.innerHTML = Object.entries(porFecha)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([fecha, clases]) => {
-          const fechaObj = new Date(fecha + 'T12:00:00')
-          const diaSemana = diasSemana[fechaObj.getDay()]
-          const esHoy = fecha === new Date().toISOString().split('T')[0]
-          return `
-            <div class="listado-dia ${esHoy ? 'listado-hoy' : ''}">
-              <div class="listado-dia-header">
-                <span class="listado-dia-fecha">${formatearFechaCorta(fechaObj)}</span>
-                <span class="listado-dia-nombre">${diaSemana}</span>
-                ${esHoy ? '<span class="listado-hoy-tag">HOY</span>' : ''}
-                <span class="listado-dia-count">${clases.length} clase${clases.length > 1 ? 's' : ''}</span>
-              </div>
-              <div class="listado-clases-dia">
-                ${clases.map(c => pintarItemListado(c)).join('')}
-              </div>
-            </div>
-          `
-        }).join('')
-    }
-
-    function pintarItemListado(ev) {
-      const p = ev.extendedProps
-      const icono = p.estado === 'realizada' ? '✅'
-                  : p.estado === 'anulada' ? '🚫'
-                  : p.estado === 'reprogramada' ? '🔄'
-                  : p.esRecuperacion ? '🔄' : '📅'
-      const hora = `${ev.start.split('T')[1].slice(0,5)}–${ev.end.split('T')[1].slice(0,5)}`
-      const alumnos = p.alumnosNombres || []
-      const alumnosTxt = alumnos.length > 0
-        ? (alumnos.length > 5 ? `${alumnos.slice(0,5).join(', ')} +${alumnos.length-5}` : alumnos.join(', '))
-        : 'Sin alumnos'
-      const colorBar = p.estado === 'realizada' ? '#1e8449'
-                     : p.estado === 'anulada' ? '#7a1a1a'
-                     : p.esRecuperacion ? '#8e44ad'
-                     : '#3a8fbf'
-
-      return `
-        <div class="listado-clase" data-id="${ev.id}" style="border-left-color: ${colorBar};">
-          <div class="listado-clase-hora">${hora}</div>
-          <div class="listado-clase-info">
-            <div class="listado-clase-titulo">
-              <span class="listado-clase-icono">${icono}</span>
-              ${escapar(ev.title)}
-              <span class="listado-clase-tipo">${p.tipo}</span>
-            </div>
-            <div class="listado-clase-alumnos">👥 ${escapar(alumnosTxt)}</div>
-          </div>
-        </div>
-      `
-    }
-
-    // Click en item → abre el modal
-    listadoContenido.addEventListener('click', (e) => {
-      const item = e.target.closest('.listado-clase')
-      if (!item) return
-      const evFull = calendar.getEventById(item.dataset.id)
-      if (evFull) abrirModal(evFull)
-    })
-
-    // Filtros
-    document.querySelectorAll('.filtro-chip').forEach(chip => {
-      chip.onclick = () => {
-        document.querySelectorAll('.filtro-chip').forEach(c => c.classList.remove('active'))
-        chip.classList.add('active')
-        listadoFiltro = chip.dataset.filtro
-        pintarListado()
-      }
-    })
-
-    // Buscador
-    listadoBuscador.addEventListener('input', (e) => {
-      listadoBusqueda = e.target.value
-      pintarListado()
-    })
-
-    // Helpers de fecha
-    const diasSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
-    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
-
-    function formatearFechaCorta(d) {
-      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
-    }
-    function formatearFechaLarga(d) {
-      return `${diasSemana[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]}`
-    }
-
-    // ============================
-    // Abrir modal
-    // ============================
+    // ============================================================
+    // MODAL: ABRIR / BOTONES ESTADO / GUARDAR
+    // ============================================================
     async function abrirModal(clase) {
       btnRealizada.style.display = 'none'
       btnAnular.style.display = 'none'
@@ -941,9 +921,6 @@
       form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
     })
 
-    // ============================
-    // Guardar
-    // ============================
     form.addEventListener('submit', async (e) => {
       e.preventDefault()
       const id = document.getElementById('clase-id').value
@@ -1076,21 +1053,148 @@
       modal.close()
     })
 
-    // ============================
-    // Refrescar
-    // ============================
+    // ============================================================
+    // REFRESCAR
+    // ============================================================
     async function refrescarTodo() {
       const eventos = await cargarClases()
-      calendar.removeAllEvents()
-      calendar.addEventSource(eventos)
+      if (calendar) {
+        calendar.removeAllEvents()
+        calendar.addEventSource(eventos)
+      }
       pintarListado()
     }
 
+    // ============================================================
+    // INICIALIZACIÓN
+    // ============================================================
+    async function inicializar() {
+      // 1. Cargar datos en paralelo
+      await Promise.all([
+        cargarAlumnos(),
+        cargarEjercicios()
+      ])
+
+      // 2. Cargar clases (popula eventosCache)
+      await cargarClases()
+
+      // 3. Crear calendario
+      const esMovil = window.innerWidth < 768
+
+      calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+        initialView: esMovil ? 'timeGridWeek' : 'dayGridMonth',
+        locale: 'es',
+        firstDay: 1,             // Lunes
+        weekNumbers: false,
+        headerToolbar: esMovil
+          ? { left: 'prev,next', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }
+          : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
+        buttonText: {
+          today: 'Hoy',
+          month: 'Mes',
+          week: 'Sem',
+          day: 'Día'
+        },
+        views: {
+          dayGridMonth: { buttonText: 'Mes' },
+          timeGridWeek: { buttonText: 'Sem' },
+          timeGridDay:  { buttonText: 'Día' }
+        },
+        events: eventosCache,
+        eventContent: renderEvento,
+        editable: !esMovil,
+        selectable: true,
+        selectMirror: true,
+        selectAllow: (info) => {
+          if (!info.startStr.includes('T')) return true
+          const fecha = info.startStr.split('T')[0]
+          const hi = info.startStr.split('T')[1]?.slice(0,5) || '00:00'
+          const hf = info.endStr.split('T')[1]?.slice(0,5) || '23:59'
+          const res = verificarSolapamiento(fecha, hi, hf)
+          return !res || res.conflictos.length === 0
+        },
+        dayMaxEvents: esMovil ? 5 : 4,
+        moreLinkText: (n) => `+${n} más`,
+        nowIndicator: true,
+        slotMinTime: '07:00:00',
+        slotMaxTime: '23:00:00',
+        allDaySlot: false,
+        select: (info) => {
+          const fecha = info.startStr.split('T')[0]
+          const hi = info.startStr.includes('T') ? info.startStr.split('T')[1].slice(0, 5) : '09:00'
+          const hf = info.endStr.includes('T') ? info.endStr.split('T')[1].slice(0, 5) : '10:00'
+          abrirModal({ fecha, horaInicio: hi, horaFin: hf })
+        },
+        dateClick: (info) => abrirModal({ fecha: info.dateStr }),
+        eventClick: (info) => abrirModal(info.event),
+        eventDrop: async (info) => {
+          const nf = info.event.startStr.split('T')[0]
+          const nhi = info.event.startStr.split('T')[1]?.slice(0,5)
+          const dur = (info.event.end - info.event.start) / 60000
+          const [h, m] = nhi.split(':').map(Number)
+          const finMin = h * 60 + m + dur
+          const nhf = `${String(Math.floor(finMin/60)).padStart(2,'0')}:${String(finMin%60).padStart(2,'0')}`
+          const res = verificarSolapamiento(nf, nhi, nhf, info.event.id)
+          if (res && res.conflictos.length) {
+            info.revert()
+            alert(`⚠️ No se puede mover:\n\n${formatearConflictos(res.conflictos)}`)
+            return
+          }
+          const { error } = await supabase.from(TABLES.clases)
+            .update({ fecha: nf, hora_inicio: nhi, hora_fin: nhf }).eq('id', info.event.id)
+          if (error) { info.revert(); alert('Error: ' + error.message); return }
+          await refrescarTodo()
+        },
+        // ⬇️ CLAVE: actualizar el listado cuando cambie la vista o el rango
+        datesSet: (info) => {
+          // view.currentStart = primer día del período "real" (mes/semana/día)
+          // view.activeStart / activeEnd = rango visible completo
+          listadoRango = {
+            start: info.view.activeStart,
+            end: info.view.activeEnd,
+            tipo: info.view.type,
+            tituloFecha: info.view.currentStart
+          }
+          pintarListado()
+        },
+        eventOverlap: false,
+        moreLinkClick: 'popover',
+        dayPopoverFormat: { month: 'long', day: 'numeric', year: 'numeric' }
+      })
+
+      calendar.render()
+
+      // 4. Forzar un pintado inicial del listado (por si datesSet no se disparó aún)
+      if (calendar.view) {
+        listadoRango = {
+          start: calendar.view.activeStart,
+          end: calendar.view.activeEnd,
+          tipo: calendar.view.type,
+          tituloFecha: calendar.view.currentStart
+        }
+        pintarListado()
+      }
+    }
+
+    // Reajustar título del listado al redimensionar
     let resizeTimer
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer)
-      resizeTimer = setTimeout(() => pintarListado(), 200)
+      resizeTimer = setTimeout(() => {
+        if (calendar?.view) {
+          listadoRango = {
+            start: calendar.view.activeStart,
+            end: calendar.view.activeEnd,
+            tipo: calendar.view.type,
+            tituloFecha: calendar.view.currentStart
+          }
+          pintarListado()
+        }
+      }, 200)
     })
+
+    // Arrancar
+    await inicializar()
   </script>
 
   <style>
@@ -1129,7 +1233,7 @@
     .evento-realizado .evento-titulo { font-weight: 600; }
     .fc-event { position: relative; }
 
-    /* Bloques modal */
+    /* Modal */
     .bloque-alumnos {
       background: var(--fondo-app); border: 1px solid var(--borde-card);
       border-radius: 8px; padding: 12px; margin-bottom: 12px;
@@ -1167,7 +1271,6 @@
       font-size: 0.7rem; color: var(--texto-secundario);
       font-style: italic; margin: 6px 0 0; text-align: center;
     }
-
     .lista-alumnos-header {
       display: flex; justify-content: space-between; align-items: center;
       margin: 10px 0 6px; font-size: 0.85rem;
@@ -1181,7 +1284,6 @@
       font-size: 0.72rem; font-weight: 600; cursor: pointer; min-height: auto;
     }
     .btn-mini:hover { background: var(--pista-azul-claro); border-color: var(--pista-azul-claro); }
-
     .lista-alumnos {
       max-height: 200px; overflow-y: auto;
       border: 1px solid var(--borde-card); border-radius: 6px;
@@ -1209,7 +1311,6 @@
       background: #8e44ad; color: white; font-size: 0.65rem;
       padding: 2px 6px; border-radius: 10px; flex-shrink: 0;
     }
-
     .bloque-repetir {
       background: var(--fondo-app); border: 1px solid var(--borde-card);
       border-radius: 8px; padding: 12px; margin-bottom: 12px;
@@ -1221,7 +1322,6 @@
     }
     .check-repetir span { font-weight: 600; color: var(--texto-principal); font-size: 0.9rem; }
     .preview-repeticion { font-size: 0.8rem; color: var(--pista-azul-hielo); margin-top: 6px; }
-
     .estado-info {
       background: var(--fondo-app); border: 1px solid var(--borde-card);
       border-radius: 6px; padding: 10px 12px; margin-bottom: 12px;
@@ -1258,7 +1358,6 @@
       color: var(--texto-principal);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-
     .btn-estado { font-weight: 600; }
     .btn-estado.btn-realizada { background: #1e8449; color: white; border: none; }
     .btn-estado.btn-realizada:hover { background: #166638; }
@@ -1272,7 +1371,6 @@
     }
     .btn-guardar-otra:hover { background: linear-gradient(135deg, #3a8fbf, #2a6b9c); }
     .modal-actions { flex-wrap: wrap; gap: 8px; }
-
     .toast-guardado {
       position: fixed; bottom: 24px; left: 50%;
       transform: translateX(-50%);
@@ -1308,15 +1406,11 @@
     .fc .fc-timegrid-now-indicator-arrow { border-color: #e8ff3a; background: #e8ff3a; }
     .fc .fc-more-link { color: var(--pista-azul-hielo); font-weight: 600; }
     .fc-highlight { background: rgba(232, 255, 58, 0.2) !important; }
-
-    /* Fin de semana destacado */
     .fc .fc-col-header-cell.fc-day-sat, .fc .fc-col-header-cell.fc-day-sun {
       background: rgba(232, 255, 58, 0.04);
     }
 
-    /* ============================================================
-       LISTADO DE CLASES
-       ============================================================ */
+    /* Listado */
     .listado-clases {
       margin-top: 24px;
       background: var(--fondo-card);
@@ -1325,68 +1419,34 @@
       padding: 18px;
       box-shadow: 0 0 0 2px rgba(58, 143, 191, 0.1) inset;
     }
-
     .listado-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
     }
-    .listado-header h2 {
-      font-size: 1.1rem;
-      margin: 0;
-      color: var(--texto-principal);
-    }
-    .listado-contador {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
+    .listado-header h2 { font-size: 1.1rem; margin: 0; color: var(--texto-principal); }
+    .listado-contador { display: flex; gap: 6px; flex-wrap: wrap; }
     .chip-resumen {
-      background: var(--fondo-app);
-      border: 1px solid var(--borde-card);
-      padding: 3px 10px;
-      border-radius: 12px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: var(--texto-principal);
-      font-variant-numeric: tabular-nums;
+      background: var(--fondo-app); border: 1px solid var(--borde-card);
+      padding: 3px 10px; border-radius: 12px;
+      font-size: 0.72rem; font-weight: 600;
+      color: var(--texto-principal); font-variant-numeric: tabular-nums;
     }
     .chip-prog { border-color: #3a8fbf; color: #3a8fbf; }
     .chip-real { border-color: #1e8449; color: #2ecc71; }
     .chip-anul { border-color: #c0392b; color: #e74c3c; }
-
-    /* Toolbar del listado */
     .listado-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 14px;
-      flex-wrap: wrap;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--borde-card);
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px; flex-wrap: wrap;
+      padding-bottom: 12px; border-bottom: 1px solid var(--borde-card);
     }
-    .listado-filtros {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      flex: 1;
-    }
+    .listado-filtros { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
     .filtro-chip {
-      background: var(--fondo-app);
-      border: 1px solid var(--borde-card);
+      background: var(--fondo-app); border: 1px solid var(--borde-card);
       color: var(--texto-secundario);
-      padding: 6px 12px;
-      border-radius: 16px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-      font-family: inherit;
-      min-height: auto;
-      white-space: nowrap;
+      padding: 6px 12px; border-radius: 16px;
+      font-size: 0.78rem; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+      font-family: inherit; min-height: auto; white-space: nowrap;
     }
     .filtro-chip:hover { border-color: var(--pista-azul-claro); color: var(--texto-principal); }
     .filtro-chip.active {
@@ -1395,30 +1455,19 @@
       color: white;
     }
     .listado-buscador {
-      min-width: 200px;
-      max-width: 320px;
-      flex: 1;
+      min-width: 200px; max-width: 320px; flex: 1;
     }
-
-    /* Contenido del listado */
     .listado-contenido {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      display: flex; flex-direction: column; gap: 12px;
     }
     .listado-vacio {
-      text-align: center;
-      padding: 32px 16px;
-      color: var(--texto-secundario);
-      font-size: 0.9rem;
-      margin: 0;
-      font-style: italic;
+      text-align: center; padding: 32px 16px;
+      color: var(--texto-secundario); font-size: 0.9rem;
+      margin: 0; font-style: italic;
       background: var(--fondo-app);
       border: 1px dashed var(--borde-card);
       border-radius: 8px;
     }
-
-    /* Día */
     .listado-dia {
       background: var(--fondo-app);
       border: 1px solid var(--borde-card);
@@ -1430,54 +1479,34 @@
       box-shadow: 0 0 0 1px rgba(91, 184, 212, 0.3) inset;
     }
     .listado-dia-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 10px; padding-bottom: 8px;
       border-bottom: 1px solid var(--borde-card);
       flex-wrap: wrap;
     }
     .listado-dia-fecha {
-      font-family: monospace;
-      font-size: 1rem;
-      font-weight: 700;
+      font-family: monospace; font-size: 1rem; font-weight: 700;
       color: var(--texto-principal);
     }
     .listado-dia-nombre {
-      font-size: 0.88rem;
-      color: var(--pista-azul-hielo);
-      font-weight: 500;
+      font-size: 0.88rem; color: var(--pista-azul-hielo); font-weight: 500;
     }
     .listado-hoy-tag {
-      background: var(--amarillo-pelota);
-      color: #1a2a42;
-      padding: 2px 8px;
-      border-radius: 8px;
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.5px;
+      background: var(--amarillo-pelota); color: #1a2a42;
+      padding: 2px 8px; border-radius: 8px;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.5px;
     }
     .listado-dia-count {
-      margin-left: auto;
-      font-size: 0.75rem;
-      color: var(--texto-secundario);
+      margin-left: auto; font-size: 0.75rem; color: var(--texto-secundario);
     }
-
-    /* Clase item */
     .listado-clases-dia {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+      display: flex; flex-direction: column; gap: 6px;
     }
     .listado-clase {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
+      display: flex; align-items: flex-start; gap: 12px;
       background: var(--fondo-card);
       border-left: 4px solid #3a8fbf;
-      border-radius: 6px;
-      padding: 10px 12px;
+      border-radius: 6px; padding: 10px 12px;
       cursor: pointer;
       transition: transform 0.12s, background 0.12s;
     }
@@ -1486,54 +1515,36 @@
       transform: translateX(3px);
     }
     .listado-clase-hora {
-      font-family: monospace;
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--pista-azul-hielo);
-      flex-shrink: 0;
-      padding-top: 1px;
-      min-width: 105px;
+      font-family: monospace; font-size: 0.85rem; font-weight: 700;
+      color: var(--pista-azul-hielo); flex-shrink: 0;
+      padding-top: 1px; min-width: 105px;
     }
     .listado-clase-info { flex: 1; min-width: 0; }
     .listado-clase-titulo {
-      font-size: 0.92rem;
-      font-weight: 600;
-      color: var(--texto-principal);
-      margin-bottom: 3px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
+      font-size: 0.92rem; font-weight: 600;
+      color: var(--texto-principal); margin-bottom: 3px;
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
     }
     .listado-clase-icono { font-size: 0.95rem; flex-shrink: 0; }
     .listado-clase-tipo {
-      font-size: 0.68rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
+      font-size: 0.68rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.4px;
       background: var(--fondo-app);
       border: 1px solid var(--borde-card);
       color: var(--texto-secundario);
-      padding: 1px 6px;
-      border-radius: 8px;
+      padding: 1px 6px; border-radius: 8px;
     }
     .listado-clase-alumnos {
-      font-size: 0.78rem;
-      color: var(--texto-secundario);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      font-size: 0.78rem; color: var(--texto-secundario);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
-    /* ============================================================
-       MÓVIL
-       ============================================================ */
+    /* MÓVIL */
     @media (max-width: 768px) {
       #calendar { padding: 6px; }
       .fc .fc-toolbar {
         flex-direction: column !important;
-        gap: 8px !important;
-        margin-bottom: 10px !important;
+        gap: 8px !important; margin-bottom: 10px !important;
       }
       .fc .fc-toolbar-chunk { display: flex; justify-content: center; width: 100%; }
       .fc .fc-toolbar-title { font-size: 1.05rem !important; text-align: center; }
@@ -1555,24 +1566,13 @@
       .fc .fc-timegrid-axis { width: 42px; }
       .fc .fc-popover { max-width: 90vw !important; }
 
-      .listado-clases {
-        margin-top: 16px;
-        padding: 12px 10px;
-      }
+      .listado-clases { margin-top: 16px; padding: 12px 10px; }
       .listado-header h2 { font-size: 1rem; }
       .listado-toolbar {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
+        flex-direction: column; align-items: stretch; gap: 8px;
       }
-      .listado-buscador {
-        max-width: 100%;
-        min-width: 100%;
-      }
-      .listado-clase-hora {
-        font-size: 0.78rem;
-        min-width: 88px;
-      }
+      .listado-buscador { max-width: 100%; min-width: 100%; }
+      .listado-clase-hora { font-size: 0.78rem; min-width: 88px; }
       .listado-clase-titulo { font-size: 0.85rem; }
       .listado-clase-alumnos { font-size: 0.72rem; }
     }
