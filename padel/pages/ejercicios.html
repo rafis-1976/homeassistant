@@ -18,36 +18,36 @@
         <div class="tool-group">
           <span class="tool-label">Jugadores</span>
           <button class="tool-btn" data-tipo="jugador-azul" title="Jugador equipo azul">
-            <svg width="22" height="22" viewBox="-14 -14 28 28"><use href="#icon-jugador-azul"/></svg>
+            <svg width="26" height="26" viewBox="-20 -18 40 36"><use href="#icon-jugador-azul"/></svg>
           </button>
           <button class="tool-btn" data-tipo="jugador-rojo" title="Jugador equipo rojo">
-            <svg width="22" height="22" viewBox="-14 -14 28 28"><use href="#icon-jugador-rojo"/></svg>
+            <svg width="26" height="26" viewBox="-20 -18 40 36"><use href="#icon-jugador-rojo"/></svg>
           </button>
         </div>
 
         <div class="tool-group">
           <span class="tool-label">Material</span>
           <button class="tool-btn" data-tipo="carro-bolas" title="Carro de bolas">
-            <svg width="30" height="24" viewBox="-16 -12 32 24"><use href="#icon-carro"/></svg>
+            <svg width="32" height="26" viewBox="-20 -14 40 28"><use href="#icon-carro"/></svg>
           </button>
           <button class="tool-btn" data-tipo="cono" title="Cono">
-            <svg width="16" height="16" viewBox="-10 -10 20 20"><use href="#icon-cono"/></svg>
+            <svg width="18" height="18" viewBox="-10 -10 20 20"><use href="#icon-cono"/></svg>
           </button>
-          <button class="tool-btn" data-tipo="seta" title="Seta">
-            <svg width="16" height="16" viewBox="-10 -10 20 20"><use href="#icon-seta"/></svg>
+          <button class="tool-btn" data-tipo="escalera" title="Escalera de ejercicios">
+            <svg width="34" height="14" viewBox="-52 -12 104 24"><use href="#icon-escalera"/></svg>
           </button>
         </div>
 
         <div class="tool-group">
           <span class="tool-label">Golpes</span>
           <button class="tool-btn" data-tipo="pelota" title="Pelota de pádel">
-            <svg width="16" height="16" viewBox="-8 -8 16 16"><use href="#icon-pelota"/></svg>
+            <svg width="18" height="18" viewBox="-8 -8 16 16"><use href="#icon-pelota"/></svg>
           </button>
           <button class="tool-btn" data-tipo="flecha-recta" title="Flecha recta">
-            <svg width="26" height="14" viewBox="-2 -8 46 16"><use href="#icon-flecha"/></svg>
+            <svg width="28" height="14" viewBox="-2 -8 46 16"><use href="#icon-flecha"/></svg>
           </button>
           <button class="tool-btn" data-tipo="trayectoria" title="Trayectoria con pelota">
-            <svg width="26" height="14" viewBox="-2 -8 46 16"><use href="#icon-trayectoria"/></svg>
+            <svg width="28" height="14" viewBox="-2 -8 46 16"><use href="#icon-trayectoria"/></svg>
           </button>
         </div>
 
@@ -60,11 +60,22 @@
       <!-- ============================ PISTA ============================ -->
       <div class="pista-wrapper">
         <div class="hint-trayectoria" id="hint-trayectoria">
-          <strong>Modo trayectoria:</strong> clic para añadir puntos ·
-          <strong>clic derecho</strong> para terminar · <strong>Esc</strong> para cancelar
+          <strong>Trayectoria:</strong> toca para puntos ·
+          <strong>clic derecho</strong> para terminar · <strong>Esc</strong> cancela
         </div>
 
         <div class="pista-container">
+          <!--
+            ============================================================
+            PISTA DE PÁDEL 20m × 10m — Proporciones oficiales
+            ============================================================
+            • Court interior: (70,70) → (870,470), 1m = 40px
+            • Red en x=470 (centro exacto)
+            • Zona de fondo: 3m = 120px (desde pared trasera a línea saque)
+            • Zona de saque: 7m = 280px (desde línea saque a red)
+            • Ancho de caja de saque: 5m = 200px
+            ============================================================
+          -->
           <svg id="pista-svg" viewBox="0 0 940 540" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
 
             <defs>
@@ -80,38 +91,68 @@
 
               <!-- ============================================
                    JUGADOR AZUL — Vista cenital realista
+                   Cuerpo elíptico + cabeza con pelo oscuro
+                   + brazos extendidos + pala
                    ============================================ -->
               <g id="icon-jugador-azul">
-                <ellipse cx="1" cy="2" rx="10" ry="7" fill="rgba(0,0,0,0.28)"/>
-                <ellipse cx="0" cy="0" rx="8" ry="5.5" fill="#2a6b9c" stroke="#1a3a5c" stroke-width="0.9"/>
-                <circle cx="0" cy="-0.5" r="4.2" fill="#f4c9a4" stroke="#8a6b52" stroke-width="0.5"/>
-                <path d="M -4.2,-0.5 A 4.2,4.2 0 0 1 4.2,-0.5 L 3,-1.8 A 3,3 0 0 0 -3,-1.8 Z"
-                      fill="#4a2e1e"/>
-                <line x1="6" y1="-2" x2="11" y2="-4" stroke="#f4c9a4" stroke-width="1.8" stroke-linecap="round"/>
-                <ellipse cx="13" cy="-5.5" rx="3.2" ry="4.5" fill="#e8ff3a" stroke="#8a9900"
-                         stroke-width="0.9" transform="rotate(-35 13 -5.5)"/>
-                <circle cx="12.5" cy="-6.5" r="0.4" fill="#8a9900"/>
-                <circle cx="13.5" cy="-5.5" r="0.4" fill="#8a9900"/>
-                <circle cx="12.5" cy="-4.5" r="0.4" fill="#8a9900"/>
-                <line x1="-6" y1="-1" x2="-10" y2="1" stroke="#f4c9a4" stroke-width="1.8" stroke-linecap="round"/>
+                <!-- Sombra -->
+                <ellipse cx="1" cy="5" rx="13" ry="6" fill="rgba(0,0,0,0.22)"/>
+
+                <!-- Brazo izquierdo -->
+                <line x1="-9" y1="0" x2="-15" y2="-4" stroke="#f4c9a4" stroke-width="3" stroke-linecap="round"/>
+                <circle cx="-15.5" cy="-4.5" r="2" fill="#f4c9a4" stroke="#c9a480" stroke-width="0.3"/>
+
+                <!-- Cuerpo (camiseta azul, vista desde arriba) -->
+                <ellipse cx="0" cy="3" rx="12" ry="7" fill="#3a7bc8" stroke="#1a5a9c" stroke-width="0.9"/>
+
+                <!-- Cuello (piel) -->
+                <ellipse cx="0" cy="-3" rx="2.5" ry="2" fill="#f4c9a4"/>
+
+                <!-- Cabeza / pelo (vista cenital) -->
+                <ellipse cx="0" cy="-6" rx="6" ry="5.5" fill="#1a1a1a" stroke="#0a0a0a" stroke-width="0.5"/>
+                <!-- Orejas -->
+                <ellipse cx="-6.2" cy="-5" rx="1" ry="1.6" fill="#f4c9a4" stroke="#c9a480" stroke-width="0.2"/>
+                <ellipse cx="6.2"  cy="-5" rx="1" ry="1.6" fill="#f4c9a4" stroke="#c9a480" stroke-width="0.2"/>
+
+                <!-- Brazo derecho -->
+                <line x1="9" y1="0" x2="15" y2="-4" stroke="#f4c9a4" stroke-width="3" stroke-linecap="round"/>
+                <circle cx="15.5" cy="-4.5" r="2" fill="#f4c9a4" stroke="#c9a480" stroke-width="0.3"/>
+
+                <!-- Pala (en la mano derecha) -->
+                <ellipse cx="18" cy="-8" rx="3" ry="4.5" fill="#e8ff3a" stroke="#8a9900"
+                         stroke-width="0.9" transform="rotate(-25 18 -8)"/>
+                <circle cx="17.5" cy="-9" r="0.35" fill="#8a9900"/>
+                <circle cx="18.5" cy="-8" r="0.35" fill="#8a9900"/>
+                <circle cx="17.5" cy="-7" r="0.35" fill="#8a9900"/>
+                <circle cx="18.5" cy="-6.5" r="0.35" fill="#8a9900"/>
               </g>
 
               <!-- ============================================
                    JUGADOR ROJO
                    ============================================ -->
               <g id="icon-jugador-rojo">
-                <ellipse cx="1" cy="2" rx="10" ry="7" fill="rgba(0,0,0,0.28)"/>
-                <ellipse cx="0" cy="0" rx="8" ry="5.5" fill="#c0392b" stroke="#7a1a1a" stroke-width="0.9"/>
-                <circle cx="0" cy="-0.5" r="4.2" fill="#f4c9a4" stroke="#8a6b52" stroke-width="0.5"/>
-                <path d="M -4.2,-0.5 A 4.2,4.2 0 0 1 4.2,-0.5 L 3,-1.8 A 3,3 0 0 0 -3,-1.8 Z"
-                      fill="#4a2e1e"/>
-                <line x1="6" y1="-2" x2="11" y2="-4" stroke="#f4c9a4" stroke-width="1.8" stroke-linecap="round"/>
-                <ellipse cx="13" cy="-5.5" rx="3.2" ry="4.5" fill="#e8ff3a" stroke="#8a9900"
-                         stroke-width="0.9" transform="rotate(-35 13 -5.5)"/>
-                <circle cx="12.5" cy="-6.5" r="0.4" fill="#8a9900"/>
-                <circle cx="13.5" cy="-5.5" r="0.4" fill="#8a9900"/>
-                <circle cx="12.5" cy="-4.5" r="0.4" fill="#8a9900"/>
-                <line x1="-6" y1="-1" x2="-10" y2="1" stroke="#f4c9a4" stroke-width="1.8" stroke-linecap="round"/>
+                <ellipse cx="1" cy="5" rx="13" ry="6" fill="rgba(0,0,0,0.22)"/>
+
+                <line x1="-9" y1="0" x2="-15" y2="-4" stroke="#f4c9a4" stroke-width="3" stroke-linecap="round"/>
+                <circle cx="-15.5" cy="-4.5" r="2" fill="#f4c9a4" stroke="#c9a480" stroke-width="0.3"/>
+
+                <ellipse cx="0" cy="3" rx="12" ry="7" fill="#c0392b" stroke="#7a1a1a" stroke-width="0.9"/>
+
+                <ellipse cx="0" cy="-3" rx="2.5" ry="2" fill="#f4c9a4"/>
+
+                <ellipse cx="0" cy="-6" rx="6" ry="5.5" fill="#1a1a1a" stroke="#0a0a0a" stroke-width="0.5"/>
+                <ellipse cx="-6.2" cy="-5" rx="1" ry="1.6" fill="#f4c9a4" stroke="#c9a480" stroke-width="0.2"/>
+                <ellipse cx="6.2"  cy="-5" rx="1" ry="1.6" fill="#f4c9a4" stroke="#c9a480" stroke-width="0.2"/>
+
+                <line x1="9" y1="0" x2="15" y2="-4" stroke="#f4c9a4" stroke-width="3" stroke-linecap="round"/>
+                <circle cx="15.5" cy="-4.5" r="2" fill="#f4c9a4" stroke="#c9a480" stroke-width="0.3"/>
+
+                <ellipse cx="18" cy="-8" rx="3" ry="4.5" fill="#e8ff3a" stroke="#8a9900"
+                         stroke-width="0.9" transform="rotate(-25 18 -8)"/>
+                <circle cx="17.5" cy="-9" r="0.35" fill="#8a9900"/>
+                <circle cx="18.5" cy="-8" r="0.35" fill="#8a9900"/>
+                <circle cx="17.5" cy="-7" r="0.35" fill="#8a9900"/>
+                <circle cx="18.5" cy="-6.5" r="0.35" fill="#8a9900"/>
               </g>
 
               <!-- ============================================
@@ -139,7 +180,7 @@
               </g>
 
               <!-- ============================================
-                   CONO
+                   CONO — Vista cenital
                    ============================================ -->
               <g id="icon-cono">
                 <ellipse cx="0.5" cy="1.5" rx="7" ry="5" fill="rgba(0,0,0,0.3)"/>
@@ -150,19 +191,36 @@
               </g>
 
               <!-- ============================================
-                   SETA
+                   ESCALERA DE EJERCICIOS — Vista cenital
+                   2.5m largo × 0.5m ancho (100 × 20 px)
+                   9 travesaños
                    ============================================ -->
-              <g id="icon-seta">
-                <ellipse cx="0.5" cy="1.5" rx="6" ry="4" fill="rgba(0,0,0,0.3)"/>
-                <circle r="5" fill="#e74c3c" stroke="#a93226" stroke-width="1.2"/>
-                <circle cx="-2" cy="-1.5" r="1.2" fill="white"/>
-                <circle cx="2"  cy="0.5"  r="1.2" fill="white"/>
-                <circle cx="0"  cy="2.5"  r="0.8" fill="white"/>
-                <circle r="1.5" fill="#c0392b" stroke="#a93226" stroke-width="0.5"/>
+              <g id="icon-escalera">
+                <ellipse cx="0" cy="3" rx="52" ry="8" fill="rgba(0,0,0,0.2)"/>
+                <!-- Raíles laterales -->
+                <line x1="-50" y1="-10" x2="50" y2="-10" stroke="#f5a623" stroke-width="2.2" stroke-linecap="round"/>
+                <line x1="-50" y1="10"  x2="50" y2="10"  stroke="#f5a623" stroke-width="2.2" stroke-linecap="round"/>
+                <!-- Travesaños -->
+                <line x1="-45" y1="-10" x2="-45" y2="10" stroke="#e8951a" stroke-width="1.6"/>
+                <line x1="-35" y1="-10" x2="-35" y2="10" stroke="#e8951a" stroke-width="1.6"/>
+                <line x1="-25" y1="-10" x2="-25" y2="10" stroke="#e8951a" stroke-width="1.6"/>
+                <line x1="-15" y1="-10" x2="-15" y2="10" stroke="#e8951a" stroke-width="1.6"/>
+                <line x1="-5"  y1="-10" x2="-5"  y2="10" stroke="#e8951a" stroke-width="1.6"/>
+                <line x1="5"   y1="-10" x2="5"   y2="10" stroke="#e8951a" stroke-width="1.6"/>
+                <line x1="15"  y1="-10" x2="15"  y2="10" stroke="#e8951a" stroke-width="1.6"/>
+                <line x1="25"  y1="-10" x2="25"  y2="10" stroke="#e8951a" stroke-width="1.6"/>
+                <line x1="35"  y1="-10" x2="35"  y2="10" stroke="#e8951a" stroke-width="1.6"/>
+                <line x1="45"  y1="-10" x2="45"  y2="10" stroke="#e8951a" stroke-width="1.6"/>
+                <!-- Números en cada travesaño -->
+                <text x="-45" y="-13" text-anchor="middle" font-size="6" fill="#f5a623" font-family="monospace">1</text>
+                <text x="-25" y="-13" text-anchor="middle" font-size="6" fill="#f5a623" font-family="monospace">2</text>
+                <text x="-5"  y="-13" text-anchor="middle" font-size="6" fill="#f5a623" font-family="monospace">3</text>
+                <text x="15"  y="-13" text-anchor="middle" font-size="6" fill="#f5a623" font-family="monospace">4</text>
+                <text x="35"  y="-13" text-anchor="middle" font-size="6" fill="#f5a623" font-family="monospace">5</text>
               </g>
 
               <!-- ============================================
-                   PELOTA
+                   PELOTA DE PÁDEL
                    ============================================ -->
               <g id="icon-pelota">
                 <ellipse cx="0.5" cy="1.5" rx="4" ry="3" fill="rgba(0,0,0,0.35)"/>
@@ -172,27 +230,22 @@
               </g>
 
               <!-- ============================================
-                   FLECHA
+                   FLECHA Y TRAYECTORIA
                    ============================================ -->
               <g id="icon-flecha">
                 <line x1="0" y1="0" x2="40" y2="0" stroke="#e8ff3a" stroke-width="3"
                       marker-end="url(#flecha-end)" stroke-linecap="round"/>
               </g>
 
-              <!-- ============================================
-                   TRAYECTORIA CON PELOTA
-                   ============================================ -->
               <g id="icon-trayectoria">
                 <path d="M 0,0 Q 20,-12 40,0" fill="none" stroke="#e8ff3a" stroke-width="2.5"
                       stroke-dasharray="5,3" marker-end="url(#flecha-end)"/>
                 <circle cx="0" cy="0" r="3.5" fill="#e8ff3a" stroke="#8a9900" stroke-width="0.7"/>
-                <path d="M -2.5,-1 Q -1,0 -2.5,1" fill="none" stroke="#8a9900" stroke-width="0.5"/>
-                <path d="M 2.5,-1 Q 1,0 2.5,1"   fill="none" stroke="#8a9900" stroke-width="0.5"/>
               </g>
             </defs>
 
             <!-- ================================================
-                 EXTERIOR
+                 EXTERIOR (contraste con la pista)
                  ================================================ -->
             <rect x="0" y="0" width="940" height="540" fill="#0a1420"/>
             <rect x="50" y="50" width="840" height="440" fill="#1c2a3a" rx="6"/>
@@ -211,22 +264,30 @@
 
             <!-- ================================================
                  PISTA 20m × 10m
+                 Zona fondo: 3m = 120px | Zona saque: 7m = 280px
                  ================================================ -->
             <rect x="70" y="70" width="800" height="400" fill="#3a8fbf"/>
 
-            <!-- Zonas de saque -->
-            <rect x="350" y="70"  width="120" height="200" fill="#5bb8d4" opacity="0.55"/>
-            <rect x="350" y="270" width="120" height="200" fill="#5bb8d4" opacity="0.55"/>
-            <rect x="470" y="70"  width="120" height="200" fill="#5bb8d4" opacity="0.55"/>
-            <rect x="470" y="270" width="120" height="200" fill="#5bb8d4" opacity="0.55"/>
+            <!-- Zonas de saque (7m × 5m = 280 × 200 px) -->
+            <rect x="190" y="70"  width="280" height="200" fill="#5bb8d4" opacity="0.55"/>
+            <rect x="190" y="270" width="280" height="200" fill="#5bb8d4" opacity="0.55"/>
+            <rect x="470" y="70"  width="280" height="200" fill="#5bb8d4" opacity="0.55"/>
+            <rect x="470" y="270" width="280" height="200" fill="#5bb8d4" opacity="0.55"/>
 
-            <!-- Líneas -->
+            <!-- Perímetro -->
             <rect x="70" y="70" width="800" height="400" fill="none" stroke="white" stroke-width="2.5"/>
-            <line x1="350" y1="70" x2="350" y2="470" stroke="white" stroke-width="2.5"/>
-            <line x1="590" y1="70" x2="590" y2="470" stroke="white" stroke-width="2.5"/>
-            <line x1="350" y1="270" x2="590" y2="270" stroke="white" stroke-width="2.5"/>
 
-            <!-- Red -->
+            <!-- Líneas de saque (a 3m de la pared trasera = a 7m de la red) -->
+            <line x1="190" y1="70" x2="190" y2="470" stroke="white" stroke-width="2.5"/>
+            <line x1="750" y1="70" x2="750" y2="470" stroke="white" stroke-width="2.5"/>
+
+            <!-- Línea central de saque -->
+            <line x1="190" y1="270" x2="470" y2="270" stroke="white" stroke-width="2.5"/>
+            <line x1="470" y1="270" x2="750" y2="270" stroke="white" stroke-width="2.5"/>
+
+            <!-- ================================================
+                 RED (x=470, centro exacto)
+                 ================================================ -->
             <rect x="464" y="70" width="12" height="400" fill="#1a3a5c" opacity="0.9"/>
             <rect x="464" y="70" width="12" height="400" fill="url(#malla-red)"/>
             <line x1="464" y1="70"  x2="476" y2="70"  stroke="#e8ff3a" stroke-width="2"/>
@@ -234,18 +295,7 @@
             <circle cx="470" cy="70"  r="5" fill="#1a3a5c" stroke="#e8ff3a" stroke-width="1.5"/>
             <circle cx="470" cy="470" r="5" fill="#1a3a5c" stroke="#e8ff3a" stroke-width="1.5"/>
 
-            <!-- Etiquetas de medidas -->
-            <text x="470" y="515" text-anchor="middle" fill="#5bb8d4" font-size="12" font-family="monospace">20 m</text>
-            <text x="908" y="275" text-anchor="middle" fill="#5bb8d4" font-size="12" font-family="monospace"
-                  transform="rotate(90 908 275)">10 m</text>
-            <text x="210" y="62" text-anchor="middle" fill="#8a9ba8" font-size="10" font-family="monospace">7 m</text>
-            <text x="410" y="62" text-anchor="middle" fill="#e8ff3a" font-size="11" font-family="monospace" font-weight="bold">3 m</text>
-            <text x="530" y="62" text-anchor="middle" fill="#e8ff3a" font-size="11" font-family="monospace" font-weight="bold">3 m</text>
-            <text x="730" y="62" text-anchor="middle" fill="#8a9ba8" font-size="10" font-family="monospace">7 m</text>
-            <text x="46" y="170" text-anchor="middle" fill="#8a9ba8" font-size="10" font-family="monospace"
-                  transform="rotate(-90 46 170)">5 m</text>
-            <text x="46" y="370" text-anchor="middle" fill="#8a9ba8" font-size="10" font-family="monospace"
-                  transform="rotate(-90 46 370)">5 m</text>
+            <!-- Sin etiquetas de medidas (a petición) -->
 
             <!-- Capa de elementos interactivos -->
             <g id="capa-elementos"></g>
