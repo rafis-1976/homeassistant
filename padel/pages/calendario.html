@@ -81,6 +81,7 @@
     <form id="form-clase">
       <h2 id="modal-titulo">Nueva Clase</h2>
       <input type="hidden" id="clase-id">
+      <input type="hidden" id="titulo">
 
       <div class="modal-tabs" id="modal-tabs">
         <button type="button" class="modal-tab active" data-tipo="clase_profesor">
@@ -109,7 +110,11 @@
         </button>
       </div>
 
-      <label>Título <input type="text" id="titulo" required></label>
+      <!-- Indicador de tipo activo -->
+      <div class="tipo-activo" id="tipo-activo">
+        <span class="ta-icon">🎾</span>
+        <span class="ta-label">Clase profesor</span>
+      </div>
 
       <label>Fecha <input type="date" id="fecha" required></label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -210,18 +215,19 @@
 
     // ============================================================
     // CONFIGURACIÓN DE ROLES
+    // "titulo" → texto que se guarda automáticamente
     // ============================================================
     const ROLES = {
-      clase_profesor:   { label: 'Clase profesor',  icon: '🎾', color: '#3a8fbf', campos: ['ejercicio','tarea','alumnos','repetir'] },
-      clase_alumno:     { label: 'Clase alumno',    icon: '👨‍🎓', color: '#5bb8d4', campos: ['repetir'] },
-      partido_nacional: { label: 'Torneo nacional', icon: '🏆', color: '#e8ff3a', campos: [] },
-      partido_timpik:   { label: 'Liga Timpik',     icon: '⚔️', color: '#8a9ba8', campos: [] },
-      gimnasio:         { label: 'Gimnasio',        icon: '💪', color: '#e67e22', campos: ['tarea','repetir'] },
-      estudio:          { label: 'Estudio',         icon: '📚', color: '#8e44ad', campos: ['repetir'] }
+      clase_profesor:   { label: 'Clase profesor',         titulo: 'Clase profesor',         icon: '🎾', color: '#3a8fbf', campos: ['ejercicio','tarea','alumnos','repetir'] },
+      clase_alumno:     { label: 'Clase alumno',           titulo: 'Clase alumno',           icon: '👨‍🎓', color: '#5bb8d4', campos: ['repetir'] },
+      partido_nacional: { label: 'Torneo nacional',        titulo: 'Partido torneo nacional',icon: '🏆', color: '#e8ff3a', campos: [] },
+      partido_timpik:   { label: 'Liga Timpik',            titulo: 'Partido Liga Timpik',    icon: '⚔️', color: '#8a9ba8', campos: [] },
+      gimnasio:         { label: 'Gimnasio',               titulo: 'Gimnasio',               icon: '💪', color: '#e67e22', campos: ['tarea','repetir'] },
+      estudio:          { label: 'Estudio',                titulo: 'Estudio',                icon: '📚', color: '#8e44ad', campos: ['repetir'] }
     }
 
     function infoRol(tipo) {
-      return ROLES[tipo] || { label: tipo || '—', icon: '📅', color: '#3a8fbf', campos: [] }
+      return ROLES[tipo] || { label: tipo || '—', titulo: tipo || '—', icon: '📅', color: '#3a8fbf', campos: [] }
     }
 
     // ============================================================
@@ -255,6 +261,7 @@
     const bloqueTarea = document.getElementById('bloque-tarea')
     const bloqueAlumnos = document.getElementById('bloque-alumnos')
     const bloqueRepetir = document.getElementById('bloque-repetir')
+    const tipoActivoEl = document.getElementById('tipo-activo')
 
     const seccionRecuperar = document.getElementById('seccion-recuperar')
     const listaRecuperar = document.getElementById('lista-recuperar')
@@ -302,8 +309,6 @@
       return h * 60 + m
     }
 
-    // ⬇️ IMPORTANTE: verifica solapamiento contra TODAS las clases
-    // independientemente del tipo (profesor, alumno, gimnasio, etc.)
     function verificarSolapamiento(fecha, horaInicio, horaFin, excludeId = null) {
       const ini = tiempoAMinutos(horaInicio)
       const fin = tiempoAMinutos(horaFin)
@@ -311,8 +316,7 @@
       const conflictos = clasesCache.filter(c => {
         if (excludeId && c.id === excludeId) return false
         if (c.fecha !== fecha) return false
-        if (c.estado === 'anulada') return false  // Las anuladas no bloquean
-        // ⬇️ No filtramos por tipo: cualquier clase solapada bloquea
+        if (c.estado === 'anulada') return false
         const cIni = tiempoAMinutos(c.hora_inicio)
         const cFin = tiempoAMinutos(c.hora_fin)
         return ini < cFin && fin > cIni
@@ -337,12 +341,23 @@
     // ============================================================
     function aplicarTipoModal(tipo) {
       tipoModalActivo = tipo
+      const info = infoRol(tipo)
+
+      // ⬇️ Título automático = nombre del tipo
+      document.getElementById('titulo').value = info.titulo
+
+      // Indicador visual dentro del modal
+      tipoActivoEl.innerHTML = `
+        <span class="ta-icon">${info.icon}</span>
+        <span class="ta-label">${info.titulo}</span>
+      `
+      tipoActivoEl.style.borderLeftColor = info.color
 
       modalTabs.querySelectorAll('.modal-tab').forEach(t => {
         t.classList.toggle('active', t.dataset.tipo === tipo)
       })
 
-      const campos = infoRol(tipo).campos
+      const campos = info.campos
       bloqueEjercicio.style.display = campos.includes('ejercicio') ? 'block' : 'none'
       bloqueTarea.style.display     = campos.includes('tarea')     ? 'block' : 'none'
       bloqueAlumnos.style.display   = campos.includes('alumnos')   ? 'block' : 'none'
@@ -354,7 +369,6 @@
         previewRepeticion.textContent = ''
       }
 
-      // Si al cambiar de tipo ya había horas puestas, revalidar solape
       validarSolapeEnVivo()
     }
 
@@ -430,7 +444,8 @@
         const rol = infoRol(c.tipo)
         return {
           id: c.id,
-          title: c.titulo,
+          // ⬇️ Usamos siempre el título del rol (para clases antiguas también se "normaliza")
+          title: rol.titulo,
           start: `${c.fecha}T${c.hora_inicio}`,
           end: `${c.fecha}T${c.hora_fin}`,
           extendedProps: {
@@ -967,7 +982,6 @@
 
         document.getElementById('modal-titulo').textContent = 'Editar'
         document.getElementById('clase-id').value = clase.id
-        document.getElementById('titulo').value = clase.title
         inputFecha.value = clase.startStr.split('T')[0]
         inputHoraInicio.value = clase.startStr.split('T')[1]?.slice(0,5) || '09:00'
         inputHoraFin.value = clase.endStr?.split('T')[1]?.slice(0,5) || '10:00'
@@ -996,6 +1010,7 @@
         btnNuevaMismoDia.style.display = 'inline-flex'
         actualizarBotonesEstado(claseActualEstado)
 
+        // Aplica el tipo → pone el título automáticamente
         aplicarTipoModal(clase.extendedProps.tipo || 'clase_profesor')
       } else {
         claseActualId = null
@@ -1013,6 +1028,7 @@
         pintarAlumnos('')
         pintarSeccionRecuperar()
 
+        // Aplica el tipo del filtro activo → título automático
         aplicarTipoModal(rolActivo)
 
         if (clase?.fecha) {
@@ -1088,10 +1104,12 @@
       const id = document.getElementById('clase-id').value
       const alumnosIds = Array.from(alumnosSeleccionados)
 
-      const campos = infoRol(tipoModalActivo).campos
+      const info = infoRol(tipoModalActivo)
+      const campos = info.campos
 
       const datosBase = {
-        titulo: document.getElementById('titulo').value,
+        // ⬇️ TÍTULO AUTOMÁTICO = nombre del tipo
+        titulo: info.titulo,
         hora_inicio: inputHoraInicio.value,
         hora_fin: inputHoraFin.value,
         tipo: tipoModalActivo,
@@ -1109,7 +1127,6 @@
         return
       }
 
-      // ⬇️ Validar solapamiento contra cualquier tipo de clase
       const resSolape = verificarSolapamiento(fechaBase, datosBase.hora_inicio, datosBase.hora_fin, id || null)
       if (resSolape && resSolape.conflictos.length) {
         alert(`⚠️ Este horario se solapa con otra clase:\n\n${formatearConflictos(resSolape.conflictos)}`)
@@ -1141,7 +1158,6 @@
         if (fechas.length > 100) { alert('Demasiadas repeticiones'); modoGuardarYContinuar = false; return }
       }
 
-      // Validar solape en TODAS las fechas (contra cualquier tipo)
       const fechasOk = []
       const fechasConflicto = []
       for (const f of fechas) {
@@ -1191,7 +1207,6 @@
         document.body.appendChild(aviso)
         setTimeout(() => aviso.remove(), 2000)
 
-        document.getElementById('titulo').value = ''
         const hf = datosBase.hora_fin
         if (hf) {
           const [h, m] = hf.split(':').map(Number)
@@ -1216,7 +1231,6 @@
         actualizarAvisoDia()
         validarSolapeEnVivo()
         modal.scrollTop = 0
-        document.getElementById('titulo').focus()
         return
       }
 
@@ -1352,9 +1366,6 @@
   </script>
 
   <style>
-    /* ============================================================
-       PESTAÑAS EXTERNAS
-       ============================================================ */
     .tabs-roles {
       display: flex; gap: 6px; margin-bottom: 10px;
       overflow-x: auto; padding-bottom: 4px;
@@ -1410,7 +1421,7 @@
     .modal-tabs {
       display: flex;
       gap: 4px;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       padding: 4px;
       background: var(--fondo-app);
       border: 1px solid var(--borde-card);
@@ -1439,14 +1450,8 @@
       flex-shrink: 0;
       min-height: auto;
     }
-    .modal-tab:hover {
-      background: var(--fondo-card);
-      color: var(--texto-principal);
-    }
-    .modal-tab.active {
-      color: white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    }
+    .modal-tab:hover { background: var(--fondo-card); color: var(--texto-principal); }
+    .modal-tab.active { color: white; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
 
     .modal-tab[data-tipo="clase_profesor"].active   { background: #3a8fbf; }
     .modal-tab[data-tipo="clase_alumno"].active     { background: #5bb8d4; color: #0a1420; }
@@ -1458,9 +1463,25 @@
     .mt-icon { font-size: 0.95rem; line-height: 1; }
     .mt-label { font-size: 0.78rem; }
 
-    /* ============================================================
-       Resto
-       ============================================================ */
+    /* ⬇️ Indicador de tipo activo dentro del modal */
+    .tipo-activo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      border-left: 4px solid #3a8fbf;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--texto-principal);
+      transition: border-left-color 0.2s;
+    }
+    .tipo-activo .ta-icon { font-size: 1.15rem; line-height: 1; }
+
+    /* Resto de estilos (sin cambios) */
     .evento-contenido {
       display: flex; align-items: center; gap: 4px;
       overflow: hidden; white-space: nowrap; padding: 0 2px;
