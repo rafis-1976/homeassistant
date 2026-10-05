@@ -13,9 +13,6 @@
     <main class="content">
       <h1>📅 Calendario</h1>
 
-      <!-- ============================
-           6 PESTAÑAS POR ROL
-           ============================ -->
       <div class="tabs-roles" id="tabs-roles">
         <button class="tab-rol active" data-rol="clase_profesor">
           <span class="tab-icon">🎾</span>
@@ -49,7 +46,6 @@
         </button>
       </div>
 
-      <!-- Info de la pestaña activa -->
       <div class="tab-info" id="tab-info">
         <span class="tab-info-icon">🎾</span>
         <span class="tab-info-texto">Mostrando: <strong>Clases como profesor</strong></span>
@@ -86,7 +82,40 @@
       <h2 id="modal-titulo">Nueva Clase</h2>
       <input type="hidden" id="clase-id">
 
+      <!-- ============================
+           PESTAÑAS DEL MODAL (tipo)
+           ============================ -->
+      <div class="modal-tabs" id="modal-tabs">
+        <button type="button" class="modal-tab active" data-tipo="clase_profesor">
+          <span class="mt-icon">🎾</span>
+          <span class="mt-label">Clase profesor</span>
+        </button>
+        <button type="button" class="modal-tab" data-tipo="clase_alumno">
+          <span class="mt-icon">👨‍🎓</span>
+          <span class="mt-label">Clase alumno</span>
+        </button>
+        <button type="button" class="modal-tab" data-tipo="partido_nacional">
+          <span class="mt-icon">🏆</span>
+          <span class="mt-label">Torneo nacional</span>
+        </button>
+        <button type="button" class="modal-tab" data-tipo="partido_timpik">
+          <span class="mt-icon">⚔️</span>
+          <span class="mt-label">Liga Timpik</span>
+        </button>
+        <button type="button" class="modal-tab" data-tipo="gimnasio">
+          <span class="mt-icon">💪</span>
+          <span class="mt-label">Gimnasio</span>
+        </button>
+        <button type="button" class="modal-tab" data-tipo="estudio">
+          <span class="mt-icon">📚</span>
+          <span class="mt-label">Estudio</span>
+        </button>
+      </div>
+
+      <!-- Título -->
       <label>Título <input type="text" id="titulo" required></label>
+
+      <!-- Fecha y hora -->
       <label>Fecha <input type="date" id="fecha" required></label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <label>Hora inicio <input type="time" id="hora_inicio" required></label>
@@ -95,32 +124,34 @@
 
       <div id="aviso-solape" class="aviso-solape" style="display:none;"></div>
 
-      <label>Rol
-        <select id="tipo">
-          <option value="clase_profesor">🎾 Clase como profesor</option>
-          <option value="clase_alumno">👨‍🎓 Clase como alumno</option>
-          <option value="partido_nacional">🏆 Partido torneo nacional</option>
-          <option value="partido_timpik">⚔️ Partido Liga Timpik</option>
-          <option value="gimnasio">💪 Gimnasio</option>
-          <option value="estudio">📚 Estudio</option>
-        </select>
-      </label>
+      <!-- ============================
+           BLOQUE EJERCICIO (solo profesor + alumno)
+           ============================ -->
+      <div class="bloque-condicional" id="bloque-ejercicio">
+        <label>Ejercicio del catálogo
+          <select id="ejercicio_id">
+            <option value="">— Sin ejercicio —</option>
+          </select>
+        </label>
 
-      <label>Ejercicio del catálogo
-        <select id="ejercicio_id">
-          <option value="">— Sin ejercicio —</option>
-        </select>
-      </label>
+        <label>O escribe un ejercicio libre
+          <input type="text" id="ejercicio_libre" placeholder="Ej: Partidillos, Calentamiento...">
+        </label>
+      </div>
 
-      <label>O escribe un ejercicio libre
-        <input type="text" id="ejercicio_libre" placeholder="Ej: Partidillos, Calentamiento...">
-      </label>
+      <!-- ============================
+           BLOQUE TAREA (profesor + alumno + gimnasio)
+           ============================ -->
+      <div class="bloque-condicional" id="bloque-tarea">
+        <label>Añadir tarea
+          <textarea id="tarea" rows="2" placeholder="Ej: Repetir 20 voleas en casa, ver video del partido..."></textarea>
+        </label>
+      </div>
 
-      <label>Añadir tarea
-        <textarea id="tarea" rows="2" placeholder="Ej: Repetir 20 voleas en casa, ver video del partido..."></textarea>
-      </label>
-
-      <div class="bloque-alumnos">
+      <!-- ============================
+           BLOQUE ALUMNOS (solo profesor)
+           ============================ -->
+      <div class="bloque-alumnos bloque-condicional" id="bloque-alumnos">
         <div id="seccion-recuperar" class="seccion-recuperar" style="display:none;">
           <div class="seccion-recuperar-titulo">
             🔄 Alumnos con faltas por recuperar
@@ -153,7 +184,10 @@
         </div>
       </div>
 
-      <div id="bloque-repetir" class="bloque-repetir">
+      <!-- ============================
+           BLOQUE REPETIR (todos menos partidos)
+           ============================ -->
+      <div id="bloque-repetir" class="bloque-repetir bloque-condicional">
         <label class="check-repetir">
           <input type="checkbox" id="repetir_semanal">
           <span>🔁 Repetir esta clase todas las semanas</span>
@@ -192,19 +226,19 @@
     renderNav('calendario')
 
     // ============================================================
-    // MAPA DE ROLES
+    // CONFIGURACIÓN DE ROLES
     // ============================================================
     const ROLES = {
-      clase_profesor:   { label: 'Clase profesor',  icon: '🎾', color: '#3a8fbf', textColor: '#fff' },
-      clase_alumno:     { label: 'Clase alumno',    icon: '👨‍🎓', color: '#5bb8d4', textColor: '#0a1420' },
-      partido_nacional: { label: 'Torneo nacional', icon: '🏆', color: '#e8ff3a', textColor: '#1a2a42' },
-      partido_timpik:   { label: 'Liga Timpik',     icon: '⚔️', color: '#8a9ba8', textColor: '#0a1420' },
-      gimnasio:         { label: 'Gimnasio',        icon: '💪', color: '#e67e22', textColor: '#fff' },
-      estudio:          { label: 'Estudio',         icon: '📚', color: '#8e44ad', textColor: '#fff' }
+      clase_profesor:   { label: 'Clase profesor',  icon: '🎾', color: '#3a8fbf', campos: ['ejercicio','tarea','alumnos','repetir'] },
+      clase_alumno:     { label: 'Clase alumno',    icon: '👨‍🎓', color: '#5bb8d4', campos: ['ejercicio','tarea','repetir'] },
+      partido_nacional: { label: 'Torneo nacional', icon: '🏆', color: '#e8ff3a', campos: [] },
+      partido_timpik:   { label: 'Liga Timpik',     icon: '⚔️', color: '#8a9ba8', campos: [] },
+      gimnasio:         { label: 'Gimnasio',        icon: '💪', color: '#e67e22', campos: ['tarea','repetir'] },
+      estudio:          { label: 'Estudio',         icon: '📚', color: '#8e44ad', campos: ['repetir'] }
     }
 
     function infoRol(tipo) {
-      return ROLES[tipo] || { label: tipo || '—', icon: '📅', color: '#3a8fbf', textColor: '#fff' }
+      return ROLES[tipo] || { label: tipo || '—', icon: '📅', color: '#3a8fbf', campos: [] }
     }
 
     // ============================================================
@@ -231,8 +265,13 @@
     const inputFecha = document.getElementById('fecha')
     const inputHoraInicio = document.getElementById('hora_inicio')
     const inputHoraFin = document.getElementById('hora_fin')
-    const inputTipo = document.getElementById('tipo')
     const inputTarea = document.getElementById('tarea')
+
+    const modalTabs = document.getElementById('modal-tabs')
+    const bloqueEjercicio = document.getElementById('bloque-ejercicio')
+    const bloqueTarea = document.getElementById('bloque-tarea')
+    const bloqueAlumnos = document.getElementById('bloque-alumnos')
+    const bloqueRepetir = document.getElementById('bloque-repetir')
 
     const seccionRecuperar = document.getElementById('seccion-recuperar')
     const listaRecuperar = document.getElementById('lista-recuperar')
@@ -265,8 +304,10 @@
     let listadoFiltro = 'todas'
     let listadoBusqueda = ''
 
-    // ⬇️ PESTAÑA ACTIVA
+    // Pestaña externa (filtro)
     let rolActivo = 'clase_profesor'
+    // Pestaña interna del modal (tipo de clase)
+    let tipoModalActivo = 'clase_profesor'
 
     const diasSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
     const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
@@ -303,6 +344,39 @@
     function escapar(s) {
       return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     }
+
+    // ============================================================
+    // PESTAÑAS DEL MODAL — lógica de campos visibles
+    // ============================================================
+    function aplicarTipoModal(tipo) {
+      tipoModalActivo = tipo
+
+      // Resaltar pestaña activa
+      modalTabs.querySelectorAll('.modal-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tipo === tipo)
+      })
+
+      // Mostrar/ocultar bloques según rol
+      const campos = infoRol(tipo).campos
+      bloqueEjercicio.style.display = campos.includes('ejercicio') ? 'block' : 'none'
+      bloqueTarea.style.display     = campos.includes('tarea')     ? 'block' : 'none'
+      bloqueAlumnos.style.display   = campos.includes('alumnos')   ? 'block' : 'none'
+      bloqueRepetir.style.display   = campos.includes('repetir')   ? 'block' : 'none'
+
+      // Si no hay bloque de repetir, ocultar campos internos
+      if (!campos.includes('repetir')) {
+        checkRepetir.checked = false
+        camposRepetir.style.display = 'none'
+        previewRepeticion.textContent = ''
+      }
+    }
+
+    // Click en pestañas del modal
+    modalTabs.addEventListener('click', (e) => {
+      const tab = e.target.closest('.modal-tab')
+      if (!tab) return
+      aplicarTipoModal(tab.dataset.tipo)
+    })
 
     // ============================================================
     // CARGA DE DATOS
@@ -367,14 +441,12 @@
       }
 
       eventosCache = (data || []).map(c => {
-        const startStr = `${c.fecha}T${c.hora_inicio}`
-        const endStr = `${c.fecha}T${c.hora_fin}`
         const rol = infoRol(c.tipo)
         return {
           id: c.id,
           title: c.titulo,
-          start: startStr,
-          end: endStr,
+          start: `${c.fecha}T${c.hora_inicio}`,
+          end: `${c.fecha}T${c.hora_fin}`,
           extendedProps: {
             tipo: c.tipo,
             tipoLabel: rol.label,
@@ -439,10 +511,9 @@
     }
 
     // ============================================================
-    // PESTAÑAS — contadores y filtrado
+    // PESTAÑAS EXTERNAS — contadores y filtrado
     // ============================================================
     function actualizarContadoresTabs() {
-      // Contar cuántas clases hay de cada rol (en el rango visible)
       Object.keys(ROLES).forEach(rol => {
         const el = document.getElementById(`tab-count-${rol}`)
         if (!el) return
@@ -454,13 +525,10 @@
 
     function activarTab(rol) {
       rolActivo = rol
-
-      // Actualizar clases de pestañas
       document.querySelectorAll('.tab-rol').forEach(t => {
         t.classList.toggle('active', t.dataset.rol === rol)
       })
 
-      // Actualizar el texto informativo
       const info = infoRol(rol)
       tabInfo.innerHTML = `
         <span class="tab-info-icon">${info.icon}</span>
@@ -468,10 +536,7 @@
       `
       tabInfo.style.borderLeftColor = info.color
 
-      // Filtrar calendario
       filtrarCalendario()
-
-      // Repintar listado
       pintarListado()
     }
 
@@ -483,7 +548,6 @@
       })
     }
 
-    // Event listener para las pestañas
     tabsRoles.addEventListener('click', (e) => {
       const tab = e.target.closest('.tab-rol')
       if (!tab) return
@@ -737,7 +801,6 @@
       }
       listadoTitulo.style.color = rolInfo.color
 
-      // Filtrar por rango + rol activo
       let enRango = eventosCache.filter(ev => {
         if (ev.extendedProps.tipo !== rolActivo) return false
         const fecha = parseFechaLocal(ev.start)
@@ -835,6 +898,8 @@
                      : p.esRecuperacion ? '#8e44ad'
                      : infoRol(p.tipo).color
 
+      const mostrarAlumnos = p.tipo === 'clase_profesor'
+
       return `
         <div class="listado-clase" data-id="${ev.id}" style="border-left-color: ${colorBar};">
           <div class="listado-clase-hora">${hora}</div>
@@ -843,7 +908,7 @@
               <span class="listado-clase-icono">${icono}</span>
               ${escapar(ev.title)}
             </div>
-            <div class="listado-clase-alumnos">👥 ${escapar(alumnosTxt)}</div>
+            ${mostrarAlumnos ? `<div class="listado-clase-alumnos">👥 ${escapar(alumnosTxt)}</div>` : ''}
             ${p.tarea ? `<div class="listado-clase-tarea">📝 ${escapar(p.tarea)}</div>` : ''}
           </div>
         </div>
@@ -888,7 +953,7 @@
     })
 
     // ============================================================
-    // MODAL
+    // MODAL — ABRIR / GUARDAR / ESTADOS
     // ============================================================
     async function abrirModal(clase) {
       btnRealizada.style.display = 'none'
@@ -905,16 +970,16 @@
       await cargarFaltasPendientes()
 
       if (clase?.id) {
+        // EDITAR
         claseActualId = clase.id
         claseActualEstado = clase.extendedProps.estado
 
-        document.getElementById('modal-titulo').textContent = 'Editar Clase'
+        document.getElementById('modal-titulo').textContent = 'Editar'
         document.getElementById('clase-id').value = clase.id
         document.getElementById('titulo').value = clase.title
         inputFecha.value = clase.startStr.split('T')[0]
         inputHoraInicio.value = clase.startStr.split('T')[1]?.slice(0,5) || '09:00'
         inputHoraFin.value = clase.endStr?.split('T')[1]?.slice(0,5) || '10:00'
-        inputTipo.value = clase.extendedProps.tipo || rolActivo
         document.getElementById('ejercicio_id').value = clase.extendedProps.ejercicioId || ''
         document.getElementById('ejercicio_libre').value = clase.extendedProps.ejercicioLibre || ''
         inputTarea.value = clase.extendedProps.tarea || ''
@@ -936,28 +1001,32 @@
         pintarAlumnos(selectNivel.value)
         pintarSeccionRecuperar()
 
-        document.getElementById('bloque-repetir').style.display = 'none'
         document.getElementById('btn-guardar').textContent = '💾 Guardar cambios'
         btnNuevaMismoDia.style.display = 'inline-flex'
         actualizarBotonesEstado(claseActualEstado)
+
+        // Aplicar la pestaña del tipo real
+        aplicarTipoModal(clase.extendedProps.tipo || 'clase_profesor')
       } else {
+        // NUEVA
         claseActualId = null
         claseActualEstado = 'programada'
         form.reset()
-        document.getElementById('modal-titulo').textContent = 'Nueva Clase'
+        document.getElementById('modal-titulo').textContent = 'Nueva'
         document.getElementById('clase-id').value = ''
         inputFecha.value = clase?.fecha || ''
         inputHoraInicio.value = clase?.horaInicio || '09:00'
         inputHoraFin.value = clase?.horaFin || '10:00'
-        // ⬇️ Preseleccionar el rol de la pestaña activa
-        inputTipo.value = rolActivo
         inputTarea.value = ''
-        document.getElementById('bloque-repetir').style.display = 'block'
         document.getElementById('btn-guardar').textContent = '💾 Guardar'
         btnGuardarOtra.style.display = 'inline-flex'
         selectNivel.value = ''
         pintarAlumnos('')
         pintarSeccionRecuperar()
+
+        // Preseleccionar la pestaña del filtro externo activo
+        aplicarTipoModal(rolActivo)
+
         if (clase?.fecha) {
           actualizarAvisoDia()
           validarSolapeEnVivo()
@@ -1031,14 +1100,16 @@
       const id = document.getElementById('clase-id').value
       const alumnosIds = Array.from(alumnosSeleccionados)
 
+      const campos = infoRol(tipoModalActivo).campos
+
       const datosBase = {
         titulo: document.getElementById('titulo').value,
         hora_inicio: inputHoraInicio.value,
         hora_fin: inputHoraFin.value,
-        tipo: inputTipo.value,
-        ejercicio_id: document.getElementById('ejercicio_id').value || null,
-        ejercicio_libre: document.getElementById('ejercicio_libre').value || null,
-        tarea: inputTarea.value || null,
+        tipo: tipoModalActivo,
+        ejercicio_id: campos.includes('ejercicio') ? (document.getElementById('ejercicio_id').value || null) : null,
+        ejercicio_libre: campos.includes('ejercicio') ? (document.getElementById('ejercicio_libre').value || null) : null,
+        tarea: campos.includes('tarea') ? (inputTarea.value || null) : null,
         notas: document.getElementById('notas').value
       }
 
@@ -1050,6 +1121,9 @@
         return
       }
 
+      // Solo guardar alumnos si el rol lo permite
+      const alumnosAGuardar = campos.includes('alumnos') ? alumnosIds : []
+
       if (id) {
         const res = verificarSolapamiento(fechaBase, datosBase.hora_inicio, datosBase.hora_fin, id)
         if (res && res.conflictos.length) {
@@ -1059,8 +1133,8 @@
         }
         await supabase.from(TABLES.clases).update({ ...datosBase, fecha: fechaBase }).eq('id', id)
         await supabase.from(TABLES.claseAlumnos).delete().eq('clase_id', id)
-        if (alumnosIds.length) {
-          await supabase.from(TABLES.claseAlumnos).insert(alumnosIds.map(aid => ({ clase_id: id, alumno_id: aid })))
+        if (alumnosAGuardar.length) {
+          await supabase.from(TABLES.claseAlumnos).insert(alumnosAGuardar.map(aid => ({ clase_id: id, alumno_id: aid })))
         }
         await supabase.from(TABLES.faltas).update({ clase_recuperacion_id: null, recuperada: false }).eq('clase_recuperacion_id', id)
         for (const [alumnoId, faltaId] of faltasARecuperar) {
@@ -1072,7 +1146,7 @@
       }
 
       let fechas = [fechaBase]
-      if (checkRepetir.checked) {
+      if (checkRepetir.checked && campos.includes('repetir')) {
         fechas = calcularFechasRepeticion(fechaBase, inputRepetirHasta.value)
         if (fechas.length === 0) { alert('Fecha límite inválida'); modoGuardarYContinuar = false; return }
         if (fechas.length > 100) { alert('Demasiadas repeticiones'); modoGuardarYContinuar = false; return }
@@ -1103,13 +1177,13 @@
       const { data: insertadas, error } = await supabase.from(TABLES.clases).insert(clasesAInsertar).select()
       if (error) { alert('Error: ' + error.message); modoGuardarYContinuar = false; return }
 
-      if (alumnosIds.length && insertadas?.length) {
+      if (alumnosAGuardar.length && insertadas?.length) {
         const relaciones = []
-        insertadas.forEach(c => { alumnosIds.forEach(aid => relaciones.push({ clase_id: c.id, alumno_id: aid })) })
+        insertadas.forEach(c => { alumnosAGuardar.forEach(aid => relaciones.push({ clase_id: c.id, alumno_id: aid })) })
         await supabase.from(TABLES.claseAlumnos).insert(relaciones)
       }
 
-      if (insertadas?.length && faltasARecuperar.size > 0) {
+      if (insertadas?.length && faltasARecuperar.size > 0 && campos.includes('alumnos')) {
         const primeraClaseId = insertadas[0].id
         for (const [alumnoId, faltaId] of faltasARecuperar) {
           await supabase.from(TABLES.faltas).update({ clase_recuperacion_id: primeraClaseId }).eq('id', faltaId)
@@ -1138,11 +1212,10 @@
         document.getElementById('ejercicio_libre').value = ''
         inputTarea.value = ''
         document.getElementById('notas').value = ''
-        document.getElementById('bloque-repetir').style.display = 'block'
         checkRepetir.checked = false
         camposRepetir.style.display = 'none'
         previewRepeticion.textContent = ''
-        document.getElementById('modal-titulo').textContent = 'Nueva Clase (mismo día)'
+        document.getElementById('modal-titulo').textContent = 'Nueva (mismo día)'
         inputFecha.value = fg
         alumnosSeleccionados = new Set()
         faltasARecuperar = new Map()
@@ -1255,8 +1328,8 @@
 
       calendar.render()
 
-      // Aplicar filtro de la pestaña activa
       activarTab(rolActivo)
+      aplicarTipoModal(tipoModalActivo)
 
       if (calendar.view) {
         listadoRango = {
@@ -1290,48 +1363,28 @@
 
   <style>
     /* ============================================================
-       PESTAÑAS DE ROLES
+       PESTAÑAS EXTERNAS (filtro del calendario)
        ============================================================ */
     .tabs-roles {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 10px;
-      overflow-x: auto;
-      padding-bottom: 4px;
+      display: flex; gap: 6px; margin-bottom: 10px;
+      overflow-x: auto; padding-bottom: 4px;
       scrollbar-width: thin;
     }
     .tabs-roles::-webkit-scrollbar { height: 6px; }
     .tabs-roles::-webkit-scrollbar-thumb { background: var(--borde-card); border-radius: 3px; }
 
     .tab-rol {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 14px;
-      background: var(--fondo-card);
-      border: 1px solid var(--borde-card);
-      border-radius: 20px;
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--texto-secundario);
-      cursor: pointer;
-      transition: all 0.15s;
-      font-family: inherit;
-      white-space: nowrap;
-      flex-shrink: 0;
-      min-height: auto;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 14px; background: var(--fondo-card);
+      border: 1px solid var(--borde-card); border-radius: 20px;
+      font-size: 0.82rem; font-weight: 600;
+      color: var(--texto-secundario); cursor: pointer;
+      transition: all 0.15s; font-family: inherit;
+      white-space: nowrap; flex-shrink: 0; min-height: auto;
     }
-    .tab-rol:hover {
-      border-color: var(--pista-azul-claro);
-      color: var(--texto-principal);
-      transform: translateY(-1px);
-    }
-    .tab-rol.active {
-      color: white;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    }
+    .tab-rol:hover { border-color: var(--pista-azul-claro); color: var(--texto-principal); transform: translateY(-1px); }
+    .tab-rol.active { color: white; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
 
-    /* Colores de cada pestaña cuando está activa */
     .tab-rol[data-rol="clase_profesor"].active   { background: #3a8fbf; border-color: #3a8fbf; color: white; }
     .tab-rol[data-rol="clase_alumno"].active     { background: #5bb8d4; border-color: #5bb8d4; color: #0a1420; }
     .tab-rol[data-rol="partido_nacional"].active { background: #e8ff3a; border-color: #8a9900; color: #1a2a42; }
@@ -1343,45 +1396,81 @@
     .tab-label { font-size: 0.82rem; }
 
     .tab-count {
-      background: rgba(0,0,0,0.2);
-      padding: 1px 7px;
-      border-radius: 10px;
-      font-size: 0.68rem;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      min-width: 20px;
-      text-align: center;
+      background: rgba(0,0,0,0.2); padding: 1px 7px;
+      border-radius: 10px; font-size: 0.68rem; font-weight: 700;
+      font-variant-numeric: tabular-nums; min-width: 20px; text-align: center;
     }
-    .tab-rol.active .tab-count {
-      background: rgba(255,255,255,0.25);
-    }
-    .tab-count.empty {
-      opacity: 0.4;
-    }
+    .tab-rol.active .tab-count { background: rgba(255,255,255,0.25); }
+    .tab-count.empty { opacity: 0.4; }
 
-    /* Info de la pestaña activa */
     .tab-info {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      background: var(--fondo-card);
-      border: 1px solid var(--borde-card);
-      border-left: 4px solid #3a8fbf;
-      border-radius: var(--radio);
-      margin-bottom: 12px;
-      font-size: 0.88rem;
-      color: var(--texto-secundario);
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; background: var(--fondo-card);
+      border: 1px solid var(--borde-card); border-left: 4px solid #3a8fbf;
+      border-radius: var(--radio); margin-bottom: 12px;
+      font-size: 0.88rem; color: var(--texto-secundario);
       transition: border-left-color 0.2s;
     }
-    .tab-info strong {
-      color: var(--texto-principal);
-      font-weight: 700;
-    }
+    .tab-info strong { color: var(--texto-principal); font-weight: 700; }
     .tab-info-icon { font-size: 1.1rem; }
 
     /* ============================================================
-       Resto de estilos (igual que antes)
+       PESTAÑAS DENTRO DEL MODAL
+       ============================================================ */
+    .modal-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      padding: 4px;
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      border-radius: 10px;
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+    .modal-tabs::-webkit-scrollbar { height: 4px; }
+    .modal-tabs::-webkit-scrollbar-thumb { background: var(--borde-card); border-radius: 2px; }
+
+    .modal-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 8px 12px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--texto-secundario);
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-height: auto;
+    }
+    .modal-tab:hover {
+      background: var(--fondo-card);
+      color: var(--texto-principal);
+    }
+    .modal-tab.active {
+      color: white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+
+    /* Colores de pestañas del modal cuando están activas */
+    .modal-tab[data-tipo="clase_profesor"].active   { background: #3a8fbf; }
+    .modal-tab[data-tipo="clase_alumno"].active     { background: #5bb8d4; color: #0a1420; }
+    .modal-tab[data-tipo="partido_nacional"].active { background: #e8ff3a; color: #1a2a42; }
+    .modal-tab[data-tipo="partido_timpik"].active   { background: #8a9ba8; color: #0a1420; }
+    .modal-tab[data-tipo="gimnasio"].active         { background: #e67e22; }
+    .modal-tab[data-tipo="estudio"].active          { background: #8e44ad; }
+
+    .mt-icon { font-size: 0.95rem; line-height: 1; }
+    .mt-label { font-size: 0.78rem; }
+
+    /* ============================================================
+       Resto
        ============================================================ */
     .evento-contenido {
       display: flex; align-items: center; gap: 4px;
@@ -1561,29 +1650,21 @@
     }
     .fc { color: var(--texto-principal); }
     .fc-theme-standard td, .fc-theme-standard th { border-color: var(--borde-card); }
-    .fc .fc-button-primary {
-      background: var(--pista-azul-claro); border-color: var(--pista-azul-claro);
-    }
+    .fc .fc-button-primary { background: var(--pista-azul-claro); border-color: var(--pista-azul-claro); }
     .fc .fc-button-primary:hover { background: var(--pista-azul-medio); }
-    .fc .fc-button-primary:not(:disabled).fc-button-active {
-      background: var(--pista-azul-oscuro); border-color: var(--pista-azul-oscuro);
-    }
+    .fc .fc-button-primary:not(:disabled).fc-button-active { background: var(--pista-azul-oscuro); border-color: var(--pista-azul-oscuro); }
     .fc-day-today { background: rgba(232, 255, 58, 0.08) !important; }
     .fc .fc-timegrid-slot { height: 2.5em; }
     .fc .fc-timegrid-now-indicator-line { border-color: #e8ff3a; }
     .fc .fc-timegrid-now-indicator-arrow { border-color: #e8ff3a; background: #e8ff3a; }
     .fc .fc-more-link { color: var(--pista-azul-hielo); font-weight: 600; }
     .fc-highlight { background: rgba(232, 255, 58, 0.2) !important; }
-    .fc .fc-col-header-cell.fc-day-sat, .fc .fc-col-header-cell.fc-day-sun {
-      background: rgba(232, 255, 58, 0.04);
-    }
+    .fc .fc-col-header-cell.fc-day-sat, .fc .fc-col-header-cell.fc-day-sun { background: rgba(232, 255, 58, 0.04); }
 
     .listado-clases {
-      margin-top: 24px;
-      background: var(--fondo-card);
+      margin-top: 24px; background: var(--fondo-card);
       border: 1px solid var(--pista-azul-claro);
-      border-radius: var(--radio);
-      padding: 18px;
+      border-radius: var(--radio); padding: 18px;
       box-shadow: 0 0 0 2px rgba(58, 143, 191, 0.1) inset;
     }
     .listado-header {
@@ -1616,11 +1697,7 @@
       font-family: inherit; min-height: auto; white-space: nowrap;
     }
     .filtro-chip:hover { border-color: var(--pista-azul-claro); color: var(--texto-principal); }
-    .filtro-chip.active {
-      background: var(--pista-azul-claro);
-      border-color: var(--pista-azul-claro);
-      color: white;
-    }
+    .filtro-chip.active { background: var(--pista-azul-claro); border-color: var(--pista-azul-claro); color: white; }
     .listado-buscador { min-width: 200px; max-width: 320px; flex: 1; }
     .listado-contenido { display: flex; flex-direction: column; gap: 12px; }
     .listado-vacio {
@@ -1637,34 +1714,18 @@
       border-radius: 8px;
       padding: 12px 14px;
     }
-    .listado-dia.listado-hoy {
-      border-color: var(--pista-azul-hielo);
-      box-shadow: 0 0 0 1px rgba(91, 184, 212, 0.3) inset;
-    }
+    .listado-dia.listado-hoy { border-color: var(--pista-azul-hielo); box-shadow: 0 0 0 1px rgba(91, 184, 212, 0.3) inset; }
     .listado-dia-header {
       display: flex; align-items: center; gap: 10px;
       margin-bottom: 10px; padding-bottom: 8px;
       border-bottom: 1px solid var(--borde-card);
       flex-wrap: wrap;
     }
-    .listado-dia-fecha {
-      font-family: monospace; font-size: 1rem; font-weight: 700;
-      color: var(--texto-principal);
-    }
-    .listado-dia-nombre {
-      font-size: 0.88rem; color: var(--pista-azul-hielo); font-weight: 500;
-    }
-    .listado-hoy-tag {
-      background: var(--amarillo-pelota); color: #1a2a42;
-      padding: 2px 8px; border-radius: 8px;
-      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.5px;
-    }
-    .listado-dia-count {
-      margin-left: auto; font-size: 0.75rem; color: var(--texto-secundario);
-    }
-    .listado-clases-dia {
-      display: flex; flex-direction: column; gap: 6px;
-    }
+    .listado-dia-fecha { font-family: monospace; font-size: 1rem; font-weight: 700; color: var(--texto-principal); }
+    .listado-dia-nombre { font-size: 0.88rem; color: var(--pista-azul-hielo); font-weight: 500; }
+    .listado-hoy-tag { background: var(--amarillo-pelota); color: #1a2a42; padding: 2px 8px; border-radius: 8px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.5px; }
+    .listado-dia-count { margin-left: auto; font-size: 0.75rem; color: var(--texto-secundario); }
+    .listado-clases-dia { display: flex; flex-direction: column; gap: 6px; }
     .listado-clase {
       display: flex; align-items: flex-start; gap: 12px;
       background: var(--fondo-card);
@@ -1673,57 +1734,29 @@
       cursor: pointer;
       transition: transform 0.12s, background 0.12s;
     }
-    .listado-clase:hover {
-      background: rgba(58, 143, 191, 0.1);
-      transform: translateX(3px);
-    }
-    .listado-clase-hora {
-      font-family: monospace; font-size: 0.85rem; font-weight: 700;
-      color: var(--pista-azul-hielo); flex-shrink: 0;
-      padding-top: 1px; min-width: 105px;
-    }
+    .listado-clase:hover { background: rgba(58, 143, 191, 0.1); transform: translateX(3px); }
+    .listado-clase-hora { font-family: monospace; font-size: 0.85rem; font-weight: 700; color: var(--pista-azul-hielo); flex-shrink: 0; padding-top: 1px; min-width: 105px; }
     .listado-clase-info { flex: 1; min-width: 0; }
-    .listado-clase-titulo {
-      font-size: 0.92rem; font-weight: 600;
-      color: var(--texto-principal); margin-bottom: 3px;
-      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-    }
+    .listado-clase-titulo { font-size: 0.92rem; font-weight: 600; color: var(--texto-principal); margin-bottom: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .listado-clase-icono { font-size: 0.95rem; flex-shrink: 0; }
-    .listado-clase-alumnos {
-      font-size: 0.78rem; color: var(--texto-secundario);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
+    .listado-clase-alumnos { font-size: 0.78rem; color: var(--texto-secundario); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .listado-clase-tarea {
-      font-size: 0.75rem;
-      color: #e8ff3a;
-      margin-top: 3px;
+      font-size: 0.75rem; color: #e8ff3a; margin-top: 3px;
       background: rgba(232, 255, 58, 0.08);
-      padding: 2px 8px;
-      border-radius: 4px;
-      display: inline-block;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      padding: 2px 8px; border-radius: 4px;
+      display: inline-block; max-width: 100%;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
     @media (max-width: 768px) {
       #calendar { padding: 6px; }
-      .fc .fc-toolbar {
-        flex-direction: column !important;
-        gap: 8px !important; margin-bottom: 10px !important;
-      }
+      .fc .fc-toolbar { flex-direction: column !important; gap: 8px !important; margin-bottom: 10px !important; }
       .fc .fc-toolbar-chunk { display: flex; justify-content: center; width: 100%; }
       .fc .fc-toolbar-title { font-size: 1.05rem !important; text-align: center; }
-      .fc .fc-button {
-        padding: 7px 11px !important;
-        font-size: 0.8rem !important;
-        border-radius: 6px !important;
-      }
+      .fc .fc-button { padding: 7px 11px !important; font-size: 0.8rem !important; border-radius: 6px !important; }
       .fc .fc-button-group > .fc-button { border-radius: 6px !important; margin: 0 2px; }
       .fc .fc-button-group:first-child .fc-button,
       .fc .fc-toolbar-chunk:first-child .fc-button { min-width: 44px; }
-
       .evento-contenido { font-size: 0.72rem; gap: 2px; }
       .evento-hora { display: none; }
       .fc .fc-timegrid-slot { height: 2em; }
@@ -1735,14 +1768,15 @@
 
       .tabs-roles { gap: 5px; }
       .tab-rol { padding: 7px 12px; font-size: 0.78rem; }
-      .tab-label { display: none; }
-      .tab-rol .tab-label { display: inline; font-size: 0.74rem; }
+
+      .modal-tabs { gap: 3px; }
+      .modal-tab { padding: 7px 10px; font-size: 0.72rem; }
+      .mt-icon { font-size: 0.85rem; }
+      .mt-label { font-size: 0.7rem; }
 
       .listado-clases { margin-top: 16px; padding: 12px 10px; }
       .listado-header h2 { font-size: 1rem; }
-      .listado-toolbar {
-        flex-direction: column; align-items: stretch; gap: 8px;
-      }
+      .listado-toolbar { flex-direction: column; align-items: stretch; gap: 8px; }
       .listado-buscador { max-width: 100%; min-width: 100%; }
       .listado-clase-hora { font-size: 0.78rem; min-width: 88px; }
       .listado-clase-titulo { font-size: 0.85rem; }
@@ -1758,6 +1792,7 @@
       .listado-clase { flex-direction: column; gap: 4px; }
       .listado-clase-hora { min-width: auto; }
       .tab-label { display: none; }
+      .mt-label { display: none; }
     }
   </style>
 </body>
