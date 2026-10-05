@@ -82,9 +82,6 @@
       <h2 id="modal-titulo">Nueva Clase</h2>
       <input type="hidden" id="clase-id">
 
-      <!-- ============================
-           PESTAÑAS DEL MODAL (tipo)
-           ============================ -->
       <div class="modal-tabs" id="modal-tabs">
         <button type="button" class="modal-tab active" data-tipo="clase_profesor">
           <span class="mt-icon">🎾</span>
@@ -112,10 +109,8 @@
         </button>
       </div>
 
-      <!-- Título -->
       <label>Título <input type="text" id="titulo" required></label>
 
-      <!-- Fecha y hora -->
       <label>Fecha <input type="date" id="fecha" required></label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <label>Hora inicio <input type="time" id="hora_inicio" required></label>
@@ -124,9 +119,6 @@
 
       <div id="aviso-solape" class="aviso-solape" style="display:none;"></div>
 
-      <!-- ============================
-           BLOQUE EJERCICIO (solo profesor + alumno)
-           ============================ -->
       <div class="bloque-condicional" id="bloque-ejercicio">
         <label>Ejercicio del catálogo
           <select id="ejercicio_id">
@@ -139,18 +131,12 @@
         </label>
       </div>
 
-      <!-- ============================
-           BLOQUE TAREA (profesor + alumno + gimnasio)
-           ============================ -->
       <div class="bloque-condicional" id="bloque-tarea">
         <label>Añadir tarea
           <textarea id="tarea" rows="2" placeholder="Ej: Repetir 20 voleas en casa, ver video del partido..."></textarea>
         </label>
       </div>
 
-      <!-- ============================
-           BLOQUE ALUMNOS (solo profesor)
-           ============================ -->
       <div class="bloque-alumnos bloque-condicional" id="bloque-alumnos">
         <div id="seccion-recuperar" class="seccion-recuperar" style="display:none;">
           <div class="seccion-recuperar-titulo">
@@ -184,9 +170,6 @@
         </div>
       </div>
 
-      <!-- ============================
-           BLOQUE REPETIR (todos menos partidos)
-           ============================ -->
       <div id="bloque-repetir" class="bloque-repetir bloque-condicional">
         <label class="check-repetir">
           <input type="checkbox" id="repetir_semanal">
@@ -230,7 +213,7 @@
     // ============================================================
     const ROLES = {
       clase_profesor:   { label: 'Clase profesor',  icon: '🎾', color: '#3a8fbf', campos: ['ejercicio','tarea','alumnos','repetir'] },
-      clase_alumno:     { label: 'Clase alumno',    icon: '👨‍🎓', color: '#5bb8d4', campos: ['ejercicio','tarea','repetir'] },
+      clase_alumno:     { label: 'Clase alumno',    icon: '👨‍🎓', color: '#5bb8d4', campos: ['repetir'] },
       partido_nacional: { label: 'Torneo nacional', icon: '🏆', color: '#e8ff3a', campos: [] },
       partido_timpik:   { label: 'Liga Timpik',     icon: '⚔️', color: '#8a9ba8', campos: [] },
       gimnasio:         { label: 'Gimnasio',        icon: '💪', color: '#e67e22', campos: ['tarea','repetir'] },
@@ -304,9 +287,7 @@
     let listadoFiltro = 'todas'
     let listadoBusqueda = ''
 
-    // Pestaña externa (filtro)
     let rolActivo = 'clase_profesor'
-    // Pestaña interna del modal (tipo de clase)
     let tipoModalActivo = 'clase_profesor'
 
     const diasSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
@@ -321,6 +302,8 @@
       return h * 60 + m
     }
 
+    // ⬇️ IMPORTANTE: verifica solapamiento contra TODAS las clases
+    // independientemente del tipo (profesor, alumno, gimnasio, etc.)
     function verificarSolapamiento(fecha, horaInicio, horaFin, excludeId = null) {
       const ini = tiempoAMinutos(horaInicio)
       const fin = tiempoAMinutos(horaFin)
@@ -328,7 +311,8 @@
       const conflictos = clasesCache.filter(c => {
         if (excludeId && c.id === excludeId) return false
         if (c.fecha !== fecha) return false
-        if (c.estado === 'anulada') return false
+        if (c.estado === 'anulada') return false  // Las anuladas no bloquean
+        // ⬇️ No filtramos por tipo: cualquier clase solapada bloquea
         const cIni = tiempoAMinutos(c.hora_inicio)
         const cFin = tiempoAMinutos(c.hora_fin)
         return ini < cFin && fin > cIni
@@ -338,7 +322,10 @@
     }
 
     function formatearConflictos(conflictos) {
-      return conflictos.map(c => `• ${c.hora_inicio.slice(0,5)}–${c.hora_fin.slice(0,5)}  "${c.titulo}"`).join('\n')
+      return conflictos.map(c => {
+        const rol = infoRol(c.tipo)
+        return `• ${c.hora_inicio.slice(0,5)}–${c.hora_fin.slice(0,5)}  ${rol.icon} "${c.titulo}"`
+      }).join('\n')
     }
 
     function escapar(s) {
@@ -346,32 +333,31 @@
     }
 
     // ============================================================
-    // PESTAÑAS DEL MODAL — lógica de campos visibles
+    // PESTAÑAS DEL MODAL
     // ============================================================
     function aplicarTipoModal(tipo) {
       tipoModalActivo = tipo
 
-      // Resaltar pestaña activa
       modalTabs.querySelectorAll('.modal-tab').forEach(t => {
         t.classList.toggle('active', t.dataset.tipo === tipo)
       })
 
-      // Mostrar/ocultar bloques según rol
       const campos = infoRol(tipo).campos
       bloqueEjercicio.style.display = campos.includes('ejercicio') ? 'block' : 'none'
       bloqueTarea.style.display     = campos.includes('tarea')     ? 'block' : 'none'
       bloqueAlumnos.style.display   = campos.includes('alumnos')   ? 'block' : 'none'
       bloqueRepetir.style.display   = campos.includes('repetir')   ? 'block' : 'none'
 
-      // Si no hay bloque de repetir, ocultar campos internos
       if (!campos.includes('repetir')) {
         checkRepetir.checked = false
         camposRepetir.style.display = 'none'
         previewRepeticion.textContent = ''
       }
+
+      // Si al cambiar de tipo ya había horas puestas, revalidar solape
+      validarSolapeEnVivo()
     }
 
-    // Click en pestañas del modal
     modalTabs.addEventListener('click', (e) => {
       const tab = e.target.closest('.modal-tab')
       if (!tab) return
@@ -427,7 +413,7 @@
 
       clasesCache = (data || []).map(c => ({
         id: c.id, fecha: c.fecha, hora_inicio: c.hora_inicio, hora_fin: c.hora_fin,
-        titulo: c.titulo, estado: c.estado
+        titulo: c.titulo, estado: c.estado, tipo: c.tipo
       }))
 
       const claseIds = (data || []).map(c => c.id)
@@ -511,7 +497,7 @@
     }
 
     // ============================================================
-    // PESTAÑAS EXTERNAS — contadores y filtrado
+    // PESTAÑAS EXTERNAS
     // ============================================================
     function actualizarContadoresTabs() {
       Object.keys(ROLES).forEach(rol => {
@@ -746,7 +732,10 @@
           avisoSolape.innerHTML = `
             <strong>⚠️ ${res.error}</strong>
             <ul style="margin:6px 0 0 18px;padding:0;font-size:0.78rem;">
-              ${res.conflictos.map(c => `<li>${c.hora_inicio.slice(0,5)}–${c.hora_fin.slice(0,5)} · ${escapar(c.titulo)}</li>`).join('')}
+              ${res.conflictos.map(c => {
+                const rol = infoRol(c.tipo)
+                return `<li>${c.hora_inicio.slice(0,5)}–${c.hora_fin.slice(0,5)} ${rol.icon} · ${escapar(c.titulo)}</li>`
+              }).join('')}
             </ul>
           `
         }
@@ -766,13 +755,16 @@
       avisoDia.innerHTML = `
         <div class="aviso-titulo">📌 Ya hay <strong>${delDia.length}</strong> clase${delDia.length > 1 ? 's' : ''} este día:</div>
         <ul class="aviso-lista">
-          ${delDia.map(c => `
-            <li>
-              <span class="aviso-hora">${c.hora_inicio.slice(0,5)}–${c.hora_fin.slice(0,5)}</span>
-              <span class="aviso-nombre">${escapar(c.titulo)}</span>
-              ${c.estado === 'anulada' ? '<span style="color:#e74c3c;">🚫</span>' : ''}
-            </li>
-          `).join('')}
+          ${delDia.map(c => {
+            const rol = infoRol(c.tipo)
+            return `
+              <li>
+                <span class="aviso-hora">${c.hora_inicio.slice(0,5)}–${c.hora_fin.slice(0,5)}</span>
+                <span class="aviso-nombre">${rol.icon} ${escapar(c.titulo)}</span>
+                ${c.estado === 'anulada' ? '<span style="color:#e74c3c;">🚫</span>' : ''}
+              </li>
+            `
+          }).join('')}
         </ul>
       `
     }
@@ -953,7 +945,7 @@
     })
 
     // ============================================================
-    // MODAL — ABRIR / GUARDAR / ESTADOS
+    // MODAL
     // ============================================================
     async function abrirModal(clase) {
       btnRealizada.style.display = 'none'
@@ -970,7 +962,6 @@
       await cargarFaltasPendientes()
 
       if (clase?.id) {
-        // EDITAR
         claseActualId = clase.id
         claseActualEstado = clase.extendedProps.estado
 
@@ -1005,10 +996,8 @@
         btnNuevaMismoDia.style.display = 'inline-flex'
         actualizarBotonesEstado(claseActualEstado)
 
-        // Aplicar la pestaña del tipo real
         aplicarTipoModal(clase.extendedProps.tipo || 'clase_profesor')
       } else {
-        // NUEVA
         claseActualId = null
         claseActualEstado = 'programada'
         form.reset()
@@ -1024,7 +1013,6 @@
         pintarAlumnos('')
         pintarSeccionRecuperar()
 
-        // Preseleccionar la pestaña del filtro externo activo
         aplicarTipoModal(rolActivo)
 
         if (clase?.fecha) {
@@ -1116,21 +1104,22 @@
       const fechaBase = inputFecha.value
 
       if (tiempoAMinutos(datosBase.hora_fin) <= tiempoAMinutos(datosBase.hora_inicio)) {
-        alert('⚠️ La hora de fin debe ser posterior a la hora de inicio')
+        alert('⚠️ La hora de fin debe ser posterior a la de inicio')
         modoGuardarYContinuar = false
         return
       }
 
-      // Solo guardar alumnos si el rol lo permite
+      // ⬇️ Validar solapamiento contra cualquier tipo de clase
+      const resSolape = verificarSolapamiento(fechaBase, datosBase.hora_inicio, datosBase.hora_fin, id || null)
+      if (resSolape && resSolape.conflictos.length) {
+        alert(`⚠️ Este horario se solapa con otra clase:\n\n${formatearConflictos(resSolape.conflictos)}`)
+        modoGuardarYContinuar = false
+        return
+      }
+
       const alumnosAGuardar = campos.includes('alumnos') ? alumnosIds : []
 
       if (id) {
-        const res = verificarSolapamiento(fechaBase, datosBase.hora_inicio, datosBase.hora_fin, id)
-        if (res && res.conflictos.length) {
-          alert(`⚠️ Solapa con otra clase\n\n${formatearConflictos(res.conflictos)}`)
-          modoGuardarYContinuar = false
-          return
-        }
         await supabase.from(TABLES.clases).update({ ...datosBase, fecha: fechaBase }).eq('id', id)
         await supabase.from(TABLES.claseAlumnos).delete().eq('clase_id', id)
         if (alumnosAGuardar.length) {
@@ -1152,6 +1141,7 @@
         if (fechas.length > 100) { alert('Demasiadas repeticiones'); modoGuardarYContinuar = false; return }
       }
 
+      // Validar solape en TODAS las fechas (contra cualquier tipo)
       const fechasOk = []
       const fechasConflicto = []
       for (const f of fechas) {
@@ -1163,7 +1153,7 @@
       if (fechasConflicto.length > 0) {
         const detalle = fechasConflicto.map(x => `📅 ${x.fecha}\n${formatearConflictos(x.conflictos)}`).join('\n\n')
         if (fechasOk.length === 0) {
-          alert(`⚠️ Todas con conflicto:\n\n${detalle}`)
+          alert(`⚠️ Todas las fechas tienen conflicto:\n\n${detalle}`)
           modoGuardarYContinuar = false
           return
         }
@@ -1363,7 +1353,7 @@
 
   <style>
     /* ============================================================
-       PESTAÑAS EXTERNAS (filtro del calendario)
+       PESTAÑAS EXTERNAS
        ============================================================ */
     .tabs-roles {
       display: flex; gap: 6px; margin-bottom: 10px;
@@ -1415,7 +1405,7 @@
     .tab-info-icon { font-size: 1.1rem; }
 
     /* ============================================================
-       PESTAÑAS DENTRO DEL MODAL
+       PESTAÑAS DEL MODAL
        ============================================================ */
     .modal-tabs {
       display: flex;
@@ -1458,7 +1448,6 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
 
-    /* Colores de pestañas del modal cuando están activas */
     .modal-tab[data-tipo="clase_profesor"].active   { background: #3a8fbf; }
     .modal-tab[data-tipo="clase_alumno"].active     { background: #5bb8d4; color: #0a1420; }
     .modal-tab[data-tipo="partido_nacional"].active { background: #e8ff3a; color: #1a2a42; }
