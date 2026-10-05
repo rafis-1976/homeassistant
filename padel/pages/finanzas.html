@@ -67,28 +67,17 @@
       <input type="hidden" id="movimiento-id">
       <input type="hidden" id="movimiento-tipo">
 
-      <div class="tipo-selector" id="tipo-selector">
-        <button type="button" class="tipo-btn" data-tipo="ingreso">➕ Ingreso</button>
-        <button type="button" class="tipo-btn" data-tipo="gasto">➖ Gasto</button>
+      <!-- Indicador de tipo (solo informativo, no clicable) -->
+      <div class="tipo-info" id="tipo-info">
+        <span class="tipo-info-icon">➕</span>
+        <span class="tipo-info-label">Ingreso</span>
       </div>
 
       <label>Fecha <input type="date" id="fecha" required></label>
 
       <label>Categoría
         <select id="categoria" required>
-          <optgroup label="Ingresos / Actividades">
-            <option value="clase_profesor">🎾 Clase profesor</option>
-            <option value="clase_alumno">👨‍🎓 Clase alumno</option>
-            <option value="partido_nacional">🏆 Partido torneo nacional</option>
-            <option value="partido_timpik">⚔️ Partido Liga Timpik</option>
-            <option value="gimnasio">💪 Gimnasio</option>
-            <option value="estudio">📚 Estudio</option>
-          </optgroup>
-          <optgroup label="Gastos">
-            <option value="traslado">🚗 Traslado / Gasolina</option>
-            <option value="material">🎒 Material</option>
-            <option value="otro">📦 Otro</option>
-          </optgroup>
+          <!-- Se rellena dinámicamente según tipo -->
         </select>
       </label>
 
@@ -110,7 +99,7 @@
 
       <div class="modal-actions">
         <button type="button" class="btn-secondary" id="btn-cancelar">Cancelar</button>
-        <button type="submit" class="btn-primary">💾 Guardar</button>
+        <button type="submit" class="btn-primary" id="btn-guardar">💾 Guardar</button>
       </div>
     </form>
   </dialog>
@@ -122,9 +111,19 @@
     renderNav('finanzas')
 
     // ============================================================
-    // CATEGORÍAS
+    // CATEGORÍAS — separadas por tipo
     // ============================================================
-    const CATEGORIAS = {
+    const CATEGORIAS_INGRESO = {
+      clase_profesor:   { label: 'Clase profesor',     icon: '🎾', color: '#3a8fbf' },
+      clase_alumno:     { label: 'Clase alumno',       icon: '👨‍🎓', color: '#5bb8d4' },
+      partido_nacional: { label: 'Torneo nacional',    icon: '🏆', color: '#e8ff3a' },
+      partido_timpik:   { label: 'Liga Timpik',        icon: '⚔️', color: '#8a9ba8' },
+      gimnasio:         { label: 'Gimnasio',           icon: '💪', color: '#e67e22' },
+      estudio:          { label: 'Estudio',            icon: '📚', color: '#8e44ad' },
+      otro:             { label: 'Otro ingreso',       icon: '📦', color: '#27ae60' }
+    }
+
+    const CATEGORIAS_GASTO = {
       clase_profesor:   { label: 'Clase profesor',     icon: '🎾', color: '#3a8fbf' },
       clase_alumno:     { label: 'Clase alumno',       icon: '👨‍🎓', color: '#5bb8d4' },
       partido_nacional: { label: 'Torneo nacional',    icon: '🏆', color: '#e8ff3a' },
@@ -133,11 +132,13 @@
       estudio:          { label: 'Estudio',            icon: '📚', color: '#8e44ad' },
       traslado:         { label: 'Traslado',           icon: '🚗', color: '#e74c3c' },
       material:         { label: 'Material',           icon: '🎒', color: '#c0392b' },
-      otro:             { label: 'Otro',               icon: '📦', color: '#7f8c8d' }
+      otro:             { label: 'Otro gasto',         icon: '📦', color: '#7f8c8d' }
     }
 
+    const TODAS_CATEGORIAS = { ...CATEGORIAS_INGRESO, ...CATEGORIAS_GASTO }
+
     function infoCat(cat) {
-      return CATEGORIAS[cat] || { label: cat || '—', icon: '📦', color: '#7f8c8d' }
+      return TODAS_CATEGORIAS[cat] || { label: cat || '—', icon: '📦', color: '#7f8c8d' }
     }
 
     // ============================================================
@@ -151,13 +152,14 @@
 
     const modal = document.getElementById('modal-movimiento')
     const form = document.getElementById('form-movimiento')
-    const tipoSelector = document.getElementById('tipo-selector')
+    const tipoInfo = document.getElementById('tipo-info')
     const selectClase = document.getElementById('clase_id')
     const selectCategoria = document.getElementById('categoria')
+    const btnGuardar = document.getElementById('btn-guardar')
 
     let movimientosCache = []
     let clasesCache = []
-    let filtroMes = new Date().toISOString().slice(0, 7)   // 'YYYY-MM'
+    let filtroMes = new Date().toISOString().slice(0, 7)
     let filtroTodo = false
 
     // ============================================================
@@ -183,12 +185,6 @@
     document.getElementById('btn-nuevo-ingreso').onclick = () => abrirModal(null, 'ingreso')
     document.getElementById('btn-nuevo-gasto').onclick = () => abrirModal(null, 'gasto')
     document.getElementById('btn-cancelar').onclick = () => modal.close()
-
-    tipoSelector.addEventListener('click', (e) => {
-      const btn = e.target.closest('.tipo-btn')
-      if (!btn) return
-      setTipoModal(btn.dataset.tipo)
-    })
 
     form.addEventListener('submit', guardarMovimiento)
 
@@ -243,7 +239,6 @@
         .filter(m => m.tipo === 'gasto')
         .reduce((s, m) => s + Number(m.importe || 0), 0)
       const balance = ingresos - gastos
-
       const colorBalance = balance >= 0 ? '#27ae60' : '#e74c3c'
 
       statsFinanzas.innerHTML = `
@@ -354,18 +349,37 @@
     }
 
     // ============================================================
-    // MODAL
+    // MODAL — Configurar según tipo
     // ============================================================
-    function setTipoModal(tipo) {
+    function configurarModalSegunTipo(tipo) {
+      // Guardar el tipo en el hidden
       document.getElementById('movimiento-tipo').value = tipo
-      tipoSelector.querySelectorAll('.tipo-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.tipo === tipo)
-        b.classList.toggle('active-ingreso', b.dataset.tipo === 'ingreso' && tipo === 'ingreso')
-        b.classList.toggle('active-gasto', b.dataset.tipo === 'gasto' && tipo === 'gasto')
-      })
-      // Sugerir categoría por defecto
-      if (!document.getElementById('movimiento-id').value) {
-        selectCategoria.value = tipo === 'ingreso' ? 'clase_profesor' : 'traslado'
+
+      // Info visual
+      if (tipo === 'ingreso') {
+        tipoInfo.innerHTML = `<span class="tipo-info-icon">➕</span><span class="tipo-info-label">Nuevo Ingreso</span>`
+        tipoInfo.classList.remove('tipo-info-gasto')
+        tipoInfo.classList.add('tipo-info-ingreso')
+        btnGuardar.textContent = '💾 Guardar ingreso'
+        btnGuardar.classList.remove('btn-guardar-gasto')
+        btnGuardar.classList.add('btn-guardar-ingreso')
+
+        // Rellenar categorías solo de INGRESO
+        selectCategoria.innerHTML = Object.entries(CATEGORIAS_INGRESO)
+          .map(([k, v]) => `<option value="${k}">${v.icon} ${v.label}</option>`)
+          .join('')
+      } else {
+        tipoInfo.innerHTML = `<span class="tipo-info-icon">➖</span><span class="tipo-info-label">Nuevo Gasto</span>`
+        tipoInfo.classList.remove('tipo-info-ingreso')
+        tipoInfo.classList.add('tipo-info-gasto')
+        btnGuardar.textContent = '💾 Guardar gasto'
+        btnGuardar.classList.remove('btn-guardar-ingreso')
+        btnGuardar.classList.add('btn-guardar-gasto')
+
+        // Rellenar categorías solo de GASTO
+        selectCategoria.innerHTML = Object.entries(CATEGORIAS_GASTO)
+          .map(([k, v]) => `<option value="${k}">${v.icon} ${v.label}</option>`)
+          .join('')
       }
     }
 
@@ -377,7 +391,13 @@
       selectClase.innerHTML = '<option value="">— Sin vincular —</option>' + opcionesClases
 
       if (mov) {
-        document.getElementById('modal-titulo').textContent = 'Editar movimiento'
+        // EDITAR — el tipo no se puede cambiar
+        const tipo = mov.tipo
+        document.getElementById('modal-titulo').textContent = tipo === 'ingreso' ? 'Editar ingreso' : 'Editar gasto'
+
+        // Primero configuramos el tipo (rellena el select de categorías)
+        configurarModalSegunTipo(tipo)
+
         document.getElementById('movimiento-id').value = mov.id
         document.getElementById('fecha').value = mov.fecha
         document.getElementById('categoria').value = mov.categoria
@@ -385,13 +405,16 @@
         document.getElementById('importe').value = mov.importe
         document.getElementById('clase_id').value = mov.clase_id || ''
         document.getElementById('notas').value = mov.notas || ''
-        setTipoModal(mov.tipo)
       } else {
+        // NUEVA
         form.reset()
         document.getElementById('modal-titulo').textContent = tipoInicial === 'ingreso' ? 'Nuevo ingreso' : 'Nuevo gasto'
+
+        // Configuramos el tipo (rellena el select)
+        configurarModalSegunTipo(tipoInicial)
+
         document.getElementById('movimiento-id').value = ''
         document.getElementById('fecha').value = new Date().toISOString().split('T')[0]
-        setTipoModal(tipoInicial)
       }
 
       modal.showModal()
@@ -598,37 +621,48 @@
     }
 
     /* ============================
-       Modal movimiento
+       Modal — indicador de tipo
        ============================ */
-    .tipo-selector {
+    .tipo-info {
       display: flex;
-      gap: 8px;
-      margin-bottom: 14px;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      border: 2px solid;
     }
-    .tipo-btn {
-      flex: 1;
-      padding: 12px;
-      background: var(--fondo-app);
-      border: 2px solid var(--borde-card);
-      border-radius: 8px;
-      color: var(--texto-secundario);
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-      font-family: inherit;
-      min-height: auto;
+    .tipo-info-icon {
+      font-size: 1.4rem;
     }
-    .tipo-btn:hover { border-color: var(--pista-azul-claro); color: var(--texto-principal); }
-    .tipo-btn.active-ingreso {
-      background: rgba(39, 174, 96, 0.15);
+    .tipo-info-ingreso {
+      background: rgba(39, 174, 96, 0.12);
       border-color: #27ae60;
       color: #2ecc71;
     }
-    .tipo-btn.active-gasto {
-      background: rgba(231, 76, 60, 0.15);
+    .tipo-info-gasto {
+      background: rgba(231, 76, 60, 0.12);
       border-color: #c0392b;
       color: #ff6b5b;
+    }
+
+    /* Botón de guardar con color según tipo */
+    .btn-guardar-ingreso {
+      background: linear-gradient(135deg, #27ae60, #1e8449) !important;
+      border: none;
+    }
+    .btn-guardar-ingreso:hover {
+      background: linear-gradient(135deg, #2ecc71, #27ae60) !important;
+    }
+    .btn-guardar-gasto {
+      background: linear-gradient(135deg, #c0392b, #922b21) !important;
+      border: none;
+    }
+    .btn-guardar-gasto:hover {
+      background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
     }
 
     /* ============================
@@ -642,7 +676,8 @@
     @media (max-width: 480px) {
       .grid-categorias { grid-template-columns: 1fr; }
       .stats-finanzas { grid-template-columns: 1fr; }
-      .tipo-selector { flex-direction: column; }
+      .page-header .acciones { flex-direction: column; }
+      .page-header .acciones > * { width: 100%; }
     }
   </style>
 </body>
