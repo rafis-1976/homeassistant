@@ -19,5 +19,6 @@ export const TABLES = {
   progresoAlumnos:  'padel_progreso_alumnos',
   faltas:           'padel_faltas',
   pagos:            'padel_pagos',
-  tarifas:          'padel_tarifas'
+  tarifas:          'padel_tarifas',
+  finanzas:         'padel_finanzas'   // ← NUEVO
 }
