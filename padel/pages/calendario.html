@@ -11,22 +11,55 @@
   <div class="layout">
     <nav class="sidebar"></nav>
     <main class="content">
-      <h1>📅 Calendario de Clases</h1>
+      <h1>📅 Calendario</h1>
 
-      <div class="leyenda-calendario">
-        <span class="leyenda-item"><span class="dot dot-clase-profesor"></span> Clase profesor</span>
-        <span class="leyenda-item"><span class="dot dot-clase-alumno"></span> Clase alumno</span>
-        <span class="leyenda-item"><span class="dot dot-partido-nacional"></span> Torneo nacional</span>
-        <span class="leyenda-item"><span class="dot dot-partido-timpik"></span> Liga Timpik</span>
-        <span class="leyenda-item"><span class="dot dot-gimnasio"></span> Gimnasio</span>
-        <span class="leyenda-item"><span class="dot dot-estudio"></span> Estudio</span>
+      <!-- ============================
+           6 PESTAÑAS POR ROL
+           ============================ -->
+      <div class="tabs-roles" id="tabs-roles">
+        <button class="tab-rol active" data-rol="clase_profesor">
+          <span class="tab-icon">🎾</span>
+          <span class="tab-label">Clase profesor</span>
+          <span class="tab-count" id="tab-count-clase_profesor">0</span>
+        </button>
+        <button class="tab-rol" data-rol="clase_alumno">
+          <span class="tab-icon">👨‍🎓</span>
+          <span class="tab-label">Clase alumno</span>
+          <span class="tab-count" id="tab-count-clase_alumno">0</span>
+        </button>
+        <button class="tab-rol" data-rol="partido_nacional">
+          <span class="tab-icon">🏆</span>
+          <span class="tab-label">Torneo nacional</span>
+          <span class="tab-count" id="tab-count-partido_nacional">0</span>
+        </button>
+        <button class="tab-rol" data-rol="partido_timpik">
+          <span class="tab-icon">⚔️</span>
+          <span class="tab-label">Liga Timpik</span>
+          <span class="tab-count" id="tab-count-partido_timpik">0</span>
+        </button>
+        <button class="tab-rol" data-rol="gimnasio">
+          <span class="tab-icon">💪</span>
+          <span class="tab-label">Gimnasio</span>
+          <span class="tab-count" id="tab-count-gimnasio">0</span>
+        </button>
+        <button class="tab-rol" data-rol="estudio">
+          <span class="tab-icon">📚</span>
+          <span class="tab-label">Estudio</span>
+          <span class="tab-count" id="tab-count-estudio">0</span>
+        </button>
+      </div>
+
+      <!-- Info de la pestaña activa -->
+      <div class="tab-info" id="tab-info">
+        <span class="tab-info-icon">🎾</span>
+        <span class="tab-info-texto">Mostrando: <strong>Clases como profesor</strong></span>
       </div>
 
       <div id="calendar"></div>
 
       <section class="listado-clases" id="listado-clases">
         <div class="listado-header">
-          <h2 id="listado-titulo">📋 Listado de clases</h2>
+          <h2 id="listado-titulo">📋 Listado</h2>
           <div class="listado-contador" id="listado-contador"></div>
         </div>
 
@@ -159,19 +192,19 @@
     renderNav('calendario')
 
     // ============================================================
-    // MAPA DE ROLES / TIPOS
+    // MAPA DE ROLES
     // ============================================================
     const ROLES = {
-      clase_profesor:  { label: 'Clase profesor',  icon: '🎾', color: '#3a8fbf', colorBorde: '#3a8fbf' },
-      clase_alumno:    { label: 'Clase alumno',    icon: '👨‍🎓', color: '#5bb8d4', colorBorde: '#5bb8d4' },
-      partido_nacional:{ label: 'Torneo nacional', icon: '🏆', color: '#e8ff3a', colorBorde: '#8a9900' },
-      partido_timpik:  { label: 'Liga Timpik',     icon: '⚔️', color: '#8a9ba8', colorBorde: '#8a9ba8' },
-      gimnasio:        { label: 'Gimnasio',        icon: '💪', color: '#e67e22', colorBorde: '#e67e22' },
-      estudio:         { label: 'Estudio',         icon: '📚', color: '#8e44ad', colorBorde: '#8e44ad' }
+      clase_profesor:   { label: 'Clase profesor',  icon: '🎾', color: '#3a8fbf', textColor: '#fff' },
+      clase_alumno:     { label: 'Clase alumno',    icon: '👨‍🎓', color: '#5bb8d4', textColor: '#0a1420' },
+      partido_nacional: { label: 'Torneo nacional', icon: '🏆', color: '#e8ff3a', textColor: '#1a2a42' },
+      partido_timpik:   { label: 'Liga Timpik',     icon: '⚔️', color: '#8a9ba8', textColor: '#0a1420' },
+      gimnasio:         { label: 'Gimnasio',        icon: '💪', color: '#e67e22', textColor: '#fff' },
+      estudio:          { label: 'Estudio',         icon: '📚', color: '#8e44ad', textColor: '#fff' }
     }
 
     function infoRol(tipo) {
-      return ROLES[tipo] || { label: tipo || '—', icon: '📅', color: '#3a8fbf', colorBorde: '#3a8fbf' }
+      return ROLES[tipo] || { label: tipo || '—', icon: '📅', color: '#3a8fbf', textColor: '#fff' }
     }
 
     // ============================================================
@@ -210,6 +243,9 @@
     const listadoContenido = document.getElementById('listado-contenido')
     const listadoBuscador = document.getElementById('listado-buscador')
 
+    const tabsRoles = document.getElementById('tabs-roles')
+    const tabInfo = document.getElementById('tab-info')
+
     // ============================================================
     // ESTADO
     // ============================================================
@@ -228,6 +264,9 @@
     let listadoRango = null
     let listadoFiltro = 'todas'
     let listadoBusqueda = ''
+
+    // ⬇️ PESTAÑA ACTIVA
+    let rolActivo = 'clase_profesor'
 
     const diasSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
     const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
@@ -333,7 +372,7 @@
         const rol = infoRol(c.tipo)
         return {
           id: c.id,
-          title: `${rol.icon} ${c.titulo}`,
+          title: c.titulo,
           start: startStr,
           end: endStr,
           extendedProps: {
@@ -356,6 +395,7 @@
         }
       })
 
+      actualizarContadoresTabs()
       return eventosCache
     }
 
@@ -364,8 +404,7 @@
       if (estado === 'realizada') return '#1e8449'
       if (estado === 'reprogramada') return '#e67e22'
       if (esRecuperacion) return '#8e44ad'
-      const rol = infoRol(tipo)
-      return rol.color
+      return infoRol(tipo).color
     }
 
     function bordePorEstado(estado, esRecuperacion) {
@@ -394,10 +433,62 @@
       contenedor.innerHTML = `
         <span class="evento-icono">${icono}</span>
         <span class="evento-hora">${hora}</span>
-        <span class="evento-titulo">${info.event.title.replace(/^[^\s]+\s/, '')}</span>
+        <span class="evento-titulo">${info.event.title}</span>
       `
       return { domNodes: [contenedor] }
     }
+
+    // ============================================================
+    // PESTAÑAS — contadores y filtrado
+    // ============================================================
+    function actualizarContadoresTabs() {
+      // Contar cuántas clases hay de cada rol (en el rango visible)
+      Object.keys(ROLES).forEach(rol => {
+        const el = document.getElementById(`tab-count-${rol}`)
+        if (!el) return
+        const total = eventosCache.filter(e => e.extendedProps.tipo === rol).length
+        el.textContent = total
+        el.classList.toggle('empty', total === 0)
+      })
+    }
+
+    function activarTab(rol) {
+      rolActivo = rol
+
+      // Actualizar clases de pestañas
+      document.querySelectorAll('.tab-rol').forEach(t => {
+        t.classList.toggle('active', t.dataset.rol === rol)
+      })
+
+      // Actualizar el texto informativo
+      const info = infoRol(rol)
+      tabInfo.innerHTML = `
+        <span class="tab-info-icon">${info.icon}</span>
+        <span class="tab-info-texto">Mostrando: <strong>${info.label}</strong></span>
+      `
+      tabInfo.style.borderLeftColor = info.color
+
+      // Filtrar calendario
+      filtrarCalendario()
+
+      // Repintar listado
+      pintarListado()
+    }
+
+    function filtrarCalendario() {
+      if (!calendar) return
+      calendar.getEvents().forEach(ev => {
+        const visible = ev.extendedProps.tipo === rolActivo
+        ev.setProp('display', visible ? 'auto' : 'none')
+      })
+    }
+
+    // Event listener para las pestañas
+    tabsRoles.addEventListener('click', (e) => {
+      const tab = e.target.closest('.tab-rol')
+      if (!tab) return
+      activarTab(tab.dataset.rol)
+    })
 
     // ============================================================
     // SECCIÓN RECUPERACIONES
@@ -634,17 +725,21 @@
       const { start, end, tipo, tituloFecha } = listadoRango
       const startMs = start.getTime()
       const endMs = end.getTime()
+      const rolInfo = infoRol(rolActivo)
 
       if (tipo === 'timeGridDay') {
-        listadoTitulo.textContent = `📋 Listado del ${formatearFechaLarga(tituloFecha)}`
+        listadoTitulo.textContent = `${rolInfo.icon} ${rolInfo.label} · ${formatearFechaLarga(tituloFecha)}`
       } else if (tipo === 'timeGridWeek') {
         const fin = new Date(endMs - 86400000)
-        listadoTitulo.textContent = `📋 Listado de la semana (${formatearFechaCorta(start)} – ${formatearFechaCorta(fin)})`
+        listadoTitulo.textContent = `${rolInfo.icon} ${rolInfo.label} · semana ${formatearFechaCorta(start)}–${formatearFechaCorta(fin)}`
       } else {
-        listadoTitulo.textContent = `📋 Listado de ${meses[tituloFecha.getMonth()]} ${tituloFecha.getFullYear()}`
+        listadoTitulo.textContent = `${rolInfo.icon} ${rolInfo.label} · ${meses[tituloFecha.getMonth()]} ${tituloFecha.getFullYear()}`
       }
+      listadoTitulo.style.color = rolInfo.color
 
+      // Filtrar por rango + rol activo
       let enRango = eventosCache.filter(ev => {
+        if (ev.extendedProps.tipo !== rolActivo) return false
         const fecha = parseFechaLocal(ev.start)
         const t = fecha.getTime()
         return t >= startMs && t < endMs
@@ -664,8 +759,7 @@
           const p = e.extendedProps
           const alumnos = (p.alumnosNombres || []).join(' ').toLowerCase()
           const titulo = (e.title || '').toLowerCase()
-          const tipo = (p.tipoLabel || '').toLowerCase()
-          return titulo.includes(q) || alumnos.includes(q) || tipo.includes(q)
+          return titulo.includes(q) || alumnos.includes(q)
         })
       }
 
@@ -686,7 +780,9 @@
       if (enRango.length === 0) {
         const msg = listadoBusqueda.trim()
           ? `Sin resultados para "${escapar(listadoBusqueda)}"`
-          : (listadoFiltro !== 'todas' ? 'Sin clases con este filtro en el período' : 'Sin clases en este período')
+          : (listadoFiltro !== 'todas'
+              ? `Sin ${rolInfo.label.toLowerCase()}s con este filtro`
+              : `Sin ${rolInfo.label.toLowerCase()}s en este período`)
         listadoContenido.innerHTML = `<p class="listado-vacio">${msg}</p>`
         return
       }
@@ -745,8 +841,7 @@
           <div class="listado-clase-info">
             <div class="listado-clase-titulo">
               <span class="listado-clase-icono">${icono}</span>
-              ${escapar(ev.title.replace(/^[^\s]+\s/, ''))}
-              <span class="listado-clase-tipo">${p.tipoLabel}</span>
+              ${escapar(ev.title)}
             </div>
             <div class="listado-clase-alumnos">👥 ${escapar(alumnosTxt)}</div>
             ${p.tarea ? `<div class="listado-clase-tarea">📝 ${escapar(p.tarea)}</div>` : ''}
@@ -815,11 +910,11 @@
 
         document.getElementById('modal-titulo').textContent = 'Editar Clase'
         document.getElementById('clase-id').value = clase.id
-        document.getElementById('titulo').value = clase.title.replace(/^[^\s]+\s/, '')
+        document.getElementById('titulo').value = clase.title
         inputFecha.value = clase.startStr.split('T')[0]
         inputHoraInicio.value = clase.startStr.split('T')[1]?.slice(0,5) || '09:00'
         inputHoraFin.value = clase.endStr?.split('T')[1]?.slice(0,5) || '10:00'
-        inputTipo.value = clase.extendedProps.tipo || 'clase_profesor'
+        inputTipo.value = clase.extendedProps.tipo || rolActivo
         document.getElementById('ejercicio_id').value = clase.extendedProps.ejercicioId || ''
         document.getElementById('ejercicio_libre').value = clase.extendedProps.ejercicioLibre || ''
         inputTarea.value = clase.extendedProps.tarea || ''
@@ -854,7 +949,8 @@
         inputFecha.value = clase?.fecha || ''
         inputHoraInicio.value = clase?.horaInicio || '09:00'
         inputHoraFin.value = clase?.horaFin || '10:00'
-        inputTipo.value = 'clase_profesor'
+        // ⬇️ Preseleccionar el rol de la pestaña activa
+        inputTipo.value = rolActivo
         inputTarea.value = ''
         document.getElementById('bloque-repetir').style.display = 'block'
         document.getElementById('btn-guardar').textContent = '💾 Guardar'
@@ -1069,6 +1165,7 @@
       if (calendar) {
         calendar.removeAllEvents()
         calendar.addEventSource(eventos)
+        filtrarCalendario()
       }
       pintarListado()
     }
@@ -1149,6 +1246,7 @@
             tituloFecha: info.view.currentStart
           }
           pintarListado()
+          actualizarContadoresTabs()
         },
         eventOverlap: false,
         moreLinkClick: 'popover',
@@ -1156,6 +1254,9 @@
       })
 
       calendar.render()
+
+      // Aplicar filtro de la pestaña activa
+      activarTab(rolActivo)
 
       if (calendar.view) {
         listadoRango = {
@@ -1188,21 +1289,100 @@
   </script>
 
   <style>
-    .leyenda-calendario {
-      display: flex; gap: 14px; flex-wrap: wrap;
-      margin-bottom: 12px; padding: 8px 12px;
-      background: var(--fondo-card); border: 1px solid var(--borde-card);
-      border-radius: var(--radio-sm); font-size: 0.8rem; color: var(--texto-secundario);
+    /* ============================================================
+       PESTAÑAS DE ROLES
+       ============================================================ */
+    .tabs-roles {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: thin;
     }
-    .leyenda-item { display: inline-flex; align-items: center; gap: 6px; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-    .dot-clase-profesor { background: #3a8fbf; }
-    .dot-clase-alumno { background: #5bb8d4; }
-    .dot-partido-nacional { background: #e8ff3a; border: 1px solid #8a9900; }
-    .dot-partido-timpik { background: #8a9ba8; }
-    .dot-gimnasio { background: #e67e22; }
-    .dot-estudio { background: #8e44ad; }
+    .tabs-roles::-webkit-scrollbar { height: 6px; }
+    .tabs-roles::-webkit-scrollbar-thumb { background: var(--borde-card); border-radius: 3px; }
 
+    .tab-rol {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--fondo-card);
+      border: 1px solid var(--borde-card);
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--texto-secundario);
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-height: auto;
+    }
+    .tab-rol:hover {
+      border-color: var(--pista-azul-claro);
+      color: var(--texto-principal);
+      transform: translateY(-1px);
+    }
+    .tab-rol.active {
+      color: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+
+    /* Colores de cada pestaña cuando está activa */
+    .tab-rol[data-rol="clase_profesor"].active   { background: #3a8fbf; border-color: #3a8fbf; color: white; }
+    .tab-rol[data-rol="clase_alumno"].active     { background: #5bb8d4; border-color: #5bb8d4; color: #0a1420; }
+    .tab-rol[data-rol="partido_nacional"].active { background: #e8ff3a; border-color: #8a9900; color: #1a2a42; }
+    .tab-rol[data-rol="partido_timpik"].active   { background: #8a9ba8; border-color: #8a9ba8; color: #0a1420; }
+    .tab-rol[data-rol="gimnasio"].active         { background: #e67e22; border-color: #e67e22; color: white; }
+    .tab-rol[data-rol="estudio"].active          { background: #8e44ad; border-color: #8e44ad; color: white; }
+
+    .tab-icon { font-size: 1rem; line-height: 1; }
+    .tab-label { font-size: 0.82rem; }
+
+    .tab-count {
+      background: rgba(0,0,0,0.2);
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      min-width: 20px;
+      text-align: center;
+    }
+    .tab-rol.active .tab-count {
+      background: rgba(255,255,255,0.25);
+    }
+    .tab-count.empty {
+      opacity: 0.4;
+    }
+
+    /* Info de la pestaña activa */
+    .tab-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--fondo-card);
+      border: 1px solid var(--borde-card);
+      border-left: 4px solid #3a8fbf;
+      border-radius: var(--radio);
+      margin-bottom: 12px;
+      font-size: 0.88rem;
+      color: var(--texto-secundario);
+      transition: border-left-color 0.2s;
+    }
+    .tab-info strong {
+      color: var(--texto-principal);
+      font-weight: 700;
+    }
+    .tab-info-icon { font-size: 1.1rem; }
+
+    /* ============================================================
+       Resto de estilos (igual que antes)
+       ============================================================ */
     .evento-contenido {
       display: flex; align-items: center; gap: 4px;
       overflow: hidden; white-space: nowrap; padding: 0 2px;
@@ -1509,14 +1689,6 @@
       display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
     }
     .listado-clase-icono { font-size: 0.95rem; flex-shrink: 0; }
-    .listado-clase-tipo {
-      font-size: 0.68rem; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.4px;
-      background: var(--fondo-app);
-      border: 1px solid var(--borde-card);
-      color: var(--texto-secundario);
-      padding: 1px 6px; border-radius: 8px;
-    }
     .listado-clase-alumnos {
       font-size: 0.78rem; color: var(--texto-secundario);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -1561,6 +1733,11 @@
       .fc .fc-timegrid-axis { width: 42px; }
       .fc .fc-popover { max-width: 90vw !important; }
 
+      .tabs-roles { gap: 5px; }
+      .tab-rol { padding: 7px 12px; font-size: 0.78rem; }
+      .tab-label { display: none; }
+      .tab-rol .tab-label { display: inline; font-size: 0.74rem; }
+
       .listado-clases { margin-top: 16px; padding: 12px 10px; }
       .listado-header h2 { font-size: 1rem; }
       .listado-toolbar {
@@ -1580,6 +1757,7 @@
       .modal-actions > button { width: 100%; }
       .listado-clase { flex-direction: column; gap: 4px; }
       .listado-clase-hora { min-width: auto; }
+      .tab-label { display: none; }
     }
   </style>
 </body>
