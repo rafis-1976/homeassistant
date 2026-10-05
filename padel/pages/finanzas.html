@@ -18,7 +18,6 @@
         </div>
       </div>
 
-      <!-- Filtro por mes -->
       <div class="card" style="margin-bottom:16px;">
         <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
           <label style="flex:1;min-width:180px;">Mes
@@ -29,16 +28,13 @@
         </div>
       </div>
 
-      <!-- Stats -->
       <div class="stats-finanzas" id="stats-finanzas"></div>
 
-      <!-- Desglose por categoría -->
       <div class="card" style="margin-bottom:16px;">
         <h2 style="font-size:1rem;margin-bottom:12px;">📊 Desglose por categoría</h2>
         <div class="grid-categorias" id="grid-categorias"></div>
       </div>
 
-      <!-- Movimientos -->
       <h2 class="seccion-titulo">📋 Movimientos <span id="cont-movimientos" class="seccion-count"></span></h2>
       <div class="tabla-wrapper">
         <table class="tabla">
@@ -58,16 +54,13 @@
     </main>
   </div>
 
-  <!-- ============================
-       MODAL: Nuevo/Editar Movimiento
-       ============================ -->
   <dialog id="modal-movimiento">
     <form id="form-movimiento">
       <h2 id="modal-titulo">Nuevo movimiento</h2>
       <input type="hidden" id="movimiento-id">
       <input type="hidden" id="movimiento-tipo">
 
-      <!-- Indicador de tipo (solo informativo, no clicable) -->
+      <!-- Indicador estático (no clicable) -->
       <div class="tipo-info" id="tipo-info">
         <span class="tipo-info-icon">➕</span>
         <span class="tipo-info-label">Ingreso</span>
@@ -76,9 +69,7 @@
       <label>Fecha <input type="date" id="fecha" required></label>
 
       <label>Categoría
-        <select id="categoria" required>
-          <!-- Se rellena dinámicamente según tipo -->
-        </select>
+        <select id="categoria" required></select>
       </label>
 
       <label>Concepto
@@ -111,7 +102,7 @@
     renderNav('finanzas')
 
     // ============================================================
-    // CATEGORÍAS — separadas por tipo
+    // CATEGORÍAS
     // ============================================================
     const CATEGORIAS_INGRESO = {
       clase_profesor:   { label: 'Clase profesor',     icon: '🎾', color: '#3a8fbf' },
@@ -349,13 +340,11 @@
     }
 
     // ============================================================
-    // MODAL — Configurar según tipo
+    // MODAL
     // ============================================================
     function configurarModalSegunTipo(tipo) {
-      // Guardar el tipo en el hidden
       document.getElementById('movimiento-tipo').value = tipo
 
-      // Info visual
       if (tipo === 'ingreso') {
         tipoInfo.innerHTML = `<span class="tipo-info-icon">➕</span><span class="tipo-info-label">Nuevo Ingreso</span>`
         tipoInfo.classList.remove('tipo-info-gasto')
@@ -364,7 +353,6 @@
         btnGuardar.classList.remove('btn-guardar-gasto')
         btnGuardar.classList.add('btn-guardar-ingreso')
 
-        // Rellenar categorías solo de INGRESO
         selectCategoria.innerHTML = Object.entries(CATEGORIAS_INGRESO)
           .map(([k, v]) => `<option value="${k}">${v.icon} ${v.label}</option>`)
           .join('')
@@ -376,7 +364,6 @@
         btnGuardar.classList.remove('btn-guardar-ingreso')
         btnGuardar.classList.add('btn-guardar-gasto')
 
-        // Rellenar categorías solo de GASTO
         selectCategoria.innerHTML = Object.entries(CATEGORIAS_GASTO)
           .map(([k, v]) => `<option value="${k}">${v.icon} ${v.label}</option>`)
           .join('')
@@ -384,18 +371,14 @@
     }
 
     function abrirModal(mov, tipoInicial = 'ingreso') {
-      // Cargar clases en el selector
       const opcionesClases = clasesCache
         .map(c => `<option value="${c.id}">${c.fecha} · ${c.titulo}</option>`)
         .join('')
       selectClase.innerHTML = '<option value="">— Sin vincular —</option>' + opcionesClases
 
       if (mov) {
-        // EDITAR — el tipo no se puede cambiar
         const tipo = mov.tipo
         document.getElementById('modal-titulo').textContent = tipo === 'ingreso' ? 'Editar ingreso' : 'Editar gasto'
-
-        // Primero configuramos el tipo (rellena el select de categorías)
         configurarModalSegunTipo(tipo)
 
         document.getElementById('movimiento-id').value = mov.id
@@ -406,13 +389,9 @@
         document.getElementById('clase_id').value = mov.clase_id || ''
         document.getElementById('notas').value = mov.notas || ''
       } else {
-        // NUEVA
         form.reset()
         document.getElementById('modal-titulo').textContent = tipoInicial === 'ingreso' ? 'Nuevo ingreso' : 'Nuevo gasto'
-
-        // Configuramos el tipo (rellena el select)
         configurarModalSegunTipo(tipoInicial)
-
         document.getElementById('movimiento-id').value = ''
         document.getElementById('fecha').value = new Date().toISOString().split('T')[0]
       }
@@ -472,25 +451,16 @@
       return `${d}/${m}/${y.slice(2)}`
     }
 
-    // ============================================================
-    // ARRANCAR
-    // ============================================================
     await cargarClases()
     await cargarMovimientos()
   </script>
 
   <style>
-    /* ============================
-       Botones cabecera
-       ============================ */
     .btn-ingreso {
       background: linear-gradient(135deg, #27ae60, #1e8449);
     }
     .btn-ingreso:hover { background: linear-gradient(135deg, #2ecc71, #27ae60); }
 
-    /* ============================
-       Stats principales
-       ============================ */
     .stats-finanzas {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -507,121 +477,54 @@
     }
     .stat-card-fin:hover { transform: translateY(-2px); }
     .stat-card-balance { box-shadow: 0 0 0 2px rgba(58, 143, 191, 0.15) inset; }
-    .stat-fin-icon {
-      font-size: 1.6rem;
-      margin-bottom: 6px;
-      opacity: 0.9;
-    }
-    .stat-fin-num {
-      font-size: 1.8rem;
-      font-weight: 700;
-      line-height: 1.1;
-      font-variant-numeric: tabular-nums;
-    }
+    .stat-fin-icon { font-size: 1.6rem; margin-bottom: 6px; opacity: 0.9; }
+    .stat-fin-num { font-size: 1.8rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
     .stat-fin-label {
-      font-size: 0.82rem;
-      color: var(--texto-secundario);
-      margin-top: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      font-size: 0.82rem; color: var(--texto-secundario);
+      margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px;
     }
 
-    /* ============================
-       Desglose por categoría
-       ============================ */
     .grid-categorias {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 10px;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;
     }
     .cat-card {
-      background: var(--fondo-app);
-      border: 1px solid var(--borde-card);
-      border-left: 4px solid #3a8fbf;
-      border-radius: 8px;
-      padding: 12px 14px;
+      background: var(--fondo-app); border: 1px solid var(--borde-card);
+      border-left: 4px solid #3a8fbf; border-radius: 8px; padding: 12px 14px;
       transition: transform 0.12s;
     }
     .cat-card:hover { transform: translateX(3px); }
-    .cat-header {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 6px;
-    }
+    .cat-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
     .cat-icon { font-size: 1.1rem; }
-    .cat-label {
-      flex: 1;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--texto-principal);
-    }
-    .cat-tipo {
-      font-size: 0.62rem;
-      font-weight: 700;
-      padding: 2px 6px;
-      border-radius: 6px;
-      letter-spacing: 0.4px;
-    }
+    .cat-label { flex: 1; font-size: 0.85rem; font-weight: 600; color: var(--texto-principal); }
+    .cat-tipo { font-size: 0.62rem; font-weight: 700; padding: 2px 6px; border-radius: 6px; letter-spacing: 0.4px; }
     .cat-ing { background: #1e8449; color: white; }
     .cat-gasto { background: #c0392b; color: white; }
-    .cat-num {
-      font-size: 1.15rem;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      margin-bottom: 2px;
-    }
-    .cat-count {
-      font-size: 0.72rem;
-      color: var(--texto-secundario);
-    }
+    .cat-num { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-bottom: 2px; }
+    .cat-count { font-size: 0.72rem; color: var(--texto-secundario); }
 
-    /* ============================
-       Tabla movimientos
-       ============================ */
     .seccion-titulo {
-      font-size: 1.1rem;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding-left: 12px;
-      border-left: 5px solid #3a8fbf;
+      font-size: 1.1rem; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 8px;
+      padding-left: 12px; border-left: 5px solid #3a8fbf;
     }
-    .seccion-count {
-      font-size: 0.85rem;
-      color: var(--texto-secundario);
-      font-weight: 500;
-    }
+    .seccion-count { font-size: 0.85rem; color: var(--texto-secundario); font-weight: 500; }
     .badge-mov {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 0.68rem;
-      font-weight: 700;
-      white-space: nowrap;
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 0.68rem; font-weight: 700; white-space: nowrap;
     }
     .badge-ing { background: rgba(39, 174, 96, 0.2); color: #2ecc71; border: 1px solid #27ae60; }
     .badge-gasto { background: rgba(231, 76, 60, 0.15); color: #ff6b5b; border: 1px solid #c0392b; }
 
     .cat-tag {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      background: var(--fondo-app);
-      border: 1px solid var(--borde-card);
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 0.72rem; font-weight: 600;
+      background: var(--fondo-app); border: 1px solid var(--borde-card);
       white-space: nowrap;
     }
-    .td-acc {
-      white-space: nowrap;
-      display: flex;
-      gap: 4px;
-    }
+    .td-acc { white-space: nowrap; display: flex; gap: 4px; }
 
     /* ============================
-       Modal — indicador de tipo
+       Indicador de tipo (estático)
        ============================ */
     .tipo-info {
       display: flex;
@@ -634,10 +537,11 @@
       font-size: 1.1rem;
       font-weight: 700;
       border: 2px solid;
+      cursor: default;
+      user-select: none;
+      pointer-events: none;
     }
-    .tipo-info-icon {
-      font-size: 1.4rem;
-    }
+    .tipo-info-icon { font-size: 1.4rem; }
     .tipo-info-ingreso {
       background: rgba(39, 174, 96, 0.12);
       border-color: #27ae60;
@@ -649,7 +553,6 @@
       color: #ff6b5b;
     }
 
-    /* Botón de guardar con color según tipo */
     .btn-guardar-ingreso {
       background: linear-gradient(135deg, #27ae60, #1e8449) !important;
       border: none;
@@ -665,9 +568,6 @@
       background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
     }
 
-    /* ============================
-       Responsive
-       ============================ */
     @media (max-width: 768px) {
       .stat-fin-num { font-size: 1.4rem; }
       .stat-fin-icon { font-size: 1.3rem; }
