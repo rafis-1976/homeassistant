@@ -14,7 +14,6 @@ const COURT = {
   netX: 470
 }
 
-// Mapa de iconos con rotación inicial por tipo
 const MAPA_ICONOS = {
   'jugador-azul-0':   { icon: '#icon-jugador-azul', rot: 0 },
   'jugador-azul-90':  { icon: '#icon-jugador-azul', rot: 90 },
@@ -75,6 +74,7 @@ export function inicializarPista(svgId) {
       const pt = getSvgPoint(e, svg)
       puntosTrayectoria.push(pt)
       actualizarPreview()
+      actualizarBotonTerminarTray()
       if (modo === 'globo' && puntosTrayectoria.length === 2) {
         finalizarTrayectoria()
       }
@@ -105,6 +105,14 @@ export function inicializarPista(svgId) {
   })
 
   activarSoporteTactil(svg)
+
+  // ⬇️ Listeners de los botones flotantes de trayectoria
+  document.getElementById('btn-terminar-tray')?.addEventListener('click', () => {
+    finalizarTrayectoria()
+  })
+  document.getElementById('btn-cancelar-tray')?.addEventListener('click', () => {
+    cancelarTrayectoria()
+  })
 }
 
 // ============================================
@@ -122,10 +130,15 @@ function iniciarModoTrayectoria(tipo) {
   const hint = document.getElementById('hint-trayectoria')
   if (hint) {
     hint.innerHTML = tipo === 'globo'
-      ? '<strong>Globo (lob):</strong> toca inicio y fin del globo · <strong>Esc</strong> cancela'
-      : '<strong>Trayectoria:</strong> toca para puntos · <strong>clic derecho</strong> termina · <strong>Esc</strong> cancela'
+      ? '<strong>Globo (lob):</strong> toca inicio y fin del globo'
+      : '<strong>Trayectoria:</strong> toca la pista para añadir puntos'
     hint.classList.add('visible')
   }
+
+  // ⬇️ Mostrar botón flotante
+  const acciones = document.getElementById('acciones-trayectoria')
+  if (acciones) acciones.classList.add('visible')
+  actualizarBotonTerminarTray()
 
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'))
   document.querySelector(`.tool-btn[data-tipo="${tipo}"]`)?.classList.add('active')
@@ -143,6 +156,11 @@ function cancelarTrayectoria() {
   const capa = document.getElementById('capa-elementos')
   if (capa) capa.style.pointerEvents = 'auto'
   document.getElementById('hint-trayectoria')?.classList.remove('visible')
+
+  // ⬇️ Ocultar botón flotante
+  const acciones = document.getElementById('acciones-trayectoria')
+  if (acciones) acciones.classList.remove('visible')
+
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'))
 }
 
@@ -159,6 +177,20 @@ function finalizarTrayectoria() {
     crearTrayectoria([...puntosTrayectoria])
   }
   cancelarTrayectoria()
+}
+
+function actualizarBotonTerminarTray() {
+  const btn = document.getElementById('btn-terminar-tray')
+  if (!btn) return
+  const n = puntosTrayectoria.length
+  btn.disabled = n < 2
+  if (n === 0) {
+    btn.textContent = '✅ Terminar trayectoria'
+  } else if (n === 1) {
+    btn.textContent = '✅ Terminar trayectoria (añade 1 punto más)'
+  } else {
+    btn.textContent = `✅ Terminar trayectoria (${n} puntos)`
+  }
 }
 
 function calcularControlGlobo(p1, p2) {
@@ -246,7 +278,7 @@ function agregarElemento(tipo, x, y) {
 }
 
 // ============================================
-// Trayectoria (línea con pelota animada)
+// Trayectoria con pelota animada
 // ============================================
 function crearTrayectoria(puntos) {
   const capa = document.getElementById('capa-elementos')
@@ -430,7 +462,6 @@ function seleccionar(id) {
   const slider = document.getElementById('prop-rotacion')
   const rotValor = document.getElementById('rot-valor')
 
-  // Rectángulo de selección
   const bbox = elem.element.getBBox()
   const rectSel = document.createElementNS(SVG_NS, 'rect')
   rectSel.setAttribute('id', 'seleccion-rect')
@@ -448,7 +479,6 @@ function seleccionar(id) {
   rectSel.setAttribute('transform', transform)
   document.getElementById('capa-elementos').appendChild(rectSel)
 
-  // Botón X de eliminar (más grande, sin rotar)
   const btnX = document.createElementNS(SVG_NS, 'g')
   btnX.setAttribute('id', 'btn-x-eliminar')
   btnX.style.cursor = 'pointer'
@@ -506,7 +536,6 @@ function seleccionar(id) {
 
   document.getElementById('capa-elementos').appendChild(btnX)
 
-  // Panel de propiedades (solo elementos rotables)
   if (elem.tipo !== 'trayectoria' && elem.tipo !== 'globo') {
     rotLabel.style.display = 'block'
     slider.value = elem.rotacion
@@ -600,12 +629,14 @@ function getSvgPoint(e, svg) {
 function activarSoporteTactil(svg) {
   svg.addEventListener('touchstart', (e) => {
     if (e.target.closest('#btn-x-eliminar')) return
+    if (e.target.closest('.acciones-trayectoria')) return
 
     if (modo === 'trayectoria' || modo === 'globo') {
       const touch = e.touches[0]
       const pt = getSvgPoint({ clientX: touch.clientX, clientY: touch.clientY }, svg)
       puntosTrayectoria.push(pt)
       actualizarPreview()
+      actualizarBotonTerminarTray()
       if (modo === 'globo' && puntosTrayectoria.length === 2) {
         finalizarTrayectoria()
       }
