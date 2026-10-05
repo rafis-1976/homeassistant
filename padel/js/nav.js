@@ -1,14 +1,15 @@
 export function renderNav(activa) {
   const paginas = [
-    { id: 'dashboard',   label: '📊 Dashboard',    href: 'dashboard.html' },
-    { id: 'calendario',  label: '📅 Calendario',   href: 'calendario.html' },
-    { id: 'alumnos',     label: '👥 Alumnos',      href: 'alumnos.html' },
-    { id: 'ejercicios',  label: '🎾 Ejercicios',   href: 'ejercicios.html' },
-    { id: 'progreso',    label: '📈 Progreso',     href: 'progreso.html' },
-    { id: 'faltas',      label: '⚠️ Faltas',       href: 'faltas.html' },
-    { id: 'informe',     label: '📄 Informe',      href: 'informe.html' },
-    { id: 'anulaciones', label: '🚫 Anulaciones',  href: 'anulaciones.html' },
-  ]
+  { id: 'dashboard',   label: '📊 Dashboard',    href: 'dashboard.html' },
+  { id: 'calendario',  label: '📅 Calendario',   href: 'calendario.html' },
+  { id: 'alumnos',     label: '👥 Alumnos',      href: 'alumnos.html' },
+  { id: 'ejercicios',  label: '🎾 Ejercicios',   href: 'ejercicios.html' },
+  { id: 'progreso',    label: '📈 Progreso',     href: 'progreso.html' },
+  { id: 'faltas',      label: '⚠️ Faltas',       href: 'faltas.html' },
+  { id: 'finanzas',    label: '💰 Finanzas',     href: 'finanzas.html' },  // ← NUEVO
+  { id: 'informe',     label: '📄 Informe',      href: 'informe.html' },
+  { id: 'anulaciones', label: '🚫 Anulaciones',  href: 'anulaciones.html' },
+]
 
   const activaLabel = paginas.find(p => p.id === activa)?.label || 'Padel Manager'
   const layout = document.querySelector('.layout')
