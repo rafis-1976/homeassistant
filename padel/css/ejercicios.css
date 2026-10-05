@@ -1,7 +1,10 @@
+/* ============================================
+   Toolbar
+   ============================================ */
 .toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 18px;
   margin-bottom: 16px;
   padding: 12px 16px;
   background: var(--fondo-card);
@@ -9,28 +12,22 @@
   border: 1px solid var(--borde-card);
   align-items: center;
 }
-
 .tool-group {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 14px 4px 0;
+  padding-right: 14px;
   border-right: 1px solid var(--borde-card);
 }
-.tool-group:last-of-type { border-right: none; padding-right: 0; }
-
+.tool-group:last-of-type { border-right: none; }
 .tool-label {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--texto-secundario);
-  margin-right: 8px;
+  margin-right: 6px;
   font-weight: 600;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
-
-/* ⬇️ Botones uniformes y alineados */
 .tool-btn {
   display: inline-flex;
   align-items: center;
@@ -38,21 +35,12 @@
   background: var(--fondo-app);
   border: 1px solid var(--borde-card);
   color: var(--texto-principal);
-  width: 48px;
-  height: 44px;
-  padding: 0;
+  padding: 6px 8px;
   border-radius: var(--radio-sm);
   cursor: pointer;
   transition: all 0.15s;
-  flex-shrink: 0;
-}
-.tool-btn svg {
-  display: block;
-  width: 26px;
-  height: 26px;
-  max-width: 80%;
-  max-height: 80%;
-  pointer-events: none;
+  min-width: 32px;
+  min-height: 30px;
 }
 .tool-btn:hover {
   border-color: var(--pista-azul-claro);
@@ -65,43 +53,371 @@
   box-shadow: 0 0 0 2px var(--amarillo-pelota) inset;
 }
 
+/* ============================================
+   Pista
+   ============================================ */
+.pista-wrapper { position: relative; margin-bottom: 16px; }
+
+.hint-trayectoria {
+  display: none;
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--amarillo-pelota);
+  color: #1a2a42;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(232, 255, 58, 0.3);
+  white-space: nowrap;
+}
+.hint-trayectoria.visible { display: block; }
+
+.pista-container {
+  background: var(--fondo-card);
+  border-radius: var(--radio);
+  padding: 12px;
+  border: 1px solid var(--borde-card);
+}
+#pista-svg {
+  width: 100%;
+  max-width: 1000px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  border-radius: var(--radio-sm);
+  user-select: none;
+  touch-action: none;
+}
+#pista-svg.drawing { cursor: crosshair; }
+
+.elemento-pista { transition: filter 0.15s; }
+.elemento-pista:hover { filter: drop-shadow(0 0 3px #e8ff3a); }
+.preview-trayectoria { pointer-events: none; }
+
+/* ============================================
+   Notas
+   ============================================ */
+.notas-container {
+  background: var(--fondo-card);
+  border: 1px solid var(--borde-card);
+  border-radius: var(--radio);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.notas-container label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--texto-secundario);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.notas-container textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+/* ============================================
+   Panel de propiedades
+   ============================================ */
+.panel-propiedades {
+  background: var(--fondo-card);
+  border: 1px solid var(--borde-card);
+  border-radius: var(--radio);
+  padding: 16px;
+  max-width: 340px;
+}
+.panel-propiedades h3 {
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+  color: var(--amarillo-pelota);
+}
+.panel-propiedades label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  color: var(--texto-secundario);
+}
+.panel-propiedades input[type="range"] {
+  width: 100%;
+  margin-top: 6px;
+  accent-color: var(--pista-azul-claro);
+}
+.rot-valor {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--pista-azul-hielo);
+  font-family: monospace;
+}
+
+/* ============================================
+   Banner edición
+   ============================================ */
+.banner-edicion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: linear-gradient(90deg, #e67e22, #d35400);
+  color: white;
+  padding: 10px 16px;
+  border-radius: var(--radio);
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 12px rgba(230, 126, 34, 0.3);
+}
+.banner-edicion .btn-mini {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.4);
+  font-weight: 600;
+}
+.banner-edicion .btn-mini:hover { background: rgba(255,255,255,0.3); }
+
+/* ============================================
+   Sección lista de ejercicios
+   ============================================ */
+.seccion-lista {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 2px solid var(--borde-card);
+}
+.lista-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.lista-header h2 { margin: 0; }
+.contador-lista {
+  color: var(--pista-azul-hielo);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.buscador {
+  max-width: 320px;
+  min-width: 200px;
+}
+.grid-ejercicios {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.vacio-lista {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--texto-secundario);
+  font-size: 0.9rem;
+  background: var(--fondo-card);
+  border: 1px dashed var(--borde-card);
+  border-radius: var(--radio);
+}
+
+/* ============================================
+   Card de ejercicio
+   ============================================ */
+.card-ejercicio {
+  background: var(--fondo-card);
+  border: 1px solid var(--borde-card);
+  border-radius: var(--radio);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.card-ejercicio:hover {
+  border-color: var(--pista-azul-claro);
+  transform: translateY(-2px);
+}
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.card-titulo {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--texto-principal);
+  line-height: 1.3;
+}
+.card-fecha {
+  font-size: 0.7rem;
+  color: var(--texto-secundario);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+.card-desc {
+  font-size: 0.8rem;
+  color: var(--texto-secundario);
+  margin: 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.badge-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--fondo-app);
+  border: 1px solid var(--borde-card);
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  color: var(--texto-principal);
+  font-variant-numeric: tabular-nums;
+}
+.badge-vacio {
+  color: var(--texto-secundario);
+  font-style: italic;
+}
+.card-acciones {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--borde-card);
+}
+.btn-accion {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: var(--radio-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--borde-card);
+  background: var(--fondo-app);
+  color: var(--texto-principal);
+  transition: all 0.12s;
+  min-height: auto;
+  font-family: inherit;
+}
+.btn-accion:hover { transform: translateY(-1px); }
+.btn-editar:hover    { background: var(--pista-azul-claro); border-color: var(--pista-azul-claro); color: white; }
+.btn-duplicar:hover  { background: #e67e22; border-color: #e67e22; color: white; }
+.btn-eliminar        { max-width: 40px; color: #e74c3c; }
+.btn-eliminar:hover  { background: #c0392b; border-color: #c0392b; color: white; }
+
 /* ============================================================
-   MÓVIL — pista rotada 90° y toolbar en columna
+   ⬇️ NUEVO: Botón flotante "Terminar trayectoria"
    ============================================================ */
+.acciones-trayectoria {
+  display: none;
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  gap: 8px;
+  z-index: 20;
+  animation: slideUpTray 0.25s ease;
+}
+
+.acciones-trayectoria.visible {
+  display: flex;
+}
+
+.btn-terminar-tray,
+.btn-cancelar-tray {
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-terminar-tray {
+  background: linear-gradient(135deg, #27ae60, #1e8449);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 24px;
+  font-size: 0.92rem;
+}
+
+.btn-terminar-tray:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(39, 174, 96, 0.5);
+}
+
+.btn-terminar-tray:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-cancelar-tray {
+  background: #c0392b;
+  color: white;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.btn-cancelar-tray:hover {
+  background: #e74c3c;
+  transform: translateY(-2px);
+}
+
+@keyframes slideUpTray {
+  from { opacity: 0; transform: translate(-50%, 20px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
 @media (max-width: 768px) {
   .toolbar {
     flex-direction: column;
     align-items: stretch;
     padding: 10px;
-    gap: 8px;
+    gap: 10px;
   }
   .tool-group {
     border-right: none;
     border-bottom: 1px solid var(--borde-card);
-    padding: 8px 0;
-    justify-content: flex-start;
+    padding-right: 0;
+    padding-bottom: 10px;
+    justify-content: space-between;
     flex-wrap: wrap;
   }
   .tool-group:last-of-type { border-bottom: none; }
-  .tool-label { margin-right: 6px; }
-  .tool-btn { width: 44px; height: 44px; }
-
-  .pista-container {
-    position: relative;
-    padding: 0;
-    aspect-ratio: 540 / 940;
-    overflow: hidden;
+  .tool-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 10px;
+    flex: 1;
   }
-  #pista-svg {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 174%;
-    height: auto;
-    max-width: none;
-    transform: translate(-50%, -50%) rotate(90deg);
-    transform-origin: center center;
-  }
+  #pista-svg { max-width: 100%; }
+  .pista-container { padding: 8px; }
   .hint-trayectoria {
     font-size: 0.7rem;
     padding: 5px 10px;
@@ -111,4 +427,42 @@
   }
   .notas-container { padding: 12px; }
   .panel-propiedades { max-width: 100%; }
+  .lista-header { flex-direction: column; align-items: stretch; }
+  .buscador { max-width: 100%; }
+  .grid-ejercicios { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .card-ejercicio { padding: 10px; }
+  .card-titulo { font-size: 0.85rem; }
+  .card-desc { font-size: 0.75rem; }
+  .badge-info { font-size: 0.65rem; }
+  .btn-accion { font-size: 0.72rem; padding: 5px 6px; }
+  .banner-edicion { flex-direction: column; align-items: stretch; text-align: center; }
+  .banner-edicion .btn-mini { width: 100%; }
+
+  /* ⬇️ Botón flotante trayectoria más grande en móvil */
+  .acciones-trayectoria {
+    bottom: 16px;
+    width: calc(100% - 24px);
+    max-width: 420px;
+    justify-content: center;
+  }
+  .btn-terminar-tray {
+    padding: 12px 24px;
+    font-size: 0.95rem;
+    flex: 1;
+  }
+  .btn-cancelar-tray {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tool-label {
+    font-size: 0.65rem;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+  .tool-group { gap: 8px; }
+  .grid-ejercicios { grid-template-columns: 1fr; }
+  .btn-terminar-tray { font-size: 0.88rem; }
 }
