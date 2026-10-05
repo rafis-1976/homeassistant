@@ -13,6 +13,10 @@
     <main class="content">
       <h1>📅 Calendario</h1>
 
+      <!-- ⬇️ PRIMERO: el calendario -->
+      <div id="calendar"></div>
+
+      <!-- ⬇️ SEGUNDO: pestañas de filtro por tipo -->
       <div class="tabs-roles" id="tabs-roles">
         <button class="tab-rol active" data-rol="todas">
           <span class="tab-icon">🌐</span>
@@ -51,13 +55,13 @@
         </button>
       </div>
 
+      <!-- Info de la pestaña activa -->
       <div class="tab-info" id="tab-info">
         <span class="tab-info-icon">🌐</span>
         <span class="tab-info-texto">Mostrando: <strong>Todas las clases</strong></span>
       </div>
 
-      <div id="calendar"></div>
-
+      <!-- ⬇️ TERCERO: listado -->
       <section class="listado-clases" id="listado-clases">
         <div class="listado-header">
           <h2 id="listado-titulo">📋 Listado</h2>
@@ -412,7 +416,6 @@
         inputTarea.value = ''
       }
 
-      // Si estamos editando, reajustar los botones según el nuevo tipo
       if (claseActualId) {
         actualizarBotonesEstado(claseActualEstado, tipo)
       }
@@ -1054,7 +1057,6 @@
     // MODAL
     // ============================================================
     async function abrirModal(clase) {
-      // Reset visibilidad botones
       btnRealizada.style.display = 'none'
       btnAnular.style.display = 'none'
       btnReabrir.style.display = 'none'
@@ -1070,7 +1072,6 @@
       await cargarFaltasPendientes()
 
       if (clase?.id) {
-        // ===== EDITAR =====
         claseActualId = clase.id
         claseActualEstado = clase.extendedProps.estado
 
@@ -1109,7 +1110,6 @@
 
         aplicarTipoModal(clase.extendedProps.tipo || 'clase_profesor')
       } else {
-        // ===== NUEVA =====
         claseActualId = null
         claseActualEstado = 'programada'
         form.reset()
@@ -1183,7 +1183,6 @@
       }
       claseActualEstado = nuevoEstado
 
-      // Obtener tipo para actualizar botones correctamente
       const ev = calendar?.getEventById(claseActualId)
       const tipoClase = ev?.extendedProps?.tipo || tipoModalActivo
       actualizarBotonesEstado(nuevoEstado, tipoClase)
@@ -1195,7 +1194,6 @@
       if (!claseActualId) return
       if (!confirm('¿Eliminar esta clase definitivamente?\n\nEsta acción no se puede deshacer.')) return
 
-      // Desvincular faltas vinculadas
       await supabase.from(TABLES.faltas)
         .update({ clase_recuperacion_id: null, recuperada: false })
         .eq('clase_recuperacion_id', claseActualId)
@@ -1492,10 +1490,14 @@
 
   <style>
     /* ============================================================
-       PESTAÑAS EXTERNAS
+       PESTAÑAS EXTERNAS (debajo del calendario)
        ============================================================ */
     .tabs-roles {
-      display: flex; gap: 6px; margin-bottom: 10px;
+      display: flex; gap: 6px;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      padding-top: 16px;
+      border-top: 2px solid var(--borde-card);
       overflow-x: auto; padding-bottom: 4px;
       scrollbar-width: thin;
     }
@@ -1588,83 +1590,44 @@
     }
     .tipo-activo .ta-icon { font-size: 1.15rem; line-height: 1; }
 
-    /* ============================================================
-       Etiqueta tarea + botón eliminar
-       ============================================================ */
+    /* Etiqueta tarea */
     .label-tarea {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      font-size: 0.85rem;
-      color: var(--texto-secundario);
-      margin-bottom: 6px;
-      font-weight: 600;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; font-size: 0.85rem; color: var(--texto-secundario);
+      margin-bottom: 6px; font-weight: 600;
     }
     .btn-eliminar-tarea {
-      display: none;
-      align-items: center;
-      gap: 4px;
+      display: none; align-items: center; gap: 4px;
       padding: 3px 10px;
       background: rgba(231, 76, 60, 0.12);
-      border: 1px solid #c0392b;
-      color: #e74c3c;
-      border-radius: 6px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-      font-family: inherit;
-      min-height: auto;
+      border: 1px solid #c0392b; color: #e74c3c;
+      border-radius: 6px; font-size: 0.72rem; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+      font-family: inherit; min-height: auto;
     }
-    .btn-eliminar-tarea:hover {
-      background: #c0392b;
-      color: white;
-      transform: translateY(-1px);
-    }
+    .btn-eliminar-tarea:hover { background: #c0392b; color: white; transform: translateY(-1px); }
 
-    /* ============================================================
-       Botones del modal (con icono + texto)
-       ============================================================ */
+    /* Botones del modal */
     .modal-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: flex-end;
-      margin-top: 16px;
+      display: flex; flex-wrap: wrap; gap: 8px;
+      justify-content: flex-end; margin-top: 16px;
     }
     .btn-con-icono {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      min-height: 42px;
-      padding: 10px 16px;
-      font-weight: 600;
-      white-space: nowrap;
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 6px; min-height: 42px; padding: 10px 16px;
+      font-weight: 600; white-space: nowrap;
     }
-    .btn-con-icono .btn-icon {
-      font-size: 1rem;
-      line-height: 1;
-      flex-shrink: 0;
-    }
-    .btn-con-icono .btn-texto {
-      font-size: 0.88rem;
-      line-height: 1;
-    }
+    .btn-con-icono .btn-icon { font-size: 1rem; line-height: 1; flex-shrink: 0; }
+    .btn-con-icono .btn-texto { font-size: 0.88rem; line-height: 1; }
 
     #btn-eliminar-clase { background: #c0392b; color: white; border: none; }
     #btn-eliminar-clase:hover { background: #a02d1f; }
-
     #btn-realizada { background: #1e8449; color: white; border: none; }
     #btn-realizada:hover { background: #166638; }
-
     #btn-anular { background: #c0392b; color: white; border: none; }
     #btn-anular:hover { background: #a02d1f; }
-
     #btn-reabrir { background: var(--pista-azul-medio); color: white; border: none; }
     #btn-reabrir:hover { background: var(--pista-azul-oscuro); }
-
     #btn-guardar-otra {
       background: linear-gradient(135deg, #2a6b9c, #1a3a5c);
       border: 1px solid var(--pista-azul-hielo);
@@ -1672,7 +1635,7 @@
     #btn-guardar-otra:hover { background: linear-gradient(135deg, #3a8fbf, #2a6b9c); }
 
     /* ============================================================
-       Resto (eventos, avisos, etc.)
+       Resto (eventos, avisos, listado, etc.)
        ============================================================ */
     .evento-contenido {
       display: flex; align-items: center; gap: 4px;
@@ -1819,17 +1782,6 @@
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .btn-estado { font-weight: 600; }
-    .btn-estado.btn-realizada { background: #1e8449; color: white; border: none; }
-    .btn-estado.btn-realizada:hover { background: #166638; }
-    .btn-estado.btn-anular { background: #c0392b; color: white; border: none; }
-    .btn-estado.btn-anular:hover { background: #a02d1f; }
-    .btn-estado.btn-reabrir { background: var(--pista-azul-medio); color: white; border: none; }
-    .btn-estado.btn-reabrir:hover { background: var(--pista-azul-oscuro); }
-    .btn-guardar-otra {
-      background: linear-gradient(135deg, #2a6b9c, #1a3a5c);
-      border: 1px solid var(--pista-azul-hielo);
-    }
-    .btn-guardar-otra:hover { background: linear-gradient(135deg, #3a8fbf, #2a6b9c); }
 
     .toast-guardado {
       position: fixed; bottom: 24px; left: 50%;
@@ -1959,7 +1911,7 @@
     }
 
     /* ============================================================
-       MÓVIL — Botones solo iconos
+       MÓVIL
        ============================================================ */
     @media (max-width: 768px) {
       #calendar { padding: 6px; }
@@ -1979,7 +1931,11 @@
       .fc .fc-timegrid-axis { width: 42px; }
       .fc .fc-popover { max-width: 90vw !important; }
 
-      .tabs-roles { gap: 5px; }
+      .tabs-roles {
+        gap: 5px;
+        margin-top: 14px;
+        padding-top: 12px;
+      }
       .tab-rol { padding: 7px 12px; font-size: 0.78rem; }
 
       .modal-tabs { gap: 3px; }
@@ -1987,7 +1943,6 @@
       .mt-icon { font-size: 0.85rem; }
       .mt-label { font-size: 0.7rem; }
 
-      /* ⬇️ MÓVIL: botones solo iconos */
       .modal-actions {
         flex-direction: row;
         flex-wrap: wrap;
@@ -2003,15 +1958,9 @@
         flex: 0 0 auto;
         border-radius: 12px;
       }
-      .btn-con-icono .btn-texto {
-        display: none;
-      }
-      .btn-con-icono .btn-icon {
-        font-size: 1.4rem;
-      }
-      #btn-guardar {
-        min-width: 64px;
-      }
+      .btn-con-icono .btn-texto { display: none; }
+      .btn-con-icono .btn-icon { font-size: 1.4rem; }
+      #btn-guardar { min-width: 64px; }
 
       .label-tarea { flex-wrap: wrap; }
       .btn-eliminar-tarea { font-size: 0.68rem; padding: 3px 8px; }
