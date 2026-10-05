@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Finanzas — Padel Manager</title>
+  <link rel="stylesheet" href="../css/theme.css">
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar"></nav>
+    <main class="content">
+      <div class="page-header">
+        <h1>💰 Finanzas</h1>
+        <div class="acciones">
+          <button class="btn-primary btn-ingreso" id="btn-nuevo-ingreso">➕ Ingreso</button>
+          <button class="btn-peligro" id="btn-nuevo-gasto">➖ Gasto</button>
+        </div>
+      </div>
+
+      <!-- Filtro por mes -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
+          <label style="flex:1;min-width:180px;">Mes
+            <input type="month" id="mes">
+          </label>
+          <button class="btn-secondary" id="btn-mes-actual">Mes actual</button>
+          <button class="btn-secondary" id="btn-todo">Ver todo</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-finanzas" id="stats-finanzas"></div>
+
+      <!-- Desglose por categoría -->
+      <div class="card" style="margin-bottom:16px;">
+        <h2 style="font-size:1rem;margin-bottom:12px;">📊 Desglose por categoría</h2>
+        <div class="grid-categorias" id="grid-categorias"></div>
+      </div>
+
+      <!-- Movimientos -->
+      <h2 class="seccion-titulo">📋 Movimientos <span id="cont-movimientos" class="seccion-count"></span></h2>
+      <div class="tabla-wrapper">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Categoría</th>
+              <th>Concepto</th>
+              <th style="text-align:right;">Importe</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody-movimientos"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============================
+       MODAL: Nuevo/Editar Movimiento
+       ============================ -->
+  <dialog id="modal-movimiento">
+    <form id="form-movimiento">
+      <h2 id="modal-titulo">Nuevo movimiento</h2>
+      <input type="hidden" id="movimiento-id">
+      <input type="hidden" id="movimiento-tipo">
+
+      <div class="tipo-selector" id="tipo-selector">
+        <button type="button" class="tipo-btn" data-tipo="ingreso">➕ Ingreso</button>
+        <button type="button" class="tipo-btn" data-tipo="gasto">➖ Gasto</button>
+      </div>
+
+      <label>Fecha <input type="date" id="fecha" required></label>
+
+      <label>Categoría
+        <select id="categoria" required>
+          <optgroup label="Ingresos / Actividades">
+            <option value="clase_profesor">🎾 Clase profesor</option>
+            <option value="clase_alumno">👨‍🎓 Clase alumno</option>
+            <option value="partido_nacional">🏆 Partido torneo nacional</option>
+            <option value="partido_timpik">⚔️ Partido Liga Timpik</option>
+            <option value="gimnasio">💪 Gimnasio</option>
+            <option value="estudio">📚 Estudio</option>
+          </optgroup>
+          <optgroup label="Gastos">
+            <option value="traslado">🚗 Traslado / Gasolina</option>
+            <option value="material">🎒 Material</option>
+            <option value="otro">📦 Otro</option>
+          </optgroup>
+        </select>
+      </label>
+
+      <label>Concepto
+        <input type="text" id="concepto" placeholder="Ej: Clase con Juan, gasolina A-7...">
+      </label>
+
+      <label>Importe (€)
+        <input type="number" id="importe" step="0.01" min="0" required placeholder="0.00">
+      </label>
+
+      <label>Vincular a clase (opcional)
+        <select id="clase_id">
+          <option value="">— Sin vincular —</option>
+        </select>
+      </label>
+
+      <label>Notas <textarea id="notas" rows="2"></textarea></label>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="btn-cancelar">Cancelar</button>
+        <button type="submit" class="btn-primary">💾 Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">
+    import { supabase, TABLES } from '../js/supabase-client.js'
+    import { renderNav } from '../js/nav.js'
+
+    renderNav('finanzas')
+
+    // ============================================================
+    // CATEGORÍAS
+    // ============================================================
+    const CATEGORIAS = {
+      clase_profesor:   { label: 'Clase profesor',     icon: '🎾', color: '#3a8fbf' },
+      clase_alumno:     { label: 'Clase alumno',       icon: '👨‍🎓', color: '#5bb8d4' },
+      partido_nacional: { label: 'Torneo nacional',    icon: '🏆', color: '#e8ff3a' },
+      partido_timpik:   { label: 'Liga Timpik',        icon: '⚔️', color: '#8a9ba8' },
+      gimnasio:         { label: 'Gimnasio',           icon: '💪', color: '#e67e22' },
+      estudio:          { label: 'Estudio',            icon: '📚', color: '#8e44ad' },
+      traslado:         { label: 'Traslado',           icon: '🚗', color: '#e74c3c' },
+      material:         { label: 'Material',           icon: '🎒', color: '#c0392b' },
+      otro:             { label: 'Otro',               icon: '📦', color: '#7f8c8d' }
+    }
+
+    function infoCat(cat) {
+      return CATEGORIAS[cat] || { label: cat || '—', icon: '📦', color: '#7f8c8d' }
+    }
+
+    // ============================================================
+    // REFERENCIAS DOM
+    // ============================================================
+    const inputMes = document.getElementById('mes')
+    const statsFinanzas = document.getElementById('stats-finanzas')
+    const gridCategorias = document.getElementById('grid-categorias')
+    const tbodyMovimientos = document.getElementById('tbody-movimientos')
+    const contMovimientos = document.getElementById('cont-movimientos')
+
+    const modal = document.getElementById('modal-movimiento')
+    const form = document.getElementById('form-movimiento')
+    const tipoSelector = document.getElementById('tipo-selector')
+    const selectClase = document.getElementById('clase_id')
+    const selectCategoria = document.getElementById('categoria')
+
+    let movimientosCache = []
+    let clasesCache = []
+    let filtroMes = new Date().toISOString().slice(0, 7)   // 'YYYY-MM'
+    let filtroTodo = false
+
+    // ============================================================
+    // INICIALIZACIÓN
+    // ============================================================
+    inputMes.value = filtroMes
+    inputMes.addEventListener('change', () => {
+      filtroMes = inputMes.value
+      filtroTodo = false
+      cargarMovimientos()
+    })
+    document.getElementById('btn-mes-actual').onclick = () => {
+      filtroMes = new Date().toISOString().slice(0, 7)
+      inputMes.value = filtroMes
+      filtroTodo = false
+      cargarMovimientos()
+    }
+    document.getElementById('btn-todo').onclick = () => {
+      filtroTodo = true
+      cargarMovimientos()
+    }
+
+    document.getElementById('btn-nuevo-ingreso').onclick = () => abrirModal(null, 'ingreso')
+    document.getElementById('btn-nuevo-gasto').onclick = () => abrirModal(null, 'gasto')
+    document.getElementById('btn-cancelar').onclick = () => modal.close()
+
+    tipoSelector.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tipo-btn')
+      if (!btn) return
+      setTipoModal(btn.dataset.tipo)
+    })
+
+    form.addEventListener('submit', guardarMovimiento)
+
+    // ============================================================
+    // CARGA DE DATOS
+    // ============================================================
+    async function cargarClases() {
+      const { data, error } = await supabase
+        .from(TABLES.clases)
+        .select('id, titulo, fecha, tipo')
+        .order('fecha', { ascending: false })
+        .limit(500)
+      if (error) { console.error(error); return }
+      clasesCache = data || []
+    }
+
+    async function cargarMovimientos() {
+      let query = supabase
+        .from(TABLES.finanzas)
+        .select('*')
+        .order('fecha', { ascending: false })
+        .order('created_at', { ascending: false })
+
+      if (!filtroTodo && filtroMes) {
+        const [year, month] = filtroMes.split('-')
+        const primerDia = `${year}-${month}-01`
+        const ultimoDia = new Date(year, month, 0).toISOString().split('T')[0]
+        query = query.gte('fecha', primerDia).lte('fecha', ultimoDia)
+      }
+
+      const { data, error } = await query
+      if (error) {
+        console.error(error)
+        tbodyMovimientos.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#e74c3c;">Error: ${error.message}</td></tr>`
+        return
+      }
+
+      movimientosCache = data || []
+      pintarStats()
+      pintarCategorias()
+      pintarMovimientos()
+    }
+
+    // ============================================================
+    // STATS
+    // ============================================================
+    function pintarStats() {
+      const ingresos = movimientosCache
+        .filter(m => m.tipo === 'ingreso')
+        .reduce((s, m) => s + Number(m.importe || 0), 0)
+      const gastos = movimientosCache
+        .filter(m => m.tipo === 'gasto')
+        .reduce((s, m) => s + Number(m.importe || 0), 0)
+      const balance = ingresos - gastos
+
+      const colorBalance = balance >= 0 ? '#27ae60' : '#e74c3c'
+
+      statsFinanzas.innerHTML = `
+        <div class="stat-card-fin">
+          <div class="stat-fin-icon">📈</div>
+          <div class="stat-fin-num" style="color:#27ae60;">+${ingresos.toFixed(2)} €</div>
+          <div class="stat-fin-label">Ingresos</div>
+        </div>
+        <div class="stat-card-fin">
+          <div class="stat-fin-icon">📉</div>
+          <div class="stat-fin-num" style="color:#e74c3c;">−${gastos.toFixed(2)} €</div>
+          <div class="stat-fin-label">Gastos</div>
+        </div>
+        <div class="stat-card-fin stat-card-balance" style="border-color: ${colorBalance};">
+          <div class="stat-fin-icon">💰</div>
+          <div class="stat-fin-num" style="color:${colorBalance};">
+            ${balance >= 0 ? '+' : ''}${balance.toFixed(2)} €
+          </div>
+          <div class="stat-fin-label">Balance</div>
+        </div>
+      `
+    }
+
+    // ============================================================
+    // DESGLOSE POR CATEGORÍA
+    // ============================================================
+    function pintarCategorias() {
+      const porCat = {}
+      movimientosCache.forEach(m => {
+        const key = `${m.tipo}__${m.categoria}`
+        if (!porCat[key]) porCat[key] = { tipo: m.tipo, categoria: m.categoria, total: 0, count: 0 }
+        porCat[key].total += Number(m.importe || 0)
+        porCat[key].count++
+      })
+
+      const entradas = Object.values(porCat).sort((a, b) => b.total - a.total)
+
+      if (entradas.length === 0) {
+        gridCategorias.innerHTML = '<p style="color:var(--texto-secundario);text-align:center;font-size:0.85rem;margin:0;">Sin movimientos en este período</p>'
+        return
+      }
+
+      gridCategorias.innerHTML = entradas.map(e => {
+        const info = infoCat(e.categoria)
+        const esIngreso = e.tipo === 'ingreso'
+        const color = esIngreso ? '#27ae60' : '#e74c3c'
+        const signo = esIngreso ? '+' : '−'
+        return `
+          <div class="cat-card" style="border-left-color: ${info.color};">
+            <div class="cat-header">
+              <span class="cat-icon">${info.icon}</span>
+              <span class="cat-label">${info.label}</span>
+              <span class="cat-tipo ${esIngreso ? 'cat-ing' : 'cat-gasto'}">${esIngreso ? 'ING' : 'GAS'}</span>
+            </div>
+            <div class="cat-num" style="color:${color};">${signo}${e.total.toFixed(2)} €</div>
+            <div class="cat-count">${e.count} movimiento${e.count > 1 ? 's' : ''}</div>
+          </div>
+        `
+      }).join('')
+    }
+
+    // ============================================================
+    // TABLA DE MOVIMIENTOS
+    // ============================================================
+    function pintarMovimientos() {
+      contMovimientos.textContent = `(${movimientosCache.length})`
+
+      if (movimientosCache.length === 0) {
+        tbodyMovimientos.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--texto-secundario);">Sin movimientos en este período</td></tr>'
+        return
+      }
+
+      tbodyMovimientos.innerHTML = movimientosCache.map(m => {
+        const info = infoCat(m.categoria)
+        const esIngreso = m.tipo === 'ingreso'
+        const signo = esIngreso ? '+' : '−'
+        const color = esIngreso ? '#27ae60' : '#e74c3c'
+        return `
+          <tr>
+            <td>${formatearFecha(m.fecha)}</td>
+            <td><span class="badge-mov ${esIngreso ? 'badge-ing' : 'badge-gasto'}">${esIngreso ? '➕ Ingreso' : '➖ Gasto'}</span></td>
+            <td><span class="cat-tag" style="border-color:${info.color};">${info.icon} ${info.label}</span></td>
+            <td class="wrap">${escapar(m.concepto || '—')}</td>
+            <td style="text-align:right;font-weight:700;color:${color};font-variant-numeric:tabular-nums;">
+              ${signo}${Number(m.importe).toFixed(2)} €
+            </td>
+            <td class="td-acc">
+              <button class="btn-secondary" data-edit="${m.id}" title="Editar">✏️</button>
+              <button class="btn-peligro" data-del="${m.id}" title="Eliminar">🗑️</button>
+            </td>
+          </tr>
+        `
+      }).join('')
+
+      tbodyMovimientos.querySelectorAll('[data-edit]').forEach(btn => {
+        btn.onclick = () => {
+          const mov = movimientosCache.find(x => x.id === btn.dataset.edit)
+          if (mov) abrirModal(mov, mov.tipo)
+        }
+      })
+      tbodyMovimientos.querySelectorAll('[data-del]').forEach(btn => {
+        btn.onclick = async () => {
+          if (!confirm('¿Eliminar este movimiento?')) return
+          await supabase.from(TABLES.finanzas).delete().eq('id', btn.dataset.del)
+          cargarMovimientos()
+        }
+      })
+    }
+
+    // ============================================================
+    // MODAL
+    // ============================================================
+    function setTipoModal(tipo) {
+      document.getElementById('movimiento-tipo').value = tipo
+      tipoSelector.querySelectorAll('.tipo-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.tipo === tipo)
+        b.classList.toggle('active-ingreso', b.dataset.tipo === 'ingreso' && tipo === 'ingreso')
+        b.classList.toggle('active-gasto', b.dataset.tipo === 'gasto' && tipo === 'gasto')
+      })
+      // Sugerir categoría por defecto
+      if (!document.getElementById('movimiento-id').value) {
+        selectCategoria.value = tipo === 'ingreso' ? 'clase_profesor' : 'traslado'
+      }
+    }
+
+    function abrirModal(mov, tipoInicial = 'ingreso') {
+      // Cargar clases en el selector
+      const opcionesClases = clasesCache
+        .map(c => `<option value="${c.id}">${c.fecha} · ${c.titulo}</option>`)
+        .join('')
+      selectClase.innerHTML = '<option value="">— Sin vincular —</option>' + opcionesClases
+
+      if (mov) {
+        document.getElementById('modal-titulo').textContent = 'Editar movimiento'
+        document.getElementById('movimiento-id').value = mov.id
+        document.getElementById('fecha').value = mov.fecha
+        document.getElementById('categoria').value = mov.categoria
+        document.getElementById('concepto').value = mov.concepto || ''
+        document.getElementById('importe').value = mov.importe
+        document.getElementById('clase_id').value = mov.clase_id || ''
+        document.getElementById('notas').value = mov.notas || ''
+        setTipoModal(mov.tipo)
+      } else {
+        form.reset()
+        document.getElementById('modal-titulo').textContent = tipoInicial === 'ingreso' ? 'Nuevo ingreso' : 'Nuevo gasto'
+        document.getElementById('movimiento-id').value = ''
+        document.getElementById('fecha').value = new Date().toISOString().split('T')[0]
+        setTipoModal(tipoInicial)
+      }
+
+      modal.showModal()
+      setTimeout(() => document.getElementById('importe').focus(), 100)
+    }
+
+    // ============================================================
+    // GUARDAR
+    // ============================================================
+    async function guardarMovimiento(e) {
+      e.preventDefault()
+
+      const id = document.getElementById('movimiento-id').value
+      const tipo = document.getElementById('movimiento-tipo').value
+      const importe = parseFloat(document.getElementById('importe').value)
+
+      if (!importe || importe <= 0) {
+        alert('⚠️ El importe debe ser mayor que 0')
+        return
+      }
+
+      const datos = {
+        tipo,
+        categoria: document.getElementById('categoria').value,
+        concepto: document.getElementById('concepto').value || null,
+        importe,
+        fecha: document.getElementById('fecha').value,
+        notas: document.getElementById('notas').value || null,
+        clase_id: document.getElementById('clase_id').value || null
+      }
+
+      let error
+      if (id) {
+        ({ error } = await supabase.from(TABLES.finanzas).update(datos).eq('id', id))
+      } else {
+        ({ error } = await supabase.from(TABLES.finanzas).insert(datos))
+      }
+
+      if (error) { alert('Error: ' + error.message); return }
+
+      modal.close()
+      cargarMovimientos()
+    }
+
+    // ============================================================
+    // HELPERS
+    // ============================================================
+    function escapar(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
+    function formatearFecha(iso) {
+      if (!iso) return '—'
+      const [y, m, d] = iso.split('-')
+      return `${d}/${m}/${y.slice(2)}`
+    }
+
+    // ============================================================
+    // ARRANCAR
+    // ============================================================
+    await cargarClases()
+    await cargarMovimientos()
+  </script>
+
+  <style>
+    /* ============================
+       Botones cabecera
+       ============================ */
+    .btn-ingreso {
+      background: linear-gradient(135deg, #27ae60, #1e8449);
+    }
+    .btn-ingreso:hover { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+
+    /* ============================
+       Stats principales
+       ============================ */
+    .stats-finanzas {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .stat-card-fin {
+      background: var(--fondo-card);
+      border: 1px solid var(--borde-card);
+      border-radius: var(--radio);
+      padding: 18px;
+      text-align: center;
+      transition: transform 0.15s;
+    }
+    .stat-card-fin:hover { transform: translateY(-2px); }
+    .stat-card-balance { box-shadow: 0 0 0 2px rgba(58, 143, 191, 0.15) inset; }
+    .stat-fin-icon {
+      font-size: 1.6rem;
+      margin-bottom: 6px;
+      opacity: 0.9;
+    }
+    .stat-fin-num {
+      font-size: 1.8rem;
+      font-weight: 700;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-fin-label {
+      font-size: 0.82rem;
+      color: var(--texto-secundario);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ============================
+       Desglose por categoría
+       ============================ */
+    .grid-categorias {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+    .cat-card {
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      border-left: 4px solid #3a8fbf;
+      border-radius: 8px;
+      padding: 12px 14px;
+      transition: transform 0.12s;
+    }
+    .cat-card:hover { transform: translateX(3px); }
+    .cat-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .cat-icon { font-size: 1.1rem; }
+    .cat-label {
+      flex: 1;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--texto-principal);
+    }
+    .cat-tipo {
+      font-size: 0.62rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 6px;
+      letter-spacing: 0.4px;
+    }
+    .cat-ing { background: #1e8449; color: white; }
+    .cat-gasto { background: #c0392b; color: white; }
+    .cat-num {
+      font-size: 1.15rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 2px;
+    }
+    .cat-count {
+      font-size: 0.72rem;
+      color: var(--texto-secundario);
+    }
+
+    /* ============================
+       Tabla movimientos
+       ============================ */
+    .seccion-titulo {
+      font-size: 1.1rem;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-left: 12px;
+      border-left: 5px solid #3a8fbf;
+    }
+    .seccion-count {
+      font-size: 0.85rem;
+      color: var(--texto-secundario);
+      font-weight: 500;
+    }
+    .badge-mov {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge-ing { background: rgba(39, 174, 96, 0.2); color: #2ecc71; border: 1px solid #27ae60; }
+    .badge-gasto { background: rgba(231, 76, 60, 0.15); color: #ff6b5b; border: 1px solid #c0392b; }
+
+    .cat-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      white-space: nowrap;
+    }
+    .td-acc {
+      white-space: nowrap;
+      display: flex;
+      gap: 4px;
+    }
+
+    /* ============================
+       Modal movimiento
+       ============================ */
+    .tipo-selector {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .tipo-btn {
+      flex: 1;
+      padding: 12px;
+      background: var(--fondo-app);
+      border: 2px solid var(--borde-card);
+      border-radius: 8px;
+      color: var(--texto-secundario);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      min-height: auto;
+    }
+    .tipo-btn:hover { border-color: var(--pista-azul-claro); color: var(--texto-principal); }
+    .tipo-btn.active-ingreso {
+      background: rgba(39, 174, 96, 0.15);
+      border-color: #27ae60;
+      color: #2ecc71;
+    }
+    .tipo-btn.active-gasto {
+      background: rgba(231, 76, 60, 0.15);
+      border-color: #c0392b;
+      color: #ff6b5b;
+    }
+
+    /* ============================
+       Responsive
+       ============================ */
+    @media (max-width: 768px) {
+      .stat-fin-num { font-size: 1.4rem; }
+      .stat-fin-icon { font-size: 1.3rem; }
+      .grid-categorias { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 480px) {
+      .grid-categorias { grid-template-columns: 1fr; }
+      .stats-finanzas { grid-template-columns: 1fr; }
+      .tipo-selector { flex-direction: column; }
+    }
+  </style>
+</body>
+</html>
