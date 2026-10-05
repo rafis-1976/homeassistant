@@ -140,10 +140,15 @@
         </label>
       </div>
 
+      <!-- ⬇️ BLOQUE TAREA CON BOTÓN ELIMINAR -->
       <div class="bloque-condicional" id="bloque-tarea">
-        <label>Añadir tarea
-          <textarea id="tarea" rows="2" placeholder="Ej: Repetir 20 voleas en casa, ver video del partido..."></textarea>
-        </label>
+        <div class="label-tarea">
+          <span>Añadir tarea</span>
+          <button type="button" class="btn-eliminar-tarea" id="btn-eliminar-tarea" title="Eliminar tarea">
+            🗑️ Eliminar tarea
+          </button>
+        </div>
+        <textarea id="tarea" rows="2" placeholder="Ej: Repetir 20 voleas en casa, ver video del partido..."></textarea>
       </div>
 
       <div class="bloque-alumnos bloque-condicional" id="bloque-alumnos">
@@ -258,6 +263,7 @@
     const inputHoraInicio = document.getElementById('hora_inicio')
     const inputHoraFin = document.getElementById('hora_fin')
     const inputTarea = document.getElementById('tarea')
+    const btnEliminarTarea = document.getElementById('btn-eliminar-tarea')
 
     const modalTabs = document.getElementById('modal-tabs')
     const bloqueEjercicio = document.getElementById('bloque-ejercicio')
@@ -297,7 +303,6 @@
     let listadoFiltro = 'todas'
     let listadoBusqueda = ''
 
-    // ⬇️ Pestaña activa por defecto = TODAS
     let rolActivo = 'todas'
     let tipoModalActivo = 'clase_profesor'
 
@@ -371,6 +376,12 @@
         previewRepeticion.textContent = ''
       }
 
+      // Si no hay campo tarea, limpiar
+      if (!campos.includes('tarea')) {
+        inputTarea.value = ''
+      }
+
+      actualizarBotonEliminarTarea()
       validarSolapeEnVivo()
     }
 
@@ -378,6 +389,27 @@
       const tab = e.target.closest('.modal-tab')
       if (!tab) return
       aplicarTipoModal(tab.dataset.tipo)
+    })
+
+    // ============================================================
+    // ⬇️ NUEVO: Mostrar/ocultar botón "Eliminar tarea"
+    // ============================================================
+    function actualizarBotonEliminarTarea() {
+      if (!btnEliminarTarea) return
+      const tieneTexto = inputTarea.value.trim().length > 0
+      btnEliminarTarea.style.display = tieneTexto ? 'inline-flex' : 'none'
+    }
+
+    inputTarea.addEventListener('input', actualizarBotonEliminarTarea)
+    inputTarea.addEventListener('change', actualizarBotonEliminarTarea)
+
+    btnEliminarTarea.addEventListener('click', () => {
+      if (!inputTarea.value.trim()) return
+      if (confirm('¿Eliminar la tarea de esta clase?')) {
+        inputTarea.value = ''
+        actualizarBotonEliminarTarea()
+        inputTarea.focus()
+      }
     })
 
     // ============================================================
@@ -516,14 +548,12 @@
     // PESTAÑAS EXTERNAS
     // ============================================================
     function actualizarContadoresTabs() {
-      // Contador "Todas" = total de clases
       const elTodas = document.getElementById('tab-count-todas')
       if (elTodas) {
         elTodas.textContent = eventosCache.length
         elTodas.classList.toggle('empty', eventosCache.length === 0)
       }
 
-      // Contadores por rol
       Object.keys(ROLES).forEach(rol => {
         const el = document.getElementById(`tab-count-${rol}`)
         if (!el) return
@@ -539,7 +569,6 @@
         t.classList.toggle('active', t.dataset.rol === rol)
       })
 
-      // Info arriba del calendario
       if (rol === 'todas') {
         tabInfo.innerHTML = `
           <span class="tab-info-icon">🌐</span>
@@ -574,7 +603,7 @@
     })
 
     // ============================================================
-    // RECUPERACIONES
+    // SECCIÓN RECUPERACIONES
     // ============================================================
     function pintarSeccionRecuperar() {
       if (faltasPendientes.length === 0) {
@@ -815,7 +844,6 @@
       const startMs = start.getTime()
       const endMs = end.getTime()
 
-      // Título
       let tituloBase
       if (rolActivo === 'todas') {
         tituloBase = '🌐 Todas las clases'
@@ -834,7 +862,6 @@
       }
       listadoTitulo.style.color = rolActivo === 'todas' ? '#e8ff3a' : infoRol(rolActivo).color
 
-      // Filtrar por rango + rol activo
       let enRango = eventosCache.filter(ev => {
         if (rolActivo !== 'todas' && ev.extendedProps.tipo !== rolActivo) return false
         const fecha = parseFechaLocal(ev.start)
@@ -1055,7 +1082,6 @@
         pintarAlumnos('')
         pintarSeccionRecuperar()
 
-        // Si la pestaña activa es "todas", por defecto el modal abre con "clase_profesor"
         const tipoInicial = rolActivo === 'todas' ? 'clase_profesor' : rolActivo
         aplicarTipoModal(tipoInicial)
 
@@ -1064,6 +1090,9 @@
           validarSolapeEnVivo()
         }
       }
+
+      // ⬇️ Actualizar visibilidad del botón eliminar tarea
+      actualizarBotonEliminarTarea()
 
       modoGuardarYContinuar = false
       modal.showModal()
@@ -1257,6 +1286,7 @@
         pintarSeccionRecuperar()
         actualizarAvisoDia()
         validarSolapeEnVivo()
+        actualizarBotonEliminarTarea()
         modal.scrollTop = 0
         return
       }
@@ -1359,7 +1389,6 @@
 
       calendar.render()
 
-      // Arrancar con la pestaña "Todas"
       activarTab('todas')
       aplicarTipoModal('clase_profesor')
 
@@ -1394,9 +1423,7 @@
   </script>
 
   <style>
-    /* ============================================================
-       PESTAÑAS EXTERNAS
-       ============================================================ */
+    /* Pestañas externas */
     .tabs-roles {
       display: flex; gap: 6px; margin-bottom: 10px;
       overflow-x: auto; padding-bottom: 4px;
@@ -1447,9 +1474,7 @@
     .tab-info strong { color: var(--texto-principal); font-weight: 700; }
     .tab-info-icon { font-size: 1.1rem; }
 
-    /* ============================================================
-       PESTAÑAS DEL MODAL
-       ============================================================ */
+    /* Pestañas del modal */
     .modal-tabs {
       display: flex; gap: 4px; margin-bottom: 12px; padding: 4px;
       background: var(--fondo-app); border: 1px solid var(--borde-card);
@@ -1490,6 +1515,39 @@
       transition: border-left-color 0.2s;
     }
     .tipo-activo .ta-icon { font-size: 1.15rem; line-height: 1; }
+
+    /* ⬇️ NUEVO: Etiqueta de tarea con botón eliminar */
+    .label-tarea {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--texto-secundario);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .btn-eliminar-tarea {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      background: rgba(231, 76, 60, 0.12);
+      border: 1px solid #c0392b;
+      color: #e74c3c;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      min-height: auto;
+    }
+    .btn-eliminar-tarea:hover {
+      background: #c0392b;
+      color: white;
+      transform: translateY(-1px);
+    }
 
     /* Resto igual */
     .evento-contenido {
@@ -1801,6 +1859,9 @@
       .modal-tab { padding: 7px 10px; font-size: 0.72rem; }
       .mt-icon { font-size: 0.85rem; }
       .mt-label { font-size: 0.7rem; }
+
+      .label-tarea { flex-wrap: wrap; }
+      .btn-eliminar-tarea { font-size: 0.68rem; padding: 3px 8px; }
 
       .listado-clases { margin-top: 16px; padding: 12px 10px; }
       .listado-header h2 { font-size: 1rem; }
