@@ -14,10 +14,12 @@
       <h1>📅 Calendario de Clases</h1>
 
       <div class="leyenda-calendario">
-        <span class="leyenda-item"><span class="dot dot-programada"></span> Programada</span>
-        <span class="leyenda-item"><span class="dot dot-realizada"></span> ✅ Realizada</span>
-        <span class="leyenda-item"><span class="dot dot-anulada"></span> 🚫 Anulada</span>
-        <span class="leyenda-item"><span class="dot dot-recuperacion"></span> 🔄 Recuperación</span>
+        <span class="leyenda-item"><span class="dot dot-clase-profesor"></span> Clase profesor</span>
+        <span class="leyenda-item"><span class="dot dot-clase-alumno"></span> Clase alumno</span>
+        <span class="leyenda-item"><span class="dot dot-partido-nacional"></span> Torneo nacional</span>
+        <span class="leyenda-item"><span class="dot dot-partido-timpik"></span> Liga Timpik</span>
+        <span class="leyenda-item"><span class="dot dot-gimnasio"></span> Gimnasio</span>
+        <span class="leyenda-item"><span class="dot dot-estudio"></span> Estudio</span>
       </div>
 
       <div id="calendar"></div>
@@ -60,12 +62,14 @@
 
       <div id="aviso-solape" class="aviso-solape" style="display:none;"></div>
 
-      <label>Tipo
+      <label>Rol
         <select id="tipo">
-          <option value="individual">Individual</option>
-          <option value="grupal">Grupal</option>
-          <option value="clinica">Clínica</option>
-          <option value="partido">Partido</option>
+          <option value="clase_profesor">🎾 Clase como profesor</option>
+          <option value="clase_alumno">👨‍🎓 Clase como alumno</option>
+          <option value="partido_nacional">🏆 Partido torneo nacional</option>
+          <option value="partido_timpik">⚔️ Partido Liga Timpik</option>
+          <option value="gimnasio">💪 Gimnasio</option>
+          <option value="estudio">📚 Estudio</option>
         </select>
       </label>
 
@@ -77,6 +81,10 @@
 
       <label>O escribe un ejercicio libre
         <input type="text" id="ejercicio_libre" placeholder="Ej: Partidillos, Calentamiento...">
+      </label>
+
+      <label>Añadir tarea
+        <textarea id="tarea" rows="2" placeholder="Ej: Repetir 20 voleas en casa, ver video del partido..."></textarea>
       </label>
 
       <div class="bloque-alumnos">
@@ -151,6 +159,22 @@
     renderNav('calendario')
 
     // ============================================================
+    // MAPA DE ROLES / TIPOS
+    // ============================================================
+    const ROLES = {
+      clase_profesor:  { label: 'Clase profesor',  icon: '🎾', color: '#3a8fbf', colorBorde: '#3a8fbf' },
+      clase_alumno:    { label: 'Clase alumno',    icon: '👨‍🎓', color: '#5bb8d4', colorBorde: '#5bb8d4' },
+      partido_nacional:{ label: 'Torneo nacional', icon: '🏆', color: '#e8ff3a', colorBorde: '#8a9900' },
+      partido_timpik:  { label: 'Liga Timpik',     icon: '⚔️', color: '#8a9ba8', colorBorde: '#8a9ba8' },
+      gimnasio:        { label: 'Gimnasio',        icon: '💪', color: '#e67e22', colorBorde: '#e67e22' },
+      estudio:         { label: 'Estudio',         icon: '📚', color: '#8e44ad', colorBorde: '#8e44ad' }
+    }
+
+    function infoRol(tipo) {
+      return ROLES[tipo] || { label: tipo || '—', icon: '📅', color: '#3a8fbf', colorBorde: '#3a8fbf' }
+    }
+
+    // ============================================================
     // REFERENCIAS DOM
     // ============================================================
     const modal = document.getElementById('modal-clase')
@@ -174,6 +198,8 @@
     const inputFecha = document.getElementById('fecha')
     const inputHoraInicio = document.getElementById('hora_inicio')
     const inputHoraFin = document.getElementById('hora_fin')
+    const inputTipo = document.getElementById('tipo')
+    const inputTarea = document.getElementById('tarea')
 
     const seccionRecuperar = document.getElementById('seccion-recuperar')
     const listaRecuperar = document.getElementById('lista-recuperar')
@@ -195,20 +221,19 @@
     let claseActualEstado = null
     let modoGuardarYContinuar = false
 
-    let clasesCache = []        // [{ id, fecha, hora_inicio, hora_fin, titulo, estado }]
-    let eventosCache = []       // Eventos completos para el listado
+    let clasesCache = []
+    let eventosCache = []
 
     let calendar = null
     let listadoRango = null
     let listadoFiltro = 'todas'
     let listadoBusqueda = ''
 
-    // Helpers fecha
     const diasSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
     const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
 
     // ============================================================
-    // UTILIDADES TIEMPO
+    // UTILIDADES
     // ============================================================
     function tiempoAMinutos(t) {
       if (!t) return 0
@@ -241,7 +266,7 @@
     }
 
     // ============================================================
-    // ALUMNOS
+    // CARGA DE DATOS
     // ============================================================
     async function cargarAlumnos() {
       const { data, error } = await supabase
@@ -250,9 +275,6 @@
       alumnosCache = data || []
     }
 
-    // ============================================================
-    // FALTAS PENDIENTES
-    // ============================================================
     async function cargarFaltasPendientes() {
       const { data, error } = await supabase
         .from(TABLES.faltas)
@@ -265,6 +287,121 @@
       faltasPendientes = data || []
     }
 
+    async function cargarEjercicios() {
+      const { data, error } = await supabase
+        .from(TABLES.ejercicios).select('id, titulo').order('titulo')
+      if (error) { console.error('Error ejercicios:', error); return }
+      selectEjercicio.innerHTML = '<option value="">— Sin ejercicio —</option>' +
+        (data || []).map(e => `<option value="${e.id}">${e.titulo}</option>`).join('')
+    }
+
+    async function cargarClases() {
+      const { data, error } = await supabase
+        .from(TABLES.clases)
+        .select(`
+          id, titulo, fecha, hora_inicio, hora_fin, tipo, estado,
+          notas, motivo_anulacion, ejercicio_id, ejercicio_libre, tarea,
+          padel_clase_alumnos(alumno_id, padel_alumnos(id, nombre)),
+          padel_ejercicios(id, titulo)
+        `)
+
+      if (error) {
+        console.error('Error cargando clases:', error)
+        clasesCache = []
+        eventosCache = []
+        return []
+      }
+
+      clasesCache = (data || []).map(c => ({
+        id: c.id, fecha: c.fecha, hora_inicio: c.hora_inicio, hora_fin: c.hora_fin,
+        titulo: c.titulo, estado: c.estado
+      }))
+
+      const claseIds = (data || []).map(c => c.id)
+      let clasesConRecuperacion = new Set()
+      if (claseIds.length > 0) {
+        const { data: faltasVinc } = await supabase
+          .from(TABLES.faltas).select('clase_recuperacion_id').in('clase_recuperacion_id', claseIds)
+        ;(faltasVinc || []).forEach(f => {
+          if (f.clase_recuperacion_id) clasesConRecuperacion.add(f.clase_recuperacion_id)
+        })
+      }
+
+      eventosCache = (data || []).map(c => {
+        const startStr = `${c.fecha}T${c.hora_inicio}`
+        const endStr = `${c.fecha}T${c.hora_fin}`
+        const rol = infoRol(c.tipo)
+        return {
+          id: c.id,
+          title: `${rol.icon} ${c.titulo}`,
+          start: startStr,
+          end: endStr,
+          extendedProps: {
+            tipo: c.tipo,
+            tipoLabel: rol.label,
+            tipoIcon: rol.icon,
+            estado: c.estado,
+            notas: c.notas,
+            motivo: c.motivo_anulacion,
+            tarea: c.tarea,
+            ejercicioId: c.ejercicio_id,
+            ejercicioLibre: c.ejercicio_libre,
+            alumnosIds: (c.padel_clase_alumnos || []).map(a => a.alumno_id),
+            alumnosNombres: (c.padel_clase_alumnos || []).map(a => a.padel_alumnos?.nombre).filter(Boolean),
+            esRecuperacion: clasesConRecuperacion.has(c.id)
+          },
+          backgroundColor: colorPorEstado(c.estado, c.tipo, clasesConRecuperacion.has(c.id)),
+          borderColor: bordePorEstado(c.estado, clasesConRecuperacion.has(c.id)),
+          classNames: classNamesPorEstado(c.estado)
+        }
+      })
+
+      return eventosCache
+    }
+
+    function colorPorEstado(estado, tipo, esRecuperacion) {
+      if (estado === 'anulada') return '#7a1a1a'
+      if (estado === 'realizada') return '#1e8449'
+      if (estado === 'reprogramada') return '#e67e22'
+      if (esRecuperacion) return '#8e44ad'
+      const rol = infoRol(tipo)
+      return rol.color
+    }
+
+    function bordePorEstado(estado, esRecuperacion) {
+      if (estado === 'anulada') return '#e74c3c'
+      if (estado === 'realizada') return '#2ecc71'
+      if (esRecuperacion) return '#c39bd3'
+      return 'transparent'
+    }
+
+    function classNamesPorEstado(estado) {
+      if (estado === 'anulada') return ['evento-anulado']
+      if (estado === 'realizada') return ['evento-realizado']
+      return []
+    }
+
+    function renderEvento(info) {
+      const { estado, esRecuperacion, tipoIcon } = info.event.extendedProps
+      const icono = estado === 'realizada' ? '✅'
+                  : estado === 'anulada' ? '🚫'
+                  : estado === 'reprogramada' ? '🔄'
+                  : esRecuperacion ? '🔄'
+                  : (tipoIcon || '')
+      const hora = info.timeText || ''
+      const contenedor = document.createElement('div')
+      contenedor.className = 'evento-contenido'
+      contenedor.innerHTML = `
+        <span class="evento-icono">${icono}</span>
+        <span class="evento-hora">${hora}</span>
+        <span class="evento-titulo">${info.event.title.replace(/^[^\s]+\s/, '')}</span>
+      `
+      return { domNodes: [contenedor] }
+    }
+
+    // ============================================================
+    // SECCIÓN RECUPERACIONES
+    // ============================================================
     function pintarSeccionRecuperar() {
       if (faltasPendientes.length === 0) {
         seccionRecuperar.style.display = 'none'
@@ -377,308 +514,7 @@
     selectNivel.addEventListener('change', () => pintarAlumnos(selectNivel.value))
 
     // ============================================================
-    // CARGA DE EJERCICIOS
-    // ============================================================
-    async function cargarEjercicios() {
-      const { data, error } = await supabase
-        .from(TABLES.ejercicios).select('id, titulo').order('titulo')
-      if (error) { console.error('Error ejercicios:', error); return }
-      selectEjercicio.innerHTML = '<option value="">— Sin ejercicio —</option>' +
-        (data || []).map(e => `<option value="${e.id}">${e.titulo}</option>`).join('')
-    }
-
-    // ============================================================
-    // CARGA DE CLASES (construye cache para validaciones y eventos)
-    // ============================================================
-    async function cargarClases() {
-      const { data, error } = await supabase
-        .from(TABLES.clases)
-        .select(`
-          id, titulo, fecha, hora_inicio, hora_fin, tipo, estado,
-          notas, motivo_anulacion, ejercicio_id, ejercicio_libre,
-          padel_clase_alumnos(alumno_id, padel_alumnos(id, nombre)),
-          padel_ejercicios(id, titulo)
-        `)
-
-      if (error) {
-        console.error('Error cargando clases:', error)
-        clasesCache = []
-        eventosCache = []
-        return []
-      }
-
-      // Cache simple para validaciones
-      clasesCache = (data || []).map(c => ({
-        id: c.id,
-        fecha: c.fecha,
-        hora_inicio: c.hora_inicio,
-        hora_fin: c.hora_fin,
-        titulo: c.titulo,
-        estado: c.estado
-      }))
-
-      // Detectar clases con recuperación
-      const claseIds = (data || []).map(c => c.id)
-      let clasesConRecuperacion = new Set()
-      if (claseIds.length > 0) {
-        const { data: faltasVinc } = await supabase
-          .from(TABLES.faltas)
-          .select('clase_recuperacion_id')
-          .in('clase_recuperacion_id', claseIds)
-        ;(faltasVinc || []).forEach(f => {
-          if (f.clase_recuperacion_id) clasesConRecuperacion.add(f.clase_recuperacion_id)
-        })
-      }
-
-      // Eventos completos
-      eventosCache = (data || []).map(c => {
-        // Parsear fechas de forma segura
-        const startStr = `${c.fecha}T${c.hora_inicio}`
-        const endStr = `${c.fecha}T${c.hora_fin}`
-        return {
-          id: c.id,
-          title: c.titulo,
-          start: startStr,
-          end: endStr,
-          extendedProps: {
-            tipo: c.tipo,
-            estado: c.estado,
-            notas: c.notas,
-            motivo: c.motivo_anulacion,
-            ejercicioId: c.ejercicio_id,
-            ejercicioLibre: c.ejercicio_libre,
-            alumnosIds: (c.padel_clase_alumnos || []).map(a => a.alumno_id),
-            alumnosNombres: (c.padel_clase_alumnos || []).map(a => a.padel_alumnos?.nombre).filter(Boolean),
-            esRecuperacion: clasesConRecuperacion.has(c.id)
-          },
-          backgroundColor: colorPorEstado(c.estado, c.tipo, clasesConRecuperacion.has(c.id)),
-          borderColor: bordePorEstado(c.estado, clasesConRecuperacion.has(c.id)),
-          classNames: classNamesPorEstado(c.estado)
-        }
-      })
-
-      return eventosCache
-    }
-
-    function colorPorEstado(estado, tipo, esRecuperacion) {
-      if (estado === 'anulada') return '#7a1a1a'
-      if (estado === 'realizada') return '#1e8449'
-      if (estado === 'reprogramada') return '#e67e22'
-      if (esRecuperacion) return '#8e44ad'
-      return { individual: '#3a8fbf', grupal: '#5bb8d4', clinica: '#e8ff3a', partido: '#8a9ba8' }[tipo] || '#3a8fbf'
-    }
-
-    function bordePorEstado(estado, esRecuperacion) {
-      if (estado === 'anulada') return '#e74c3c'
-      if (estado === 'realizada') return '#2ecc71'
-      if (esRecuperacion) return '#c39bd3'
-      return 'transparent'
-    }
-
-    function classNamesPorEstado(estado) {
-      if (estado === 'anulada') return ['evento-anulado']
-      if (estado === 'realizada') return ['evento-realizado']
-      return []
-    }
-
-    function renderEvento(info) {
-      const { estado, esRecuperacion } = info.event.extendedProps
-      const icono = estado === 'realizada' ? '✅'
-                  : estado === 'anulada' ? '🚫'
-                  : estado === 'reprogramada' ? '🔄'
-                  : esRecuperacion ? '🔄' : ''
-      const hora = info.timeText || ''
-      const contenedor = document.createElement('div')
-      contenedor.className = 'evento-contenido'
-      contenedor.innerHTML = `
-        <span class="evento-icono">${icono}</span>
-        <span class="evento-hora">${hora}</span>
-        <span class="evento-titulo">${info.event.title}</span>
-      `
-      return { domNodes: [contenedor] }
-    }
-
-    // ============================================================
-    // LISTADO
-    // ============================================================
-    function pintarListado() {
-      if (!listadoRango) {
-        listadoContenido.innerHTML = '<p class="listado-vacio">Preparando calendario...</p>'
-        return
-      }
-
-      const { start, end, tipo, tituloFecha } = listadoRango
-      const startMs = start.getTime()
-      const endMs = end.getTime()
-
-      // Título según vista
-      if (tipo === 'timeGridDay') {
-        listadoTitulo.textContent = `📋 Listado del ${formatearFechaLarga(tituloFecha)}`
-      } else if (tipo === 'timeGridWeek') {
-        const fin = new Date(endMs - 86400000) // Restar 1 día (end es exclusivo)
-        listadoTitulo.textContent = `📋 Listado de la semana (${formatearFechaCorta(start)} – ${formatearFechaCorta(fin)})`
-      } else {
-        listadoTitulo.textContent = `📋 Listado de ${meses[tituloFecha.getMonth()]} ${tituloFecha.getFullYear()}`
-      }
-
-      // Filtrar por rango
-      let enRango = eventosCache.filter(ev => {
-        const fecha = parseFechaLocal(ev.start)
-        const t = fecha.getTime()
-        return t >= startMs && t < endMs
-      })
-
-      // Filtro por estado
-      if (listadoFiltro !== 'todas') {
-        if (listadoFiltro === 'recuperacion') {
-          enRango = enRango.filter(e => e.extendedProps.esRecuperacion)
-        } else {
-          enRango = enRango.filter(e => e.extendedProps.estado === listadoFiltro)
-        }
-      }
-
-      // Buscador
-      if (listadoBusqueda.trim()) {
-        const q = listadoBusqueda.trim().toLowerCase()
-        enRango = enRango.filter(e => {
-          const p = e.extendedProps
-          const alumnos = (p.alumnosNombres || []).join(' ').toLowerCase()
-          const titulo = (e.title || '').toLowerCase()
-          const tipo = (p.tipo || '').toLowerCase()
-          return titulo.includes(q) || alumnos.includes(q) || tipo.includes(q)
-        })
-      }
-
-      // Ordenar
-      enRango.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-
-      // Contadores
-      const total = enRango.length
-      const programadas = enRango.filter(e => e.extendedProps.estado === 'programada').length
-      const realizadas = enRango.filter(e => e.extendedProps.estado === 'realizada').length
-      const anuladas = enRango.filter(e => e.extendedProps.estado === 'anulada').length
-
-      listadoContador.innerHTML = total === 0
-        ? ''
-        : `<span class="chip-resumen">${total} total</span>` +
-          (programadas > 0 ? `<span class="chip-resumen chip-prog">${programadas} 📅</span>` : '') +
-          (realizadas > 0 ? `<span class="chip-resumen chip-real">${realizadas} ✅</span>` : '') +
-          (anuladas > 0 ? `<span class="chip-resumen chip-anul">${anuladas} 🚫</span>` : '')
-
-      if (enRango.length === 0) {
-        const msg = listadoBusqueda.trim()
-          ? `Sin resultados para "${escapar(listadoBusqueda)}"`
-          : (listadoFiltro !== 'todas' ? 'Sin clases con este filtro en el período' : 'Sin clases en este período')
-        listadoContenido.innerHTML = `<p class="listado-vacio">${msg}</p>`
-        return
-      }
-
-      // Agrupar por fecha
-      const porFecha = {}
-      enRango.forEach(ev => {
-        const fecha = ev.start.split('T')[0]
-        if (!porFecha[fecha]) porFecha[fecha] = []
-        porFecha[fecha].push(ev)
-      })
-
-      const hoyISO = new Date().toISOString().split('T')[0]
-
-      listadoContenido.innerHTML = Object.entries(porFecha)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([fecha, clases]) => {
-          const fechaObj = new Date(fecha + 'T12:00:00')
-          const diaSemana = diasSemana[fechaObj.getDay()]
-          const esHoy = fecha === hoyISO
-          return `
-            <div class="listado-dia ${esHoy ? 'listado-hoy' : ''}">
-              <div class="listado-dia-header">
-                <span class="listado-dia-fecha">${formatearFechaCorta(fechaObj)}</span>
-                <span class="listado-dia-nombre">${diaSemana}</span>
-                ${esHoy ? '<span class="listado-hoy-tag">HOY</span>' : ''}
-                <span class="listado-dia-count">${clases.length} clase${clases.length > 1 ? 's' : ''}</span>
-              </div>
-              <div class="listado-clases-dia">
-                ${clases.map(c => pintarItemListado(c)).join('')}
-              </div>
-            </div>
-          `
-        }).join('')
-    }
-
-    function pintarItemListado(ev) {
-      const p = ev.extendedProps
-      const icono = p.estado === 'realizada' ? '✅'
-                  : p.estado === 'anulada' ? '🚫'
-                  : p.estado === 'reprogramada' ? '🔄'
-                  : p.esRecuperacion ? '🔄' : '📅'
-      const hora = `${ev.start.split('T')[1].slice(0,5)}–${ev.end.split('T')[1].slice(0,5)}`
-      const alumnos = p.alumnosNombres || []
-      const alumnosTxt = alumnos.length > 0
-        ? (alumnos.length > 5 ? `${alumnos.slice(0,5).join(', ')} +${alumnos.length-5}` : alumnos.join(', '))
-        : 'Sin alumnos'
-      const colorBar = p.estado === 'realizada' ? '#1e8449'
-                     : p.estado === 'anulada' ? '#7a1a1a'
-                     : p.esRecuperacion ? '#8e44ad'
-                     : '#3a8fbf'
-
-      return `
-        <div class="listado-clase" data-id="${ev.id}" style="border-left-color: ${colorBar};">
-          <div class="listado-clase-hora">${hora}</div>
-          <div class="listado-clase-info">
-            <div class="listado-clase-titulo">
-              <span class="listado-clase-icono">${icono}</span>
-              ${escapar(ev.title)}
-              <span class="listado-clase-tipo">${p.tipo}</span>
-            </div>
-            <div class="listado-clase-alumnos">👥 ${escapar(alumnosTxt)}</div>
-          </div>
-        </div>
-      `
-    }
-
-    // Parse seguro de "2025-01-15T09:00" como hora local
-    function parseFechaLocal(s) {
-      if (!s) return new Date(0)
-      const [fecha, hora] = s.split('T')
-      const [y, m, d] = fecha.split('-').map(Number)
-      const [h, mi] = (hora || '00:00').split(':').map(Number)
-      return new Date(y, m - 1, d, h, mi, 0, 0)
-    }
-
-    function formatearFechaCorta(d) {
-      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
-    }
-
-    function formatearFechaLarga(d) {
-      return `${diasSemana[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]}`
-    }
-
-    // Click en un item → abre modal
-    listadoContenido.addEventListener('click', (e) => {
-      const item = e.target.closest('.listado-clase')
-      if (!item || !calendar) return
-      const evFull = calendar.getEventById(item.dataset.id)
-      if (evFull) abrirModal(evFull)
-    })
-
-    // Filtros
-    document.querySelectorAll('.filtro-chip').forEach(chip => {
-      chip.onclick = () => {
-        document.querySelectorAll('.filtro-chip').forEach(c => c.classList.remove('active'))
-        chip.classList.add('active')
-        listadoFiltro = chip.dataset.filtro
-        pintarListado()
-      }
-    })
-
-    // Buscador
-    listadoBuscador.addEventListener('input', (e) => {
-      listadoBusqueda = e.target.value
-      pintarListado()
-    })
-
-    // ============================================================
-    // CONFIGURACIÓN REPETICIÓN SEMANAL
+    // REPETICIÓN SEMANAL
     // ============================================================
     checkRepetir.addEventListener('change', () => {
       camposRepetir.style.display = checkRepetir.checked ? 'block' : 'none'
@@ -787,7 +623,177 @@
     }
 
     // ============================================================
-    // MODAL: ABRIR / BOTONES ESTADO / GUARDAR
+    // LISTADO
+    // ============================================================
+    function pintarListado() {
+      if (!listadoRango) {
+        listadoContenido.innerHTML = '<p class="listado-vacio">Preparando calendario...</p>'
+        return
+      }
+
+      const { start, end, tipo, tituloFecha } = listadoRango
+      const startMs = start.getTime()
+      const endMs = end.getTime()
+
+      if (tipo === 'timeGridDay') {
+        listadoTitulo.textContent = `📋 Listado del ${formatearFechaLarga(tituloFecha)}`
+      } else if (tipo === 'timeGridWeek') {
+        const fin = new Date(endMs - 86400000)
+        listadoTitulo.textContent = `📋 Listado de la semana (${formatearFechaCorta(start)} – ${formatearFechaCorta(fin)})`
+      } else {
+        listadoTitulo.textContent = `📋 Listado de ${meses[tituloFecha.getMonth()]} ${tituloFecha.getFullYear()}`
+      }
+
+      let enRango = eventosCache.filter(ev => {
+        const fecha = parseFechaLocal(ev.start)
+        const t = fecha.getTime()
+        return t >= startMs && t < endMs
+      })
+
+      if (listadoFiltro !== 'todas') {
+        if (listadoFiltro === 'recuperacion') {
+          enRango = enRango.filter(e => e.extendedProps.esRecuperacion)
+        } else {
+          enRango = enRango.filter(e => e.extendedProps.estado === listadoFiltro)
+        }
+      }
+
+      if (listadoBusqueda.trim()) {
+        const q = listadoBusqueda.trim().toLowerCase()
+        enRango = enRango.filter(e => {
+          const p = e.extendedProps
+          const alumnos = (p.alumnosNombres || []).join(' ').toLowerCase()
+          const titulo = (e.title || '').toLowerCase()
+          const tipo = (p.tipoLabel || '').toLowerCase()
+          return titulo.includes(q) || alumnos.includes(q) || tipo.includes(q)
+        })
+      }
+
+      enRango.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+
+      const total = enRango.length
+      const programadas = enRango.filter(e => e.extendedProps.estado === 'programada').length
+      const realizadas = enRango.filter(e => e.extendedProps.estado === 'realizada').length
+      const anuladas = enRango.filter(e => e.extendedProps.estado === 'anulada').length
+
+      listadoContador.innerHTML = total === 0
+        ? ''
+        : `<span class="chip-resumen">${total} total</span>` +
+          (programadas > 0 ? `<span class="chip-resumen chip-prog">${programadas} 📅</span>` : '') +
+          (realizadas > 0 ? `<span class="chip-resumen chip-real">${realizadas} ✅</span>` : '') +
+          (anuladas > 0 ? `<span class="chip-resumen chip-anul">${anuladas} 🚫</span>` : '')
+
+      if (enRango.length === 0) {
+        const msg = listadoBusqueda.trim()
+          ? `Sin resultados para "${escapar(listadoBusqueda)}"`
+          : (listadoFiltro !== 'todas' ? 'Sin clases con este filtro en el período' : 'Sin clases en este período')
+        listadoContenido.innerHTML = `<p class="listado-vacio">${msg}</p>`
+        return
+      }
+
+      const porFecha = {}
+      enRango.forEach(ev => {
+        const fecha = ev.start.split('T')[0]
+        if (!porFecha[fecha]) porFecha[fecha] = []
+        porFecha[fecha].push(ev)
+      })
+
+      const hoyISO = new Date().toISOString().split('T')[0]
+
+      listadoContenido.innerHTML = Object.entries(porFecha)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([fecha, clases]) => {
+          const fechaObj = new Date(fecha + 'T12:00:00')
+          const diaSemana = diasSemana[fechaObj.getDay()]
+          const esHoy = fecha === hoyISO
+          return `
+            <div class="listado-dia ${esHoy ? 'listado-hoy' : ''}">
+              <div class="listado-dia-header">
+                <span class="listado-dia-fecha">${formatearFechaCorta(fechaObj)}</span>
+                <span class="listado-dia-nombre">${diaSemana}</span>
+                ${esHoy ? '<span class="listado-hoy-tag">HOY</span>' : ''}
+                <span class="listado-dia-count">${clases.length} clase${clases.length > 1 ? 's' : ''}</span>
+              </div>
+              <div class="listado-clases-dia">
+                ${clases.map(c => pintarItemListado(c)).join('')}
+              </div>
+            </div>
+          `
+        }).join('')
+    }
+
+    function pintarItemListado(ev) {
+      const p = ev.extendedProps
+      const icono = p.estado === 'realizada' ? '✅'
+                  : p.estado === 'anulada' ? '🚫'
+                  : p.estado === 'reprogramada' ? '🔄'
+                  : p.esRecuperacion ? '🔄'
+                  : (p.tipoIcon || '📅')
+      const hora = `${ev.start.split('T')[1].slice(0,5)}–${ev.end.split('T')[1].slice(0,5)}`
+      const alumnos = p.alumnosNombres || []
+      const alumnosTxt = alumnos.length > 0
+        ? (alumnos.length > 5 ? `${alumnos.slice(0,5).join(', ')} +${alumnos.length-5}` : alumnos.join(', '))
+        : 'Sin alumnos'
+      const colorBar = p.estado === 'realizada' ? '#1e8449'
+                     : p.estado === 'anulada' ? '#7a1a1a'
+                     : p.esRecuperacion ? '#8e44ad'
+                     : infoRol(p.tipo).color
+
+      return `
+        <div class="listado-clase" data-id="${ev.id}" style="border-left-color: ${colorBar};">
+          <div class="listado-clase-hora">${hora}</div>
+          <div class="listado-clase-info">
+            <div class="listado-clase-titulo">
+              <span class="listado-clase-icono">${icono}</span>
+              ${escapar(ev.title.replace(/^[^\s]+\s/, ''))}
+              <span class="listado-clase-tipo">${p.tipoLabel}</span>
+            </div>
+            <div class="listado-clase-alumnos">👥 ${escapar(alumnosTxt)}</div>
+            ${p.tarea ? `<div class="listado-clase-tarea">📝 ${escapar(p.tarea)}</div>` : ''}
+          </div>
+        </div>
+      `
+    }
+
+    function parseFechaLocal(s) {
+      if (!s) return new Date(0)
+      const [fecha, hora] = s.split('T')
+      const [y, m, d] = fecha.split('-').map(Number)
+      const [h, mi] = (hora || '00:00').split(':').map(Number)
+      return new Date(y, m - 1, d, h, mi, 0, 0)
+    }
+
+    function formatearFechaCorta(d) {
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+    }
+
+    function formatearFechaLarga(d) {
+      return `${diasSemana[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]}`
+    }
+
+    listadoContenido.addEventListener('click', (e) => {
+      const item = e.target.closest('.listado-clase')
+      if (!item || !calendar) return
+      const evFull = calendar.getEventById(item.dataset.id)
+      if (evFull) abrirModal(evFull)
+    })
+
+    document.querySelectorAll('.filtro-chip').forEach(chip => {
+      chip.onclick = () => {
+        document.querySelectorAll('.filtro-chip').forEach(c => c.classList.remove('active'))
+        chip.classList.add('active')
+        listadoFiltro = chip.dataset.filtro
+        pintarListado()
+      }
+    })
+
+    listadoBuscador.addEventListener('input', (e) => {
+      listadoBusqueda = e.target.value
+      pintarListado()
+    })
+
+    // ============================================================
+    // MODAL
     // ============================================================
     async function abrirModal(clase) {
       btnRealizada.style.display = 'none'
@@ -809,13 +815,14 @@
 
         document.getElementById('modal-titulo').textContent = 'Editar Clase'
         document.getElementById('clase-id').value = clase.id
-        document.getElementById('titulo').value = clase.title
+        document.getElementById('titulo').value = clase.title.replace(/^[^\s]+\s/, '')
         inputFecha.value = clase.startStr.split('T')[0]
         inputHoraInicio.value = clase.startStr.split('T')[1]?.slice(0,5) || '09:00'
         inputHoraFin.value = clase.endStr?.split('T')[1]?.slice(0,5) || '10:00'
-        document.getElementById('tipo').value = clase.extendedProps.tipo
+        inputTipo.value = clase.extendedProps.tipo || 'clase_profesor'
         document.getElementById('ejercicio_id').value = clase.extendedProps.ejercicioId || ''
         document.getElementById('ejercicio_libre').value = clase.extendedProps.ejercicioLibre || ''
+        inputTarea.value = clase.extendedProps.tarea || ''
         document.getElementById('notas').value = clase.extendedProps.notas || ''
 
         alumnosSeleccionados = new Set(clase.extendedProps.alumnosIds || [])
@@ -847,6 +854,8 @@
         inputFecha.value = clase?.fecha || ''
         inputHoraInicio.value = clase?.horaInicio || '09:00'
         inputHoraFin.value = clase?.horaFin || '10:00'
+        inputTipo.value = 'clase_profesor'
+        inputTarea.value = ''
         document.getElementById('bloque-repetir').style.display = 'block'
         document.getElementById('btn-guardar').textContent = '💾 Guardar'
         btnGuardarOtra.style.display = 'inline-flex'
@@ -930,9 +939,10 @@
         titulo: document.getElementById('titulo').value,
         hora_inicio: inputHoraInicio.value,
         hora_fin: inputHoraFin.value,
-        tipo: document.getElementById('tipo').value,
+        tipo: inputTipo.value,
         ejercicio_id: document.getElementById('ejercicio_id').value || null,
         ejercicio_libre: document.getElementById('ejercicio_libre').value || null,
+        tarea: inputTarea.value || null,
         notas: document.getElementById('notas').value
       }
 
@@ -1030,6 +1040,7 @@
         }
         document.getElementById('ejercicio_id').value = ''
         document.getElementById('ejercicio_libre').value = ''
+        inputTarea.value = ''
         document.getElementById('notas').value = ''
         document.getElementById('bloque-repetir').style.display = 'block'
         checkRepetir.checked = false
@@ -1053,9 +1064,6 @@
       modal.close()
     })
 
-    // ============================================================
-    // REFRESCAR
-    // ============================================================
     async function refrescarTodo() {
       const eventos = await cargarClases()
       if (calendar) {
@@ -1069,32 +1077,20 @@
     // INICIALIZACIÓN
     // ============================================================
     async function inicializar() {
-      // 1. Cargar datos en paralelo
-      await Promise.all([
-        cargarAlumnos(),
-        cargarEjercicios()
-      ])
-
-      // 2. Cargar clases (popula eventosCache)
+      await Promise.all([cargarAlumnos(), cargarEjercicios()])
       await cargarClases()
 
-      // 3. Crear calendario
       const esMovil = window.innerWidth < 768
 
       calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
         initialView: esMovil ? 'timeGridWeek' : 'dayGridMonth',
         locale: 'es',
-        firstDay: 1,             // Lunes
+        firstDay: 1,
         weekNumbers: false,
         headerToolbar: esMovil
           ? { left: 'prev,next', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }
           : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
-        buttonText: {
-          today: 'Hoy',
-          month: 'Mes',
-          week: 'Sem',
-          day: 'Día'
-        },
+        buttonText: { today: 'Hoy', month: 'Mes', week: 'Sem', day: 'Día' },
         views: {
           dayGridMonth: { buttonText: 'Mes' },
           timeGridWeek: { buttonText: 'Sem' },
@@ -1145,10 +1141,7 @@
           if (error) { info.revert(); alert('Error: ' + error.message); return }
           await refrescarTodo()
         },
-        // ⬇️ CLAVE: actualizar el listado cuando cambie la vista o el rango
         datesSet: (info) => {
-          // view.currentStart = primer día del período "real" (mes/semana/día)
-          // view.activeStart / activeEnd = rango visible completo
           listadoRango = {
             start: info.view.activeStart,
             end: info.view.activeEnd,
@@ -1164,7 +1157,6 @@
 
       calendar.render()
 
-      // 4. Forzar un pintado inicial del listado (por si datesSet no se disparó aún)
       if (calendar.view) {
         listadoRango = {
           start: calendar.view.activeStart,
@@ -1176,7 +1168,6 @@
       }
     }
 
-    // Reajustar título del listado al redimensionar
     let resizeTimer
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer)
@@ -1193,26 +1184,25 @@
       }, 200)
     })
 
-    // Arrancar
     await inicializar()
   </script>
 
   <style>
-    /* Leyenda */
     .leyenda-calendario {
-      display: flex; gap: 16px; flex-wrap: wrap;
+      display: flex; gap: 14px; flex-wrap: wrap;
       margin-bottom: 12px; padding: 8px 12px;
       background: var(--fondo-card); border: 1px solid var(--borde-card);
-      border-radius: var(--radio-sm); font-size: 0.82rem; color: var(--texto-secundario);
+      border-radius: var(--radio-sm); font-size: 0.8rem; color: var(--texto-secundario);
     }
     .leyenda-item { display: inline-flex; align-items: center; gap: 6px; }
     .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-    .dot-programada { background: #3a8fbf; }
-    .dot-realizada  { background: #1e8449; }
-    .dot-anulada    { background: #7a1a1a; border: 1px solid #e74c3c; }
-    .dot-recuperacion { background: #8e44ad; }
+    .dot-clase-profesor { background: #3a8fbf; }
+    .dot-clase-alumno { background: #5bb8d4; }
+    .dot-partido-nacional { background: #e8ff3a; border: 1px solid #8a9900; }
+    .dot-partido-timpik { background: #8a9ba8; }
+    .dot-gimnasio { background: #e67e22; }
+    .dot-estudio { background: #8e44ad; }
 
-    /* Evento */
     .evento-contenido {
       display: flex; align-items: center; gap: 4px;
       overflow: hidden; white-space: nowrap; padding: 0 2px;
@@ -1233,7 +1223,6 @@
     .evento-realizado .evento-titulo { font-weight: 600; }
     .fc-event { position: relative; }
 
-    /* Modal */
     .bloque-alumnos {
       background: var(--fondo-app); border: 1px solid var(--borde-card);
       border-radius: 8px; padding: 12px; margin-bottom: 12px;
@@ -1385,7 +1374,6 @@
       to   { opacity: 1; transform: translate(-50%, 0); }
     }
 
-    /* FullCalendar */
     #calendar {
       background: var(--fondo-card); padding: 12px;
       border-radius: var(--radio); border: 1px solid var(--borde-card);
@@ -1410,7 +1398,6 @@
       background: rgba(232, 255, 58, 0.04);
     }
 
-    /* Listado */
     .listado-clases {
       margin-top: 24px;
       background: var(--fondo-card);
@@ -1454,12 +1441,8 @@
       border-color: var(--pista-azul-claro);
       color: white;
     }
-    .listado-buscador {
-      min-width: 200px; max-width: 320px; flex: 1;
-    }
-    .listado-contenido {
-      display: flex; flex-direction: column; gap: 12px;
-    }
+    .listado-buscador { min-width: 200px; max-width: 320px; flex: 1; }
+    .listado-contenido { display: flex; flex-direction: column; gap: 12px; }
     .listado-vacio {
       text-align: center; padding: 32px 16px;
       color: var(--texto-secundario); font-size: 0.9rem;
@@ -1538,8 +1521,20 @@
       font-size: 0.78rem; color: var(--texto-secundario);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+    .listado-clase-tarea {
+      font-size: 0.75rem;
+      color: #e8ff3a;
+      margin-top: 3px;
+      background: rgba(232, 255, 58, 0.08);
+      padding: 2px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
-    /* MÓVIL */
     @media (max-width: 768px) {
       #calendar { padding: 6px; }
       .fc .fc-toolbar {
