@@ -140,7 +140,6 @@
         </label>
       </div>
 
-      <!-- ⬇️ BLOQUE TAREA CON BOTÓN ELIMINAR -->
       <div class="bloque-condicional" id="bloque-tarea">
         <div class="label-tarea">
           <span>Añadir tarea</span>
@@ -204,13 +203,45 @@
       <div id="aviso-dia" class="aviso-dia" style="display:none;"></div>
 
       <div class="modal-actions">
-        <button type="button" class="btn-secondary" id="btn-cancelar">Cerrar</button>
-        <button type="button" class="btn-estado btn-realizada" id="btn-realizada" style="display:none;">✅ Marcar realizada</button>
-        <button type="button" class="btn-estado btn-anular" id="btn-anular" style="display:none;">🚫 Anular clase</button>
-        <button type="button" class="btn-estado btn-reabrir" id="btn-reabrir" style="display:none;">↩️ Reabrir</button>
-        <button type="button" class="btn-secondary" id="btn-nueva-mismo-dia" style="display:none;">➕ Otra clase este día</button>
-        <button type="button" class="btn-primary btn-guardar-otra" id="btn-guardar-otra" style="display:none;">💾➕ Guardar y añadir otra</button>
-        <button type="submit" class="btn-primary" id="btn-guardar">💾 Guardar</button>
+        <button type="button" class="btn-peligro btn-con-icono" id="btn-eliminar-clase" style="display:none;" title="Eliminar clase">
+          <span class="btn-icon">🗑️</span>
+          <span class="btn-texto">Eliminar</span>
+        </button>
+
+        <button type="button" class="btn-estado btn-realizada btn-con-icono" id="btn-realizada" style="display:none;" title="Marcar realizada">
+          <span class="btn-icon">✅</span>
+          <span class="btn-texto">Marcar realizada</span>
+        </button>
+
+        <button type="button" class="btn-estado btn-anular btn-con-icono" id="btn-anular" style="display:none;" title="Anular clase">
+          <span class="btn-icon">🚫</span>
+          <span class="btn-texto">Anular</span>
+        </button>
+
+        <button type="button" class="btn-estado btn-reabrir btn-con-icono" id="btn-reabrir" style="display:none;" title="Reabrir">
+          <span class="btn-icon">↩️</span>
+          <span class="btn-texto">Reabrir</span>
+        </button>
+
+        <button type="button" class="btn-secondary btn-con-icono" id="btn-nueva-mismo-dia" style="display:none;" title="Otra clase este día">
+          <span class="btn-icon">➕</span>
+          <span class="btn-texto">Otra clase este día</span>
+        </button>
+
+        <button type="button" class="btn-primary btn-guardar-otra btn-con-icono" id="btn-guardar-otra" style="display:none;" title="Guardar y añadir otra">
+          <span class="btn-icon">💾➕</span>
+          <span class="btn-texto">Guardar y añadir otra</span>
+        </button>
+
+        <button type="submit" class="btn-primary btn-con-icono" id="btn-guardar" title="Guardar">
+          <span class="btn-icon">💾</span>
+          <span class="btn-texto">Guardar</span>
+        </button>
+
+        <button type="button" class="btn-secondary btn-con-icono" id="btn-cancelar" title="Cerrar">
+          <span class="btn-icon">❌</span>
+          <span class="btn-texto">Cerrar</span>
+        </button>
       </div>
     </form>
   </dialog>
@@ -254,6 +285,7 @@
     const btnRealizada = document.getElementById('btn-realizada')
     const btnAnular = document.getElementById('btn-anular')
     const btnReabrir = document.getElementById('btn-reabrir')
+    const btnEliminarClase = document.getElementById('btn-eliminar-clase')
     const btnNuevaMismoDia = document.getElementById('btn-nueva-mismo-dia')
     const btnGuardarOtra = document.getElementById('btn-guardar-otra')
     const estadoInfo = document.getElementById('estado-info')
@@ -376,9 +408,13 @@
         previewRepeticion.textContent = ''
       }
 
-      // Si no hay campo tarea, limpiar
       if (!campos.includes('tarea')) {
         inputTarea.value = ''
+      }
+
+      // Si estamos editando, reajustar los botones según el nuevo tipo
+      if (claseActualId) {
+        actualizarBotonesEstado(claseActualEstado, tipo)
       }
 
       actualizarBotonEliminarTarea()
@@ -392,7 +428,7 @@
     })
 
     // ============================================================
-    // ⬇️ NUEVO: Mostrar/ocultar botón "Eliminar tarea"
+    // BOTÓN ELIMINAR TAREA
     // ============================================================
     function actualizarBotonEliminarTarea() {
       if (!btnEliminarTarea) return
@@ -1018,9 +1054,11 @@
     // MODAL
     // ============================================================
     async function abrirModal(clase) {
+      // Reset visibilidad botones
       btnRealizada.style.display = 'none'
       btnAnular.style.display = 'none'
       btnReabrir.style.display = 'none'
+      btnEliminarClase.style.display = 'none'
       btnNuevaMismoDia.style.display = 'none'
       btnGuardarOtra.style.display = 'none'
       estadoInfo.style.display = 'none'
@@ -1032,6 +1070,7 @@
       await cargarFaltasPendientes()
 
       if (clase?.id) {
+        // ===== EDITAR =====
         claseActualId = clase.id
         claseActualEstado = clase.extendedProps.estado
 
@@ -1061,12 +1100,16 @@
         pintarAlumnos(selectNivel.value)
         pintarSeccionRecuperar()
 
-        document.getElementById('btn-guardar').textContent = '💾 Guardar cambios'
-        btnNuevaMismoDia.style.display = 'inline-flex'
-        actualizarBotonesEstado(claseActualEstado)
+        document.getElementById('btn-guardar').querySelector('.btn-texto').textContent = 'Guardar'
+        btnEliminarClase.style.display = 'inline-flex'
+        btnNuevaMismoDia.style.display = 'none'
+        btnGuardarOtra.style.display = 'none'
+
+        actualizarBotonesEstado(claseActualEstado, clase.extendedProps.tipo)
 
         aplicarTipoModal(clase.extendedProps.tipo || 'clase_profesor')
       } else {
+        // ===== NUEVA =====
         claseActualId = null
         claseActualEstado = 'programada'
         form.reset()
@@ -1076,8 +1119,10 @@
         inputHoraInicio.value = clase?.horaInicio || '09:00'
         inputHoraFin.value = clase?.horaFin || '10:00'
         inputTarea.value = ''
-        document.getElementById('btn-guardar').textContent = '💾 Guardar'
+        document.getElementById('btn-guardar').querySelector('.btn-texto').textContent = 'Guardar'
+        btnEliminarClase.style.display = 'none'
         btnGuardarOtra.style.display = 'inline-flex'
+        btnNuevaMismoDia.style.display = 'inline-flex'
         selectNivel.value = ''
         pintarAlumnos('')
         pintarSeccionRecuperar()
@@ -1091,27 +1136,28 @@
         }
       }
 
-      // ⬇️ Actualizar visibilidad del botón eliminar tarea
       actualizarBotonEliminarTarea()
 
       modoGuardarYContinuar = false
       modal.showModal()
     }
 
-    function actualizarBotonesEstado(estado) {
+    function actualizarBotonesEstado(estado, tipo) {
       btnRealizada.style.display = 'none'
       btnAnular.style.display = 'none'
       btnReabrir.style.display = 'none'
       estadoInfo.style.display = 'block'
 
+      const esProfesor = tipo === 'clase_profesor'
+
       if (estado === 'programada' || estado === 'reprogramada') {
         estadoInfo.innerHTML = `Estado actual: <strong style="color:#3a8fbf;">${estado === 'reprogramada' ? '🔄 Reprogramada' : '📅 Programada'}</strong>`
         btnRealizada.style.display = 'inline-flex'
-        btnAnular.style.display = 'inline-flex'
+        if (esProfesor) btnAnular.style.display = 'inline-flex'
       } else if (estado === 'realizada') {
         estadoInfo.innerHTML = `Estado actual: <strong style="color:#2ecc71;">✅ Realizada</strong>`
         btnReabrir.style.display = 'inline-flex'
-        btnAnular.style.display = 'inline-flex'
+        if (esProfesor) btnAnular.style.display = 'inline-flex'
       } else if (estado === 'anulada') {
         estadoInfo.innerHTML = `Estado actual: <strong style="color:#e74c3c;">🚫 Anulada</strong>`
         btnReabrir.style.display = 'inline-flex'
@@ -1136,10 +1182,32 @@
         }
       }
       claseActualEstado = nuevoEstado
-      actualizarBotonesEstado(nuevoEstado)
+
+      // Obtener tipo para actualizar botones correctamente
+      const ev = calendar?.getEventById(claseActualId)
+      const tipoClase = ev?.extendedProps?.tipo || tipoModalActivo
+      actualizarBotonesEstado(nuevoEstado, tipoClase)
+
       await refrescarTodo()
     }
 
+    async function eliminarClase() {
+      if (!claseActualId) return
+      if (!confirm('¿Eliminar esta clase definitivamente?\n\nEsta acción no se puede deshacer.')) return
+
+      // Desvincular faltas vinculadas
+      await supabase.from(TABLES.faltas)
+        .update({ clase_recuperacion_id: null, recuperada: false })
+        .eq('clase_recuperacion_id', claseActualId)
+
+      const { error } = await supabase.from(TABLES.clases).delete().eq('id', claseActualId)
+      if (error) { alert('Error: ' + error.message); return }
+
+      modal.close()
+      await refrescarTodo()
+    }
+
+    btnEliminarClase.onclick = eliminarClase
     btnRealizada.onclick = () => cambiarEstado('realizada')
     btnAnular.onclick = () => cambiarEstado('anulada')
     btnReabrir.onclick = () => cambiarEstado('programada')
@@ -1423,7 +1491,9 @@
   </script>
 
   <style>
-    /* Pestañas externas */
+    /* ============================================================
+       PESTAÑAS EXTERNAS
+       ============================================================ */
     .tabs-roles {
       display: flex; gap: 6px; margin-bottom: 10px;
       overflow-x: auto; padding-bottom: 4px;
@@ -1474,7 +1544,9 @@
     .tab-info strong { color: var(--texto-principal); font-weight: 700; }
     .tab-info-icon { font-size: 1.1rem; }
 
-    /* Pestañas del modal */
+    /* ============================================================
+       PESTAÑAS DEL MODAL
+       ============================================================ */
     .modal-tabs {
       display: flex; gap: 4px; margin-bottom: 12px; padding: 4px;
       background: var(--fondo-app); border: 1px solid var(--borde-card);
@@ -1516,7 +1588,9 @@
     }
     .tipo-activo .ta-icon { font-size: 1.15rem; line-height: 1; }
 
-    /* ⬇️ NUEVO: Etiqueta de tarea con botón eliminar */
+    /* ============================================================
+       Etiqueta tarea + botón eliminar
+       ============================================================ */
     .label-tarea {
       display: flex;
       align-items: center;
@@ -1549,7 +1623,57 @@
       transform: translateY(-1px);
     }
 
-    /* Resto igual */
+    /* ============================================================
+       Botones del modal (con icono + texto)
+       ============================================================ */
+    .modal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+    .btn-con-icono {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 42px;
+      padding: 10px 16px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .btn-con-icono .btn-icon {
+      font-size: 1rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .btn-con-icono .btn-texto {
+      font-size: 0.88rem;
+      line-height: 1;
+    }
+
+    #btn-eliminar-clase { background: #c0392b; color: white; border: none; }
+    #btn-eliminar-clase:hover { background: #a02d1f; }
+
+    #btn-realizada { background: #1e8449; color: white; border: none; }
+    #btn-realizada:hover { background: #166638; }
+
+    #btn-anular { background: #c0392b; color: white; border: none; }
+    #btn-anular:hover { background: #a02d1f; }
+
+    #btn-reabrir { background: var(--pista-azul-medio); color: white; border: none; }
+    #btn-reabrir:hover { background: var(--pista-azul-oscuro); }
+
+    #btn-guardar-otra {
+      background: linear-gradient(135deg, #2a6b9c, #1a3a5c);
+      border: 1px solid var(--pista-azul-hielo);
+    }
+    #btn-guardar-otra:hover { background: linear-gradient(135deg, #3a8fbf, #2a6b9c); }
+
+    /* ============================================================
+       Resto (eventos, avisos, etc.)
+       ============================================================ */
     .evento-contenido {
       display: flex; align-items: center; gap: 4px;
       overflow: hidden; white-space: nowrap; padding: 0 2px;
@@ -1706,7 +1830,7 @@
       border: 1px solid var(--pista-azul-hielo);
     }
     .btn-guardar-otra:hover { background: linear-gradient(135deg, #3a8fbf, #2a6b9c); }
-    .modal-actions { flex-wrap: wrap; gap: 8px; }
+
     .toast-guardado {
       position: fixed; bottom: 24px; left: 50%;
       transform: translateX(-50%);
@@ -1834,6 +1958,9 @@
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
+    /* ============================================================
+       MÓVIL — Botones solo iconos
+       ============================================================ */
     @media (max-width: 768px) {
       #calendar { padding: 6px; }
       .fc .fc-toolbar { flex-direction: column !important; gap: 8px !important; margin-bottom: 10px !important; }
@@ -1860,6 +1987,32 @@
       .mt-icon { font-size: 0.85rem; }
       .mt-label { font-size: 0.7rem; }
 
+      /* ⬇️ MÓVIL: botones solo iconos */
+      .modal-actions {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 18px;
+      }
+      .btn-con-icono {
+        min-width: 52px;
+        min-height: 52px;
+        padding: 8px;
+        gap: 0;
+        flex: 0 0 auto;
+        border-radius: 12px;
+      }
+      .btn-con-icono .btn-texto {
+        display: none;
+      }
+      .btn-con-icono .btn-icon {
+        font-size: 1.4rem;
+      }
+      #btn-guardar {
+        min-width: 64px;
+      }
+
       .label-tarea { flex-wrap: wrap; }
       .btn-eliminar-tarea { font-size: 0.68rem; padding: 3px 8px; }
 
@@ -1876,8 +2029,8 @@
       .fc .fc-button { padding: 6px 8px !important; font-size: 0.72rem !important; }
       .fc .fc-toolbar-title { font-size: 0.95rem !important; }
       .evento-contenido { font-size: 0.68rem; }
-      .modal-actions { flex-direction: column; }
-      .modal-actions > button { width: 100%; }
+      .btn-con-icono { min-width: 48px; min-height: 48px; }
+      .btn-con-icono .btn-icon { font-size: 1.25rem; }
       .listado-clase { flex-direction: column; gap: 4px; }
       .listado-clase-hora { min-width: auto; }
       .tab-label { display: none; }
