@@ -14,7 +14,12 @@
       <h1>📅 Calendario</h1>
 
       <div class="tabs-roles" id="tabs-roles">
-        <button class="tab-rol active" data-rol="clase_profesor">
+        <button class="tab-rol active" data-rol="todas">
+          <span class="tab-icon">🌐</span>
+          <span class="tab-label">Todas</span>
+          <span class="tab-count" id="tab-count-todas">0</span>
+        </button>
+        <button class="tab-rol" data-rol="clase_profesor">
           <span class="tab-icon">🎾</span>
           <span class="tab-label">Clase profesor</span>
           <span class="tab-count" id="tab-count-clase_profesor">0</span>
@@ -47,8 +52,8 @@
       </div>
 
       <div class="tab-info" id="tab-info">
-        <span class="tab-info-icon">🎾</span>
-        <span class="tab-info-texto">Mostrando: <strong>Clases como profesor</strong></span>
+        <span class="tab-info-icon">🌐</span>
+        <span class="tab-info-texto">Mostrando: <strong>Todas las clases</strong></span>
       </div>
 
       <div id="calendar"></div>
@@ -110,7 +115,6 @@
         </button>
       </div>
 
-      <!-- Indicador de tipo activo -->
       <div class="tipo-activo" id="tipo-activo">
         <span class="ta-icon">🎾</span>
         <span class="ta-label">Clase profesor</span>
@@ -215,7 +219,6 @@
 
     // ============================================================
     // CONFIGURACIÓN DE ROLES
-    // "titulo" → texto que se guarda automáticamente
     // ============================================================
     const ROLES = {
       clase_profesor:   { label: 'Clase profesor',         titulo: 'Clase profesor',         icon: '🎾', color: '#3a8fbf', campos: ['ejercicio','tarea','alumnos','repetir'] },
@@ -294,7 +297,8 @@
     let listadoFiltro = 'todas'
     let listadoBusqueda = ''
 
-    let rolActivo = 'clase_profesor'
+    // ⬇️ Pestaña activa por defecto = TODAS
+    let rolActivo = 'todas'
     let tipoModalActivo = 'clase_profesor'
 
     const diasSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
@@ -343,10 +347,8 @@
       tipoModalActivo = tipo
       const info = infoRol(tipo)
 
-      // ⬇️ Título automático = nombre del tipo
       document.getElementById('titulo').value = info.titulo
 
-      // Indicador visual dentro del modal
       tipoActivoEl.innerHTML = `
         <span class="ta-icon">${info.icon}</span>
         <span class="ta-label">${info.titulo}</span>
@@ -444,7 +446,6 @@
         const rol = infoRol(c.tipo)
         return {
           id: c.id,
-          // ⬇️ Usamos siempre el título del rol (para clases antiguas también se "normaliza")
           title: rol.titulo,
           start: `${c.fecha}T${c.hora_inicio}`,
           end: `${c.fecha}T${c.hora_fin}`,
@@ -515,6 +516,14 @@
     // PESTAÑAS EXTERNAS
     // ============================================================
     function actualizarContadoresTabs() {
+      // Contador "Todas" = total de clases
+      const elTodas = document.getElementById('tab-count-todas')
+      if (elTodas) {
+        elTodas.textContent = eventosCache.length
+        elTodas.classList.toggle('empty', eventosCache.length === 0)
+      }
+
+      // Contadores por rol
       Object.keys(ROLES).forEach(rol => {
         const el = document.getElementById(`tab-count-${rol}`)
         if (!el) return
@@ -530,12 +539,21 @@
         t.classList.toggle('active', t.dataset.rol === rol)
       })
 
-      const info = infoRol(rol)
-      tabInfo.innerHTML = `
-        <span class="tab-info-icon">${info.icon}</span>
-        <span class="tab-info-texto">Mostrando: <strong>${info.label}</strong></span>
-      `
-      tabInfo.style.borderLeftColor = info.color
+      // Info arriba del calendario
+      if (rol === 'todas') {
+        tabInfo.innerHTML = `
+          <span class="tab-info-icon">🌐</span>
+          <span class="tab-info-texto">Mostrando: <strong>Todas las clases</strong></span>
+        `
+        tabInfo.style.borderLeftColor = '#e8ff3a'
+      } else {
+        const info = infoRol(rol)
+        tabInfo.innerHTML = `
+          <span class="tab-info-icon">${info.icon}</span>
+          <span class="tab-info-texto">Mostrando: <strong>${info.label}</strong></span>
+        `
+        tabInfo.style.borderLeftColor = info.color
+      }
 
       filtrarCalendario()
       pintarListado()
@@ -544,7 +562,7 @@
     function filtrarCalendario() {
       if (!calendar) return
       calendar.getEvents().forEach(ev => {
-        const visible = ev.extendedProps.tipo === rolActivo
+        const visible = rolActivo === 'todas' || ev.extendedProps.tipo === rolActivo
         ev.setProp('display', visible ? 'auto' : 'none')
       })
     }
@@ -556,7 +574,7 @@
     })
 
     // ============================================================
-    // SECCIÓN RECUPERACIONES
+    // RECUPERACIONES
     // ============================================================
     function pintarSeccionRecuperar() {
       if (faltasPendientes.length === 0) {
@@ -796,20 +814,29 @@
       const { start, end, tipo, tituloFecha } = listadoRango
       const startMs = start.getTime()
       const endMs = end.getTime()
-      const rolInfo = infoRol(rolActivo)
+
+      // Título
+      let tituloBase
+      if (rolActivo === 'todas') {
+        tituloBase = '🌐 Todas las clases'
+      } else {
+        const info = infoRol(rolActivo)
+        tituloBase = `${info.icon} ${info.label}`
+      }
 
       if (tipo === 'timeGridDay') {
-        listadoTitulo.textContent = `${rolInfo.icon} ${rolInfo.label} · ${formatearFechaLarga(tituloFecha)}`
+        listadoTitulo.textContent = `${tituloBase} · ${formatearFechaLarga(tituloFecha)}`
       } else if (tipo === 'timeGridWeek') {
         const fin = new Date(endMs - 86400000)
-        listadoTitulo.textContent = `${rolInfo.icon} ${rolInfo.label} · semana ${formatearFechaCorta(start)}–${formatearFechaCorta(fin)}`
+        listadoTitulo.textContent = `${tituloBase} · semana ${formatearFechaCorta(start)}–${formatearFechaCorta(fin)}`
       } else {
-        listadoTitulo.textContent = `${rolInfo.icon} ${rolInfo.label} · ${meses[tituloFecha.getMonth()]} ${tituloFecha.getFullYear()}`
+        listadoTitulo.textContent = `${tituloBase} · ${meses[tituloFecha.getMonth()]} ${tituloFecha.getFullYear()}`
       }
-      listadoTitulo.style.color = rolInfo.color
+      listadoTitulo.style.color = rolActivo === 'todas' ? '#e8ff3a' : infoRol(rolActivo).color
 
+      // Filtrar por rango + rol activo
       let enRango = eventosCache.filter(ev => {
-        if (ev.extendedProps.tipo !== rolActivo) return false
+        if (rolActivo !== 'todas' && ev.extendedProps.tipo !== rolActivo) return false
         const fecha = parseFechaLocal(ev.start)
         const t = fecha.getTime()
         return t >= startMs && t < endMs
@@ -851,8 +878,8 @@
         const msg = listadoBusqueda.trim()
           ? `Sin resultados para "${escapar(listadoBusqueda)}"`
           : (listadoFiltro !== 'todas'
-              ? `Sin ${rolInfo.label.toLowerCase()}s con este filtro`
-              : `Sin ${rolInfo.label.toLowerCase()}s en este período`)
+              ? 'Sin clases con este filtro'
+              : 'Sin clases en este período')
         listadoContenido.innerHTML = `<p class="listado-vacio">${msg}</p>`
         return
       }
@@ -914,6 +941,7 @@
             <div class="listado-clase-titulo">
               <span class="listado-clase-icono">${icono}</span>
               ${escapar(ev.title)}
+              ${rolActivo === 'todas' ? `<span class="listado-clase-tipo">${p.tipoIcon} ${p.tipoLabel}</span>` : ''}
             </div>
             ${mostrarAlumnos ? `<div class="listado-clase-alumnos">👥 ${escapar(alumnosTxt)}</div>` : ''}
             ${p.tarea ? `<div class="listado-clase-tarea">📝 ${escapar(p.tarea)}</div>` : ''}
@@ -1010,7 +1038,6 @@
         btnNuevaMismoDia.style.display = 'inline-flex'
         actualizarBotonesEstado(claseActualEstado)
 
-        // Aplica el tipo → pone el título automáticamente
         aplicarTipoModal(clase.extendedProps.tipo || 'clase_profesor')
       } else {
         claseActualId = null
@@ -1028,8 +1055,9 @@
         pintarAlumnos('')
         pintarSeccionRecuperar()
 
-        // Aplica el tipo del filtro activo → título automático
-        aplicarTipoModal(rolActivo)
+        // Si la pestaña activa es "todas", por defecto el modal abre con "clase_profesor"
+        const tipoInicial = rolActivo === 'todas' ? 'clase_profesor' : rolActivo
+        aplicarTipoModal(tipoInicial)
 
         if (clase?.fecha) {
           actualizarAvisoDia()
@@ -1108,7 +1136,6 @@
       const campos = info.campos
 
       const datosBase = {
-        // ⬇️ TÍTULO AUTOMÁTICO = nombre del tipo
         titulo: info.titulo,
         hora_inicio: inputHoraInicio.value,
         hora_fin: inputHoraFin.value,
@@ -1332,8 +1359,9 @@
 
       calendar.render()
 
-      activarTab(rolActivo)
-      aplicarTipoModal(tipoModalActivo)
+      // Arrancar con la pestaña "Todas"
+      activarTab('todas')
+      aplicarTipoModal('clase_profesor')
 
       if (calendar.view) {
         listadoRango = {
@@ -1366,6 +1394,9 @@
   </script>
 
   <style>
+    /* ============================================================
+       PESTAÑAS EXTERNAS
+       ============================================================ */
     .tabs-roles {
       display: flex; gap: 6px; margin-bottom: 10px;
       overflow-x: auto; padding-bottom: 4px;
@@ -1386,6 +1417,7 @@
     .tab-rol:hover { border-color: var(--pista-azul-claro); color: var(--texto-principal); transform: translateY(-1px); }
     .tab-rol.active { color: white; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
 
+    .tab-rol[data-rol="todas"].active            { background: #2a6b9c; border-color: #e8ff3a; color: white; box-shadow: 0 0 0 2px #e8ff3a inset, 0 2px 8px rgba(0,0,0,0.25); }
     .tab-rol[data-rol="clase_profesor"].active   { background: #3a8fbf; border-color: #3a8fbf; color: white; }
     .tab-rol[data-rol="clase_alumno"].active     { background: #5bb8d4; border-color: #5bb8d4; color: #0a1420; }
     .tab-rol[data-rol="partido_nacional"].active { background: #e8ff3a; border-color: #8a9900; color: #1a2a42; }
@@ -1407,7 +1439,7 @@
     .tab-info {
       display: flex; align-items: center; gap: 10px;
       padding: 10px 14px; background: var(--fondo-card);
-      border: 1px solid var(--borde-card); border-left: 4px solid #3a8fbf;
+      border: 1px solid var(--borde-card); border-left: 4px solid #e8ff3a;
       border-radius: var(--radio); margin-bottom: 12px;
       font-size: 0.88rem; color: var(--texto-secundario);
       transition: border-left-color 0.2s;
@@ -1419,36 +1451,21 @@
        PESTAÑAS DEL MODAL
        ============================================================ */
     .modal-tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 12px;
-      padding: 4px;
-      background: var(--fondo-app);
-      border: 1px solid var(--borde-card);
-      border-radius: 10px;
-      overflow-x: auto;
-      scrollbar-width: thin;
+      display: flex; gap: 4px; margin-bottom: 12px; padding: 4px;
+      background: var(--fondo-app); border: 1px solid var(--borde-card);
+      border-radius: 10px; overflow-x: auto; scrollbar-width: thin;
     }
     .modal-tabs::-webkit-scrollbar { height: 4px; }
     .modal-tabs::-webkit-scrollbar-thumb { background: var(--borde-card); border-radius: 2px; }
 
     .modal-tab {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 8px 12px;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--texto-secundario);
-      cursor: pointer;
-      transition: all 0.15s;
-      font-family: inherit;
-      white-space: nowrap;
-      flex-shrink: 0;
-      min-height: auto;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 8px 12px; background: transparent;
+      border: 1px solid transparent; border-radius: 8px;
+      font-size: 0.78rem; font-weight: 600;
+      color: var(--texto-secundario); cursor: pointer;
+      transition: all 0.15s; font-family: inherit;
+      white-space: nowrap; flex-shrink: 0; min-height: auto;
     }
     .modal-tab:hover { background: var(--fondo-card); color: var(--texto-principal); }
     .modal-tab.active { color: white; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
@@ -1463,25 +1480,18 @@
     .mt-icon { font-size: 0.95rem; line-height: 1; }
     .mt-label { font-size: 0.78rem; }
 
-    /* ⬇️ Indicador de tipo activo dentro del modal */
     .tipo-activo {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      background: var(--fondo-app);
-      border: 1px solid var(--borde-card);
-      border-left: 4px solid #3a8fbf;
-      border-radius: 8px;
-      margin-bottom: 14px;
-      font-size: 0.95rem;
-      font-weight: 700;
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px; background: var(--fondo-app);
+      border: 1px solid var(--borde-card); border-left: 4px solid #3a8fbf;
+      border-radius: 8px; margin-bottom: 14px;
+      font-size: 0.95rem; font-weight: 700;
       color: var(--texto-principal);
       transition: border-left-color 0.2s;
     }
     .tipo-activo .ta-icon { font-size: 1.15rem; line-height: 1; }
 
-    /* Resto de estilos (sin cambios) */
+    /* Resto igual */
     .evento-contenido {
       display: flex; align-items: center; gap: 4px;
       overflow: hidden; white-space: nowrap; padding: 0 2px;
@@ -1749,6 +1759,14 @@
     .listado-clase-info { flex: 1; min-width: 0; }
     .listado-clase-titulo { font-size: 0.92rem; font-weight: 600; color: var(--texto-principal); margin-bottom: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .listado-clase-icono { font-size: 0.95rem; flex-shrink: 0; }
+    .listado-clase-tipo {
+      font-size: 0.68rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.4px;
+      background: var(--fondo-app);
+      border: 1px solid var(--borde-card);
+      color: var(--texto-secundario);
+      padding: 1px 6px; border-radius: 8px;
+    }
     .listado-clase-alumnos { font-size: 0.78rem; color: var(--texto-secundario); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .listado-clase-tarea {
       font-size: 0.75rem; color: #e8ff3a; margin-top: 3px;
