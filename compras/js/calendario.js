@@ -21,6 +21,9 @@ for (let i = 0; i < 7; i++) dias.push(addDays(semana, i));
 const hoy = new Date();
 const hoyYMD = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
 
+// Valores por defecto al crear una entrada nueva
+const COMENSALES_DEFAULT = 4;
+
 // Cargar datos
 const [menusResp, calResp] = await Promise.all([
   sb.from('compras_menus').select('id, nombre').order('nombre'),
@@ -70,7 +73,7 @@ for (const fecha of dias) {
         <select class="menu-select" data-fecha="${fecha}" data-tipo="comida">
           ${opciones(com)}
         </select>
-        <input type="number" min="1" max="20" value="${com?.comensales ?? 2}"
+        <input type="number" min="1" max="20" value="${com?.comensales ?? COMENSALES_DEFAULT}"
                class="comensales-input" data-fecha="${fecha}" data-tipo="comida"
                title="Comensales">
       </div>
@@ -86,7 +89,7 @@ for (const fecha of dias) {
         <select class="menu-select" data-fecha="${fecha}" data-tipo="cena">
           ${opciones(cen)}
         </select>
-        <input type="number" min="1" max="20" value="${cen?.comensales ?? 2}"
+        <input type="number" min="1" max="20" value="${cen?.comensales ?? COMENSALES_DEFAULT}"
                class="comensales-input" data-fecha="${fecha}" data-tipo="cena"
                title="Comensales">
       </div>
@@ -109,7 +112,7 @@ grid.addEventListener('change', async (e) => {
 
   const slot       = el.closest('.meal-slot');
   const menuId     = parseInt(slot.querySelector('.menu-select').value, 10);
-  const comensales = parseInt(slot.querySelector('.comensales-input').value, 10) || 1;
+  const comensales = parseInt(slot.querySelector('.comensales-input').value, 10) || COMENSALES_DEFAULT;
   const notas      = slot.querySelector('.notas-input').value.trim();
 
   // Regla:
