@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ingredientes · Planificador de comidas</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main>
+  <h2>Ingredientes</h2>
+
+  <div class="card">
+    <h3>➕ Nuevo ingrediente</h3>
+    <form id="form-nuevo" class="form-row">
+      <input name="nombre" placeholder="Nombre *" required style="flex:1;min-width:180px">
+      <input name="unidad" placeholder="ud / kg / l" value="ud" style="width:100px">
+      <select name="categoria_id" id="sel-cat"><option value="">— Categoría —</option></select>
+      <select name="tienda_id" id="sel-tienda"><option value="">— Tienda —</option></select>
+      <input name="precio_aprox" type="number" step="0.01" min="0" placeholder="€" style="width:80px">
+      <button class="btn">Añadir</button>
+    </form>
+  </div>
+
+  <div id="listado"></div>
+</main>
+<script type="module" src="/js/ingredientes.js"></script>
+</body>
+</html>
