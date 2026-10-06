@@ -1,4 +1,4 @@
-import { sb, h, fmt, money, weekStart, addDays, fmtFecha, renderHeader, regenerarLista } from './app.js';
+import { sb, h, fmt, money, weekStart, addDays, fmtFecha, renderHeader } from './app.js';
 
 renderHeader('lista');
 
@@ -55,31 +55,25 @@ async function cargar() {
     <span>📦 <strong>${totalItems}</strong> productos</span>
     <span>⏳ <strong>${totalPendientes}</strong> pendientes</span>
     <span>💶 ~<strong>${money(coste)}</strong></span>
-    <button class="btn success" id="btn-regen" style="margin-left:auto">🔄 Regenerar desde calendario</button>
-    <button class="btn danger" id="btn-vaciar">🗑️ Vaciar</button>
+    ${totalItems > 0
+      ? '<button class="btn danger" id="btn-vaciar" style="margin-left:auto">🗑️ Vaciar</button>'
+      : ''}
   `;
 
-  document.getElementById('btn-regen').addEventListener('click', async (e) => {
-    const b = e.target; b.disabled = true; b.textContent = '⏳...';
-    try {
-      const { insertados } = await regenerarLista(semana);
-      alert(`✅ Lista regenerada (${insertados} productos)`);
+  const btnVaciar = document.getElementById('btn-vaciar');
+  if (btnVaciar) {
+    btnVaciar.addEventListener('click', async () => {
+      if (!confirm('¿Vaciar toda la lista de esta semana?')) return;
+      const { error } = await sb.from('compras_lista').delete().eq('semana_inicio', semana);
+      if (error) return alert(error.message);
       cargar();
-    } catch (err) { alert(err.message); }
-    finally { b.disabled = false; b.textContent = '🔄 Regenerar desde calendario'; }
-  });
-
-  document.getElementById('btn-vaciar').addEventListener('click', async () => {
-    if (!confirm('¿Vaciar toda la lista de esta semana?')) return;
-    const { error } = await sb.from('compras_lista').delete().eq('semana_inicio', semana);
-    if (error) return alert(error.message);
-    cargar();
-  });
+    });
+  }
 
   // Render grupos
   const cont = document.getElementById('grupos');
   if (!items.length) {
-    cont.innerHTML = '<p class="empty">La lista está vacía. Asigna menús en el calendario y pulsa «Regenerar».</p>';
+    cont.innerHTML = '<p class="empty">La lista está vacía. Añade productos manualmente abajo.</p>';
     return;
   }
 
@@ -102,7 +96,7 @@ async function cargar() {
             return `
               <div class="item ${it.comprado ? 'comprado' : ''}" data-id="${it.id}">
                 <input type="checkbox" ${it.comprado ? 'checked' : ''} data-act="toggle">
-                <span class="nombre">${h(ing?.nombre)}${it.manual ? ' <small style="color:#9ca3af">(manual)</small>' : ''}</span>
+                <span class="nombre">${h(ing?.nombre)}</span>
                 <span class="cant">${fmt(it.cantidad)} ${h(ing?.unidad||'')}</span>
                 <span class="cant">${precio}</span>
                 <button class="btn danger small" data-act="del">✕</button>
