@@ -11,7 +11,7 @@ if (!id) {
   const [menuResp, ingsResp, allResp] = await Promise.all([
     sb.from('compras_menus').select('*').eq('id', id).single(),
     sb.from('compras_menu_ingredientes')
-      .select('cantidad, compras_ingredientes (id, nombre, unidad, tienda_id, compras_tiendas(nombre))')
+      .select('cantidad, compras_ingredientes (id, nombre, unidad, compras_tiendas(nombre))')
       .eq('menu_id', id),
     sb.from('compras_ingredientes').select('id, nombre, unidad').order('nombre'),
   ]);
@@ -48,17 +48,27 @@ if (!id) {
         <h3>🥕 Ingredientes (para ${m.raciones} raciones)</h3>
         ${ings.length ? `
           <table>
-            <thead><tr><th>Ingrediente</th><th>Cantidad</th><th>Tienda</th><th></th></tr></thead>
+            <thead>
+              <tr>
+                <th>Ingrediente</th>
+                <th class="col-cantidad">Cantidad</th>
+                <th class="col-unidad">Unidad</th>
+                <th></th>
+              </tr>
+            </thead>
             <tbody>
               ${ings.map(i => {
                 const ing = i.compras_ingredientes;
-                const tienda = ing?.compras_tiendas?.nombre ?? '—';
+                const cant = Number(i.cantidad);
+                const uni  = ing?.unidad ?? '';
                 return `
                   <tr>
-                    <td>${h(ing?.nombre)}</td>
-                    <td>${fmt(i.cantidad)} ${h(ing?.unidad||'')}</td>
-                    <td>${h(tienda)}</td>
-                    <td><button class="btn danger small" data-ing="${ing.id}">✕</button></td>
+                    <td>${h(ing?.nombre ?? '(sin nombre)')}</td>
+                    <td class="col-cantidad">${fmt(cant)}</td>
+                    <td class="col-unidad">${h(uni)}</td>
+                    <td>
+                      <button class="btn danger small" data-ing="${ing?.id ?? ''}">✕</button>
+                    </td>
                   </tr>`;
               }).join('')}
             </tbody>
@@ -96,8 +106,15 @@ if (!id) {
     document.getElementById('form-add-ing').addEventListener('submit', async (e) => {
       e.preventDefault();
       const f = e.target;
+      const ingId = parseInt(f.ingrediente_id.value, 10);
+      const cant  = parseFloat(f.cantidad.value);
+
+      if (!ingId || !isFinite(cant) || cant <= 0) {
+        return alert('Revisa el ingrediente y la cantidad');
+      }
+
       const { error } = await sb.from('compras_menu_ingredientes').upsert(
-        { menu_id: id, ingrediente_id: parseInt(f.ingrediente_id.value,10), cantidad: parseFloat(f.cantidad.value) },
+        { menu_id: id, ingrediente_id: ingId, cantidad: cant },
         { onConflict: 'menu_id,ingrediente_id' }
       );
       if (error) return alert(error.message);
@@ -107,8 +124,10 @@ if (!id) {
     // Quitar ingrediente
     cont.querySelectorAll('button[data-ing]').forEach(b => {
       b.addEventListener('click', async () => {
+        const ingId = b.dataset.ing;
+        if (!ingId) return;
         const { error } = await sb.from('compras_menu_ingredientes')
-          .delete().eq('menu_id', id).eq('ingrediente_id', b.dataset.ing);
+          .delete().eq('menu_id', id).eq('ingrediente_id', ingId);
         if (error) return alert(error.message);
         location.reload();
       });
