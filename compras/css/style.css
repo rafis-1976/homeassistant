@@ -620,7 +620,6 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   border-top: 5px solid #e8dcc0;
   overflow: visible;
 }
-/* Margen rojo vertical (línea de cuaderno) */
 .paper-sheet::before {
   content: '';
   position: absolute;
@@ -629,7 +628,6 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   width: 2px;
   background: rgba(190,80,80,.32);
 }
-/* Washi tape en la parte superior */
 .paper-sheet::after {
   content: '';
   position: absolute;
@@ -651,7 +649,6 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   pointer-events: none;
 }
 
-/* Cabecera de la hoja */
 .paper-header {
   text-align: center;
   margin-bottom: 1rem;
@@ -700,7 +697,6 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   color: var(--mahogany);
 }
 
-/* Resumen (productos, pendientes, coste) */
 .paper-resumen {
   display: flex;
   flex-wrap: wrap;
@@ -718,7 +714,6 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   font-size: 1.2rem;
 }
 
-/* Filas sobre la hoja */
 .paper-lines {
   position: relative;
 }
@@ -736,15 +731,51 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   background: rgba(201,162,39,.05);
 }
 
-.lista-row .check-input {
+/* --- BOTÓN "COMPRADO" --- */
+.lista-row .check-btn {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  accent-color: var(--burgundy);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  border: 2px solid rgba(139,30,30,.5);
+  background: #fffdf7;
+  color: #fff;
   cursor: pointer;
-  margin-left: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Caveat', cursive;
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: all .18s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+.lista-row .check-btn:hover {
+  border-color: var(--burgundy);
+  background: rgba(201,162,39,.08);
+  transform: scale(1.08);
+}
+.lista-row .check-btn .check-icon {
+  display: inline-block;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,.25);
+  transition: transform .15s;
 }
 
+/* Estado comprado: botón relleno verde */
+.lista-row.comprado .check-btn {
+  background: linear-gradient(180deg, #4a7a3a, #35602a);
+  border-color: #27461f;
+  box-shadow: 0 2px 4px rgba(53,96,42,.35), inset 0 1px 0 rgba(255,255,255,.15);
+}
+.lista-row.comprado .check-btn:hover {
+  background: linear-gradient(180deg, #3f6b32, #244a1c);
+  transform: scale(1.05);
+}
+
+/* --- INPUT nombre --- */
 .lista-row .nombre-input {
   flex: 1;
   min-width: 0;
@@ -758,7 +789,7 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   font-family: 'Caveat', cursive;
   font-size: 1.35rem;
   color: var(--ink);
-  transition: border-color .15s, background-color .15s;
+  transition: border-color .15s, background-color .15s, opacity .2s;
 }
 .lista-row .nombre-input::placeholder {
   color: rgba(90,64,52,.35);
@@ -772,6 +803,7 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   background: rgba(201,162,39,.07);
 }
 
+/* --- INPUT cantidad --- */
 .lista-row .cant-input {
   flex-shrink: 0;
   appearance: none;
@@ -786,7 +818,7 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   font-size: 1.15rem;
   color: var(--burgundy);
   text-align: right;
-  transition: border-color .15s, background-color .15s;
+  transition: border-color .15s, background-color .15s, opacity .2s;
 }
 .lista-row .cant-input::placeholder {
   color: rgba(139,30,30,.35);
@@ -810,6 +842,7 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   font-size: 1.1rem;
   color: var(--ink-soft);
   font-style: italic;
+  transition: opacity .2s;
 }
 
 .lista-row .del-btn {
@@ -832,14 +865,18 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   border-color: var(--burgundy-2);
 }
 
-/* Fila marcada como comprada */
+/* --- Fila marcada como comprada: todo tachado --- */
 .lista-row.comprado .nombre-input,
 .lista-row.comprado .cant-input,
 .lista-row.comprado .unidad-label {
-  opacity: .4;
+  opacity: .45;
   text-decoration: line-through;
   text-decoration-color: var(--burgundy);
   text-decoration-thickness: 2px;
+  text-decoration-skip-ink: none;
+}
+.lista-row.comprado {
+  background: rgba(74,122,58,.05);
 }
 
 /* Nota al pie de la hoja */
@@ -961,7 +998,6 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   nav { gap: .2rem; }
   nav a { padding: .4rem .7rem; font-size: .82rem; }
 
-  /* Hoja de papel en móvil */
   .paper-sheet {
     padding: 1.6rem 1rem 2rem 2rem;
     border-radius: 3px;
@@ -975,6 +1011,7 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   .paper-resumen strong { font-size: 1.05rem; }
 
   .lista-row { gap: .35rem; min-height: 42px; }
+  .lista-row .check-btn { width: 28px; height: 28px; font-size: 1.2rem; border-radius: 7px; }
   .lista-row .nombre-input { font-size: 1.15rem; padding: .1rem .2rem; }
   .lista-row .cant-input { width: 55px; font-size: 1rem; }
   .lista-row .unidad-label { font-size: .95rem; min-width: 1.8rem; }
@@ -1012,12 +1049,11 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   .week-nav { flex-direction: column; gap: .4rem; text-align: center; }
   h2 { font-size: 1.5rem; }
 
-  /* Lista: reducir aún más */
   .paper-sheet { padding: 1.4rem .8rem 1.6rem 1.6rem; }
   .paper-sheet::before { left: 1rem; }
   .paper-sheet::after { width: 100px; height: 26px; top: -11px; }
   .paper-title { font-size: 1.6rem; }
-  .lista-row .check-input { width: 18px; height: 18px; }
+  .lista-row .check-btn { width: 26px; height: 26px; font-size: 1.1rem; border-radius: 6px; }
   .lista-row .nombre-input { font-size: 1.05rem; }
   .lista-row .cant-input { width: 48px; font-size: .95rem; }
   .lista-row .unidad-label { min-width: 1.5rem; font-size: .9rem; }
