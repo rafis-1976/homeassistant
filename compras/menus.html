@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Menús · Planificador de comidas</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main>
+  <h2>Menús</h2>
+
+  <div class="card">
+    <h3>➕ Nuevo menú</h3>
+    <form id="form-nuevo" class="form-row">
+      <input name="nombre" placeholder="Nombre del plato *" required style="flex:1;min-width:220px">
+      <select name="tipo">
+        <option value="ambos">Comida o cena</option>
+        <option value="comida">Solo comida</option>
+        <option value="cena">Solo cena</option>
+      </select>
+      <input name="raciones" type="number" min="1" value="2" style="width:90px" title="Raciones">
+      <button class="btn">Crear</button>
+    </form>
+  </div>
+
+  <div id="listado"></div>
+</main>
+<script type="module" src="/js/menus.js"></script>
+</body>
+</html>
