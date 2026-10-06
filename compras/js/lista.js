@@ -4,10 +4,11 @@ renderHeader('lista');
 
 const semana = new URLSearchParams(location.search).get('semana') || weekStart();
 
+// Nav de semana (rutas relativas)
 document.getElementById('week-nav').innerHTML = `
-  <a href="/lista.html?semana=${addDays(semana, -7)}">← Semana anterior</a>
+  <a href="lista.html?semana=${addDays(semana, -7)}">← Semana anterior</a>
   <strong>Semana del ${fmtFecha(semana)}</strong>
-  <a href="/lista.html?semana=${addDays(semana, 7)}">Semana siguiente →</a>
+  <a href="lista.html?semana=${addDays(semana, 7)}">Semana siguiente →</a>
 `;
 
 /* Catálogo para el selector manual */
@@ -43,7 +44,7 @@ async function cargar() {
   ];
 
   // Resumen
-  const totalItems     = items.length;
+  const totalItems      = items.length;
   const totalPendientes = items.filter(i => !i.comprado).length;
   const coste = items.reduce((sum, it) => {
     if (it.comprado || it.compras_ingredientes?.precio_aprox == null) return sum;
