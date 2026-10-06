@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lista de la compra · Planificador de comidas</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main>
+  <h2>Lista de la compra</h2>
+
+  <div class="week-nav" id="week-nav"></div>
+
+  <div class="form-row" style="gap:1rem;margin-bottom:1rem" id="resumen"></div>
+
+  <div id="grupos"></div>
+
+  <div class="card">
+    <h3>➕ Añadir producto manualmente</h3>
+    <form id="form-manual" class="form-row">
+      <select name="ingrediente_id" id="sel-ing" required style="flex:1;min-width:220px">
+        <option value="">— Selecciona ingrediente —</option>
+      </select>
+      <input type="number" name="cantidad" step="0.01" min="0.01" value="1" required style="width:110px">
+      <button class="btn">Añadir a la lista</button>
+    </form>
+  </div>
+</main>
+<script type="module" src="/js/lista.js"></script>
+</body>
+</html>
