@@ -16,7 +16,6 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
 html { scroll-behavior: smooth; }
 
 body {
@@ -31,7 +30,7 @@ body {
   background-attachment: fixed;
 }
 
-/* ============ CABECERA RESTAURANTE ============ */
+/* ============ CABECERA ============ */
 header {
   background:
     linear-gradient(180deg, rgba(0,0,0,.15), transparent 40%),
@@ -184,7 +183,7 @@ h3 {
 
 .btn.small { padding: .28rem .6rem; font-size: .8rem; }
 
-/* ============ TABLAS (estilo carta) ============ */
+/* ============ TABLAS ============ */
 table {
   width: 100%;
   border-collapse: collapse;
@@ -240,7 +239,7 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
 }
 .form-row label { font-size: .85rem; color: var(--ink-soft); }
 
-/* ============ TARJETAS (páginas de menú) ============ */
+/* ============ TARJETAS ============ */
 .card {
   background:
     linear-gradient(180deg, #fdfaf1, var(--paper));
@@ -289,7 +288,7 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
 }
 
 /* ============================================================
-   PIZARRA BLANCA DE COCINA (calendario)
+   PIZARRA BLANCA (calendario)
    ============================================================ */
 .board-frame {
   padding: 24px;
@@ -361,7 +360,6 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   pointer-events: none;
 }
 
-/* Cabecera de la pizarra */
 .board-header {
   display: flex;
   justify-content: space-between;
@@ -413,7 +411,6 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   font-weight: 700;
 }
 
-/* Rejilla: 7 columnas siempre */
 .board-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -602,61 +599,260 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
 }
 
 /* ============================================================
-   LISTA DE LA COMPRA (estilo papel kraft)
+   HOJA DE PAPEL — LISTA DE LA COMPRA
    ============================================================ */
-.tienda-group {
-  margin-bottom: 1.6rem;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 3px 10px rgba(61,31,26,.1);
-}
-.tienda-header {
-  display: flex; align-items: center; gap: .7rem;
-  padding: .8rem 1.1rem;
-  color: #fff;
-  font-family: 'Playfair Display', serif;
-  font-weight: 600;
-  font-size: 1rem;
-  letter-spacing: .5px;
-  text-shadow: 0 1px 2px rgba(0,0,0,.25);
-}
-.tienda-header .dot {
-  width: 12px; height: 12px; border-radius: 50%;
-  background: rgba(255,255,255,.9);
-  box-shadow: 0 0 0 3px rgba(255,255,255,.25);
-}
-.tienda-items {
+.paper-sheet {
+  position: relative;
+  max-width: 780px;
+  margin: 1.5rem auto 2rem;
+  padding: 2.2rem 2.6rem 2.6rem 3.4rem;
   background:
-    linear-gradient(180deg, #fdfaf1, var(--paper));
-  border: 1px solid var(--line);
-  border-top: none;
-  overflow: hidden;
+    radial-gradient(ellipse at 20% 5%, rgba(200,180,140,.09), transparent 60%),
+    radial-gradient(ellipse at 85% 95%, rgba(180,140,100,.07), transparent 55%),
+    radial-gradient(circle at 90% 20%, rgba(139,69,19,.05), transparent 30%),
+    #fdfaf1;
+  border-radius: 4px;
+  box-shadow:
+    0 1px 2px rgba(0,0,0,.06),
+    0 18px 45px -10px rgba(60,40,20,.22),
+    0 4px 10px rgba(0,0,0,.05),
+    inset 0 0 100px rgba(200,180,140,.15);
+  border-top: 5px solid #e8dcc0;
+  overflow: visible;
 }
-.tienda-items .item {
-  display: flex; align-items: center; gap: .9rem;
-  padding: .7rem 1.1rem;
-  border-bottom: 1px dashed var(--line);
+/* Margen rojo vertical (línea de cuaderno) */
+.paper-sheet::before {
+  content: '';
+  position: absolute;
+  top: 6px; bottom: 6px;
+  left: 2.6rem;
+  width: 2px;
+  background: rgba(190,80,80,.32);
+}
+/* Washi tape en la parte superior */
+.paper-sheet::after {
+  content: '';
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-2.5deg);
+  width: 140px;
+  height: 32px;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(230,215,170,.65) 0, rgba(230,215,170,.65) 6px,
+      rgba(220,200,150,.65) 6px, rgba(220,200,150,.65) 12px
+    );
+  border: 1px solid rgba(180,150,90,.35);
+  box-shadow: 0 2px 6px rgba(0,0,0,.1);
+  border-radius: 1px;
+  opacity: .9;
+  pointer-events: none;
+}
+
+/* Cabecera de la hoja */
+.paper-header {
+  text-align: center;
+  margin-bottom: 1rem;
+  padding-bottom: .8rem;
+  border-bottom: 2px solid rgba(60,40,20,.15);
+  position: relative;
+}
+.paper-title {
+  font-family: 'Caveat', cursive;
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--mahogany);
+  margin: 0;
+  letter-spacing: .5px;
+  line-height: 1.1;
+  text-shadow: 1px 1px 0 rgba(255,255,255,.7);
+}
+.paper-title::after { content: none; }
+
+.paper-week {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: .5rem;
+  font-family: 'Caveat', cursive;
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+}
+.paper-week a {
+  color: var(--burgundy);
+  text-decoration: none;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1.5px dashed rgba(139,30,30,.35);
+  transition: all .15s;
+}
+.paper-week a:hover {
+  background: rgba(139,30,30,.08);
+  border-style: solid;
+}
+.paper-week strong {
+  font-family: 'Caveat', cursive;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--mahogany);
+}
+
+/* Resumen (productos, pendientes, coste) */
+.paper-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: center;
+  padding: .6rem 0 1rem;
+  margin-bottom: .6rem;
+  border-bottom: 1.5px dashed rgba(60,40,20,.2);
+  font-family: 'Caveat', cursive;
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+}
+.paper-resumen strong {
+  color: var(--mahogany);
+  font-size: 1.2rem;
+}
+
+/* Filas sobre la hoja */
+.paper-lines {
+  position: relative;
+}
+
+.lista-row {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  min-height: 46px;
+  padding: .55rem 0;
+  border-bottom: 1.5px dashed rgba(100,130,180,.28);
   transition: background .15s;
 }
-.tienda-items .item:last-child { border-bottom: none; }
-.tienda-items .item:hover { background: rgba(201,162,39,.06); }
-.item.comprado { opacity: .5; }
-.item.comprado .nombre { text-decoration: line-through; text-decoration-color: var(--burgundy); }
-.item .nombre {
-  flex: 1;
-  font-family: 'Lora', serif;
-  font-size: .96rem;
-  color: var(--ink);
+.lista-row:hover {
+  background: rgba(201,162,39,.05);
 }
-.item .cant {
+
+.lista-row .check-input {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--burgundy);
+  cursor: pointer;
+  margin-left: 2px;
+}
+
+.lista-row .nombre-input {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px dotted rgba(100,130,180,.35);
+  border-radius: 0;
+  padding: .15rem .3rem;
+  font-family: 'Caveat', cursive;
+  font-size: 1.35rem;
+  color: var(--ink);
+  transition: border-color .15s, background-color .15s;
+}
+.lista-row .nombre-input::placeholder {
+  color: rgba(90,64,52,.35);
+  font-style: italic;
+  font-size: 1.1rem;
+}
+.lista-row .nombre-input:focus {
+  outline: none;
+  border-bottom-color: var(--burgundy);
+  border-bottom-style: solid;
+  background: rgba(201,162,39,.07);
+}
+
+.lista-row .cant-input {
+  flex-shrink: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 68px;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px dotted rgba(100,130,180,.35);
+  border-radius: 0;
+  padding: .15rem .3rem;
+  font-family: 'Caveat', cursive;
+  font-size: 1.15rem;
+  color: var(--burgundy);
+  text-align: right;
+  transition: border-color .15s, background-color .15s;
+}
+.lista-row .cant-input::placeholder {
+  color: rgba(139,30,30,.35);
+}
+.lista-row .cant-input:focus {
+  outline: none;
+  border-bottom-color: var(--burgundy);
+  border-bottom-style: solid;
+  background: rgba(139,30,30,.05);
+}
+.lista-row .cant-input::-webkit-outer-spin-button,
+.lista-row .cant-input::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+.lista-row .cant-input { -moz-appearance: textfield; }
+
+.lista-row .unidad-label {
+  flex-shrink: 0;
+  min-width: 2.4rem;
+  font-family: 'Caveat', cursive;
+  font-size: 1.1rem;
   color: var(--ink-soft);
-  font-size: .88rem;
-  font-family: 'Lora', serif;
   font-style: italic;
 }
-.item input[type=checkbox] {
-  width: 20px; height: 20px; cursor: pointer;
-  accent-color: var(--burgundy);
+
+.lista-row .del-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(139,30,30,.3);
+  background: rgba(255,255,255,.5);
+  color: var(--burgundy);
+  cursor: pointer;
+  font-size: .8rem;
+  line-height: 1;
+  padding: 0;
+  transition: all .15s;
+}
+.lista-row .del-btn:hover {
+  background: var(--burgundy);
+  color: #fff;
+  border-color: var(--burgundy-2);
+}
+
+/* Fila marcada como comprada */
+.lista-row.comprado .nombre-input,
+.lista-row.comprado .cant-input,
+.lista-row.comprado .unidad-label {
+  opacity: .4;
+  text-decoration: line-through;
+  text-decoration-color: var(--burgundy);
+  text-decoration-thickness: 2px;
+}
+
+/* Nota al pie de la hoja */
+.paper-hint {
+  margin-top: 1.4rem;
+  padding-top: 1rem;
+  border-top: 1px dashed rgba(60,40,20,.25);
+  font-family: 'Caveat', cursive;
+  font-size: 1rem;
+  color: var(--ink-soft);
+  text-align: center;
+  font-style: italic;
+  opacity: .75;
 }
 
 /* ============ BADGES ============ */
@@ -764,6 +960,24 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   header h1::before, header h1::after { margin: 0 .3rem; }
   nav { gap: .2rem; }
   nav a { padding: .4rem .7rem; font-size: .82rem; }
+
+  /* Hoja de papel en móvil */
+  .paper-sheet {
+    padding: 1.6rem 1rem 2rem 2rem;
+    border-radius: 3px;
+  }
+  .paper-sheet::before { left: 1.4rem; }
+  .paper-title { font-size: 1.9rem; }
+  .paper-week { font-size: .9rem; gap: 6px; }
+  .paper-week strong { font-size: 1.05rem; }
+  .paper-week a { padding: 2px 6px; font-size: .85rem; }
+  .paper-resumen { gap: 1rem; font-size: .95rem; }
+  .paper-resumen strong { font-size: 1.05rem; }
+
+  .lista-row { gap: .35rem; min-height: 42px; }
+  .lista-row .nombre-input { font-size: 1.15rem; padding: .1rem .2rem; }
+  .lista-row .cant-input { width: 55px; font-size: 1rem; }
+  .lista-row .unidad-label { font-size: .95rem; min-width: 1.8rem; }
 }
 
 @media (max-width: 520px) {
@@ -797,4 +1011,15 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
 
   .week-nav { flex-direction: column; gap: .4rem; text-align: center; }
   h2 { font-size: 1.5rem; }
+
+  /* Lista: reducir aún más */
+  .paper-sheet { padding: 1.4rem .8rem 1.6rem 1.6rem; }
+  .paper-sheet::before { left: 1rem; }
+  .paper-sheet::after { width: 100px; height: 26px; top: -11px; }
+  .paper-title { font-size: 1.6rem; }
+  .lista-row .check-input { width: 18px; height: 18px; }
+  .lista-row .nombre-input { font-size: 1.05rem; }
+  .lista-row .cant-input { width: 48px; font-size: .95rem; }
+  .lista-row .unidad-label { min-width: 1.5rem; font-size: .9rem; }
+  .lista-row .del-btn { width: 22px; height: 22px; font-size: .7rem; }
 }
