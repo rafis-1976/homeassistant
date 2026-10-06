@@ -239,6 +239,11 @@ main{
   --accent-soft:rgba(16,185,129,.15);
   --accent-border:rgba(16,185,129,.35);
 }
+.card.compras{
+  --accent:#ec4899;
+  --accent-soft:rgba(236,72,153,.15);
+  --accent-border:rgba(236,72,153,.35);
+}
 
 /* ============ FOOTER ============ */
 footer{
@@ -396,6 +401,17 @@ footer .dot{
     <h2>Tiempo</h2>
     <p>Previsión por horas y 7 días, radar de lluvia en vivo, sol, viento, humedad y más.</p>
   </a>
+
+  <!-- COMPRAS -->
+  <a class="card compras" href="compras/index.html" title="Compras" aria-label="Compras">
+    <span class="card-tag">Cocina</span>
+    <div class="card-top">
+      <div class="card-icon">🛒</div>
+      <div class="card-arrow">↗</div>
+    </div>
+    <h2>Compras</h2>
+    <p>Planificador semanal de comidas, carta de platos y lista de la compra por supermercado.</p>
+  </a>
 </main>
 
 <footer>
@@ -424,7 +440,8 @@ footer .dot{
       '1': 'home/index.html',
       '2': 'coches/index.html',
       '3': 'taller/index.html',
-      '4': 'tiempo/index.html'
+      '4': 'tiempo/index.html',
+      '5': 'compras/index.html'
     };
     if (atajos[e.key]) window.location.href = atajos[e.key];
   });
