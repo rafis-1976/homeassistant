@@ -81,6 +81,7 @@ export function renderHeader(active) {
     { key: 'menus',        href: 'menus.html',        label: '📖 Menús' },
     { key: 'ingredientes', href: 'ingredientes.html', label: '🥕 Ingredientes' },
     { key: 'lista',        href: 'lista.html',        label: '🛒 Lista de la compra' },
+    { key: 'recetas',      href: 'recetas.html',      label: '📖 Recetas' },
   ];
   const header = document.createElement('header');
   header.innerHTML = `
