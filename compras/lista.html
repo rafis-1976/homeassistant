@@ -4,29 +4,27 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lista de la compra · Planificador de comidas</title>
-  <link rel="stylesheet" href="css/style.css?v=10">
+  <link rel="stylesheet" href="css/style.css?v=20">
 </head>
 <body>
 <main>
-  <h2>Lista de la compra</h2>
+  <div class="paper-sheet">
+    <div class="paper-header">
+      <h2 class="paper-title">🛒 Lista de la compra</h2>
+      <div class="paper-week" id="week-nav"></div>
+    </div>
 
-  <div class="week-nav" id="week-nav"></div>
+    <div class="paper-resumen" id="resumen"></div>
 
-  <div class="form-row" style="gap:1rem;margin-bottom:1.2rem" id="resumen"></div>
+    <datalist id="lista-ings"></datalist>
 
-  <div id="grupos"></div>
+    <div class="paper-lines" id="lista-filas"></div>
 
-  <div class="card">
-    <h3>✒️ Añadir producto manualmente</h3>
-    <form id="form-manual" class="form-row">
-      <select name="ingrediente_id" id="sel-ing" required style="flex:1;min-width:220px">
-        <option value="">— Selecciona ingrediente —</option>
-      </select>
-      <input type="number" name="cantidad" step="0.01" min="0.01" value="1" required style="width:110px">
-      <button class="btn">Añadir a la lista</button>
-    </form>
+    <p class="paper-hint">
+      ✍️ Escribe un ingrediente o cualquier cosa libre. Los que ya existen se marcan automáticamente con su proveedor y precio.
+    </p>
   </div>
 </main>
-<script type="module" src="js/lista.js?v=10"></script>
+<script type="module" src="js/lista.js?v=20"></script>
 </body>
 </html>
