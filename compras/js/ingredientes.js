@@ -4,7 +4,7 @@ renderHeader('ingredientes');
 
 async function cargar() {
   const { data, error } = await sb.from('compras_ingredientes')
-    .select('id, nombre, unidad')
+    .select('id, nombre')
     .order('nombre');
   if (error) { console.error(error); return; }
 
@@ -17,13 +17,12 @@ async function cargar() {
   cont.innerHTML = `
     <table>
       <thead>
-        <tr><th>Nombre</th><th>Unidad</th><th></th></tr>
+        <tr><th>Nombre</th><th></th></tr>
       </thead>
       <tbody>
         ${data.map(i => `
           <tr data-id="${i.id}">
             <td><input data-field="nombre" value="${h(i.nombre)}" style="width:100%"></td>
-            <td><input data-field="unidad" value="${h(i.unidad)}" style="width:100px"></td>
             <td style="white-space:nowrap">
               <button class="btn small success" data-act="save">💾</button>
               <button class="btn small danger" data-act="del">✕</button>
@@ -36,10 +35,10 @@ async function cargar() {
     tr.querySelector('[data-act="save"]').addEventListener('click', async () => {
       const id = tr.dataset.id;
       const nombre = tr.querySelector('[data-field="nombre"]').value.trim();
-      const unidad = tr.querySelector('[data-field="unidad"]').value.trim() || 'ud';
+      if (!nombre) return alert('El nombre no puede estar vacío');
 
       const { error } = await sb.from('compras_ingredientes')
-        .update({ nombre, unidad })
+        .update({ nombre })
         .eq('id', id);
       if (error) return alert(error.message);
 
@@ -60,13 +59,16 @@ async function cargar() {
 document.getElementById('form-nuevo').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target;
+  const nombre = f.nombre.value.trim();
+  if (!nombre) return;
+
   const { error } = await sb.from('compras_ingredientes').insert({
-    nombre: f.nombre.value.trim(),
-    unidad: f.unidad.value.trim() || 'ud',
+    nombre,
+    unidad: 'und',   // valor por defecto — no se muestra en el formulario
   });
   if (error) return alert(error.message);
+
   f.reset();
-  f.unidad.value = 'ud';
   cargar();
 });
 
