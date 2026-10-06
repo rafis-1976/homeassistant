@@ -33,11 +33,25 @@ export function addDays(ymd, n) {
   return fmtYMD(d);
 }
 
+/**
+ * Formatea números con coma decimal (es-ES) y un máximo de 2 decimales.
+ *  1        → "1"
+ *  1.5      → "1,5"
+ *  0.30     → "0,3"
+ *  0.05     → "0,05"
+ *  100      → "100"
+ *  100.25   → "100,25"
+ *  null / "" / NaN → ""
+ */
 export function fmt(n) {
-  if (n == null) return '';
+  if (n === null || n === undefined || n === '') return '';
   const num = Number(n);
-  if (Number.isInteger(num)) return String(num);
-  return num.toFixed(2).replace('.', ',').replace(/,?0+$/, '');
+  if (!isFinite(num)) return '';
+  return num.toLocaleString('es-ES', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  });
 }
 
 export function diaEs(ymd) {
@@ -51,7 +65,13 @@ export function fmtFecha(ymd) {
 }
 
 export function money(n) {
-  return Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  if (n === null || n === undefined || n === '') return '';
+  const num = Number(n);
+  if (!isFinite(num)) return '';
+  return num.toLocaleString('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }) + ' €';
 }
 
 /* ---------- Navegación común (rutas relativas) ---------- */
