@@ -1,4 +1,4 @@
-import { sb, h, money, renderHeader } from './app.js';
+import { sb, h, renderHeader } from './app.js';
 
 renderHeader('ingredientes');
 
@@ -74,8 +74,9 @@ async function cargar() {
         precio_aprox: get('precio_aprox') !== '' ? parseFloat(get('precio_aprox')) : null,
       }).eq('id', id);
       if (error) return alert(error.message);
-      tr.querySelector('[data-act="save"]').textContent = '✓';
-      setTimeout(() => tr.querySelector('[data-act="save"]').textContent = '💾', 1200);
+      const btn = tr.querySelector('[data-act="save"]');
+      btn.textContent = '✓';
+      setTimeout(() => btn.textContent = '💾', 1200);
     });
 
     tr.querySelector('[data-act="del"]').addEventListener('click', async () => {
