@@ -1,21 +1,24 @@
-import { sb, h, weekStart, addDays, diaEs, fmtFecha, renderHeader, regenerarLista, toast } from './app.js';
+import { sb, h, weekStart, addDays, diaEs, fmtFecha, renderHeader, toast } from './app.js';
 
 renderHeader('calendario');
 
-const params   = new URLSearchParams(location.search);
-const semana   = params.get('semana') || weekStart();
+const params = new URLSearchParams(location.search);
+const semana = params.get('semana') || weekStart();
 
 // Nav de semana (rutas relativas)
 document.getElementById('week-nav').innerHTML = `
   <a href="index.html?semana=${addDays(semana, -7)}">← Semana anterior</a>
-  <strong>Semana del ${fmtFecha(semana)}</strong>
+  <strong>${fmtFecha(addDays(semana, 0))} — ${fmtFecha(addDays(semana, 6))}</strong>
   <a href="index.html?semana=${addDays(semana, 7)}">Semana siguiente →</a>
 `;
 document.getElementById('btn-ver-lista').href = `lista.html?semana=${semana}`;
 
-// Días de la semana
+// Días de la semana (lunes → domingo)
 const dias = [];
 for (let i = 0; i < 7; i++) dias.push(addDays(semana, i));
+
+const hoy = new Date();
+const hoyYMD = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
 
 // Cargar datos
 const [menusResp, calResp] = await Promise.all([
@@ -33,44 +36,75 @@ for (const row of (calResp.data || [])) {
   cal[row.fecha][row.tipo] = row;
 }
 
-// Render tabla
-const tbody = document.getElementById('cal-body');
-tbody.innerHTML = '';
+// Render de la pizarra (7 columnas)
+const grid = document.getElementById('board-grid');
+grid.innerHTML = '';
 
 for (const fecha of dias) {
-  const tr = document.createElement('tr');
-  tr.innerHTML = `<th class="dia">${diaEs(fecha)}<br><small>${fmtFecha(fecha)}</small></th>`;
+  const col = document.createElement('div');
+  col.className = 'day-column';
 
-  for (const tipo of ['comida', 'cena']) {
-    const cel = cal[fecha]?.[tipo] || null;
-    const td  = document.createElement('td');
-    td.innerHTML = `
-      <form class="cell-form">
-        <select class="menu-select" data-fecha="${fecha}" data-tipo="${tipo}">
-          <option value="0">— Sin asignar —</option>
-          ${menus.map(m => `<option value="${m.id}" ${cel?.menu_id == m.id ? 'selected' : ''}>${h(m.nombre)}</option>`).join('')}
+  const dayDate = new Date(fecha + 'T00:00:00');
+  const dow = dayDate.getDay();
+  if (dow === 0 || dow === 6) col.classList.add('weekend');
+  if (fecha === hoyYMD)       col.classList.add('today');
+
+  const com  = cal[fecha]?.comida || null;
+  const cen  = cal[fecha]?.cena   || null;
+
+  const opciones = (cel) => `
+    <option value="0">— sin menú —</option>
+    ${menus.map(m => `<option value="${m.id}" ${cel?.menu_id == m.id ? 'selected' : ''}>${h(m.nombre)}</option>`).join('')}
+  `;
+
+  col.innerHTML = `
+    <div class="day-header">
+      <div class="day-name">${diaEs(fecha)}</div>
+      <div class="day-date">${fmtFecha(fecha)}</div>
+    </div>
+
+    <div class="meal-slot">
+      <div class="meal-label">🍲 Comida</div>
+      <div class="meal-row">
+        <select class="menu-select" data-fecha="${fecha}" data-tipo="comida">
+          ${opciones(com)}
         </select>
-        <input type="number" min="1" max="20" value="${cel?.comensales ?? 2}"
-               class="comensales-input" data-fecha="${fecha}" data-tipo="${tipo}">
-      </form>`;
-    tr.appendChild(td);
-  }
-  tbody.appendChild(tr);
+        <input type="number" min="1" max="20" value="${com?.comensales ?? 2}"
+               class="comensales-input" data-fecha="${fecha}" data-tipo="comida"
+               title="Comensales">
+      </div>
+    </div>
+
+    <div class="meal-slot">
+      <div class="meal-label">🌙 Cena</div>
+      <div class="meal-row">
+        <select class="menu-select" data-fecha="${fecha}" data-tipo="cena">
+          ${opciones(cen)}
+        </select>
+        <input type="number" min="1" max="20" value="${cen?.comensales ?? 2}"
+               class="comensales-input" data-fecha="${fecha}" data-tipo="cena"
+               title="Comensales">
+      </div>
+    </div>
+  `;
+  grid.appendChild(col);
 }
 
-// Guardado automático
-tbody.addEventListener('change', async (e) => {
-  const el = e.target;
+// Guardado automático — SOLO toca compras_calendario.
+// NO modifica la lista de la compra.
+grid.addEventListener('change', async (e) => {
+  const el    = e.target;
   const fecha = el.dataset.fecha;
   const tipo  = el.dataset.tipo;
   if (!fecha || !tipo) return;
 
-  const form  = el.closest('form');
-  const menuId     = parseInt(form.querySelector('.menu-select').value, 10);
-  const comensales = parseInt(form.querySelector('.comensales-input').value, 10) || 1;
+  const slot       = el.closest('.meal-slot');
+  const menuId     = parseInt(slot.querySelector('.menu-select').value, 10);
+  const comensales = parseInt(slot.querySelector('.comensales-input').value, 10) || 1;
 
   if (menuId === 0) {
-    const { error } = await sb.from('compras_calendario').delete().eq('fecha', fecha).eq('tipo', tipo);
+    const { error } = await sb.from('compras_calendario')
+      .delete().eq('fecha', fecha).eq('tipo', tipo);
     if (error) return toast('Error al borrar', true);
   } else {
     const { error } = await sb.from('compras_calendario').upsert(
@@ -79,22 +113,5 @@ tbody.addEventListener('change', async (e) => {
     );
     if (error) return toast('Error al guardar', true);
   }
-  toast('Guardado');
-});
-
-// Regenerar lista
-document.getElementById('btn-regen').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-regen');
-  btn.disabled = true;
-  btn.textContent = '⏳ Generando...';
-  try {
-    const { insertados } = await regenerarLista(semana);
-    toast(`✅ Lista generada (${insertados} productos)`);
-  } catch (err) {
-    console.error(err);
-    toast('Error al generar la lista', true);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '🔄 Regenerar lista de la compra';
-  }
+  toast('Guardado ✍️');
 });
