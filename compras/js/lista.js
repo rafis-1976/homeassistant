@@ -1,149 +1,211 @@
-import { sb, h, fmt, money, weekStart, addDays, fmtFecha, renderHeader } from './app.js';
+import { sb, h, weekStart, addDays, fmtFecha, renderHeader, money } from './app.js';
 
 renderHeader('lista');
 
 const semana = new URLSearchParams(location.search).get('semana') || weekStart();
+const MAX_FILAS_VACIAS = 3;
 
-// Nav de semana (rutas relativas)
+let CATALOGO = [];
+let TIENDAS  = [];
+let ITEMS    = [];
+
+// Nav de semana
 document.getElementById('week-nav').innerHTML = `
-  <a href="lista.html?semana=${addDays(semana, -7)}">← Semana anterior</a>
-  <strong>Semana del ${fmtFecha(semana)}</strong>
-  <a href="lista.html?semana=${addDays(semana, 7)}">Semana siguiente →</a>
+  <a href="lista.html?semana=${addDays(semana, -7)}">← Anterior</a>
+  <strong>${fmtFecha(semana)} — ${fmtFecha(addDays(semana, 6))}</strong>
+  <a href="lista.html?semana=${addDays(semana, 7)}">Siguiente →</a>
 `;
 
-/* Catálogo para el selector manual */
-(async () => {
-  const { data } = await sb.from('compras_ingredientes').select('id, nombre, unidad').order('nombre');
-  document.getElementById('sel-ing').innerHTML =
-    '<option value="">— Selecciona ingrediente —</option>' +
-    (data||[]).map(i => `<option value="${i.id}">${h(i.nombre)} (${h(i.unidad)})</option>`).join('');
-})();
-
-async function cargar() {
-  const [itemsResp, tiendasResp] = await Promise.all([
-    sb.from('compras_lista')
-      .select('*, compras_ingredientes (nombre, unidad, precio_aprox), compras_tiendas (nombre, color, orden)')
-      .eq('semana_inicio', semana),
+async function init() {
+  const [cat, tien, items] = await Promise.all([
+    sb.from('compras_ingredientes')
+      .select('id, nombre, unidad, tienda_id, precio_aprox')
+      .order('nombre'),
     sb.from('compras_tiendas').select('*').order('orden'),
+    sb.from('compras_lista')
+      .select('*, compras_ingredientes(nombre, unidad, precio_aprox), compras_tiendas(nombre, color)')
+      .eq('semana_inicio', semana)
+      .order('created_at', { ascending: true }),
   ]);
+  CATALOGO = cat.data || [];
+  TIENDAS  = tien.data || [];
+  ITEMS    = items.data || [];
 
-  const items    = itemsResp.data || [];
-  const tiendas  = tiendasResp.data || [];
+  renderDatalist();
+  renderLista();
+  renderResumen();
+}
 
-  // Agrupar por tienda
-  const grupos = {};
-  for (const it of items) {
-    const key = it.tienda_id ?? 0;
-    (grupos[key] = grupos[key] || []).push(it);
+function renderDatalist() {
+  const uniq = [...new Set(CATALOGO.map(i => i.nombre))].sort((a,b) => a.localeCompare(b));
+  document.getElementById('lista-ings').innerHTML =
+    uniq.map(n => `<option value="${h(n)}">`).join('');
+}
+
+function renderResumen() {
+  const total = ITEMS.length;
+  const pend  = ITEMS.filter(i => !i.comprado).length;
+  const coste = ITEMS.reduce((s, it) => {
+    if (it.comprado) return s;
+    const precio = it.compras_ingredientes?.precio_aprox;
+    if (precio == null) return s;
+    return s + Number(precio) * Number(it.cantidad);
+  }, 0);
+  document.getElementById('resumen').innerHTML = `
+    <span>📦 <strong>${total}</strong> productos</span>
+    <span>⏳ <strong>${pend}</strong> pendientes</span>
+    <span>💶 ~<strong>${money(coste)}</strong></span>
+  `;
+}
+
+function renderLista() {
+  const cont = document.getElementById('lista-filas');
+  cont.innerHTML = '';
+
+  // Filas existentes
+  for (const it of ITEMS) {
+    cont.appendChild(buildFila(it));
+  }
+  // Filas vacías al final
+  for (let i = 0; i < MAX_FILAS_VACIAS; i++) {
+    cont.appendChild(buildFila(null));
+  }
+}
+
+function nombreDeItem(it) {
+  return it.compras_ingredientes?.nombre ?? it.nombre_libre ?? '';
+}
+
+function buildFila(item) {
+  const row = document.createElement('div');
+  row.className = 'lista-row';
+  if (item) {
+    row.dataset.id = item.id;
+    if (item.comprado) row.classList.add('comprado');
   }
 
-  // Orden de grupos: tiendas + "sin tienda"
-  const orden = [
-    ...tiendas.map(t => ({ id: t.id, nombre: t.nombre, color: t.color })),
-    { id: 0, nombre: 'Sin tienda asignada', color: '#9ca3af' },
-  ];
+  const nombre   = item ? nombreDeItem(item) : '';
+  const unidad   = item?.compras_ingredientes?.unidad ?? '';
+  const cantidad = item?.cantidad ?? '';
+  const comprado = item?.comprado ?? false;
 
-  // Resumen
-  const totalItems      = items.length;
-  const totalPendientes = items.filter(i => !i.comprado).length;
-  const coste = items.reduce((sum, it) => {
-    if (it.comprado || it.compras_ingredientes?.precio_aprox == null) return sum;
-    return sum + Number(it.compras_ingredientes.precio_aprox) * Number(it.cantidad);
-  }, 0);
-
-  document.getElementById('resumen').innerHTML = `
-    <span>📦 <strong>${totalItems}</strong> productos</span>
-    <span>⏳ <strong>${totalPendientes}</strong> pendientes</span>
-    <span>💶 ~<strong>${money(coste)}</strong></span>
-    ${totalItems > 0
-      ? '<button class="btn danger" id="btn-vaciar" style="margin-left:auto">🗑️ Vaciar</button>'
-      : ''}
+  row.innerHTML = `
+    <input type="checkbox" class="check-input" ${comprado ? 'checked' : ''}>
+    <input type="text" class="nombre-input" list="lista-ings"
+           value="${h(nombre)}" placeholder="Escribe un ingrediente o algo libre…"
+           autocomplete="off">
+    <input type="number" class="cant-input" min="0.01" step="0.01"
+           value="${cantidad}" placeholder="1">
+    <span class="unidad-label">${h(unidad)}</span>
+    <button class="del-btn" title="Borrar" type="button">✕</button>
   `;
 
-  const btnVaciar = document.getElementById('btn-vaciar');
-  if (btnVaciar) {
-    btnVaciar.addEventListener('click', async () => {
-      if (!confirm('¿Vaciar toda la lista de esta semana?')) return;
-      const { error } = await sb.from('compras_lista').delete().eq('semana_inicio', semana);
-      if (error) return alert(error.message);
-      cargar();
-    });
-  }
+  const nombreIn = row.querySelector('.nombre-input');
+  const cantIn   = row.querySelector('.cant-input');
+  const checkIn  = row.querySelector('.check-input');
+  const delBtn   = row.querySelector('.del-btn');
 
-  // Render grupos
-  const cont = document.getElementById('grupos');
-  if (!items.length) {
-    cont.innerHTML = '<p class="empty">La lista está vacía. Añade productos manualmente abajo.</p>';
+  nombreIn.addEventListener('change', () => guardarFila(row));
+  cantIn.addEventListener('change',   () => guardarFila(row));
+
+  checkIn.addEventListener('change', async () => {
+    const id = row.dataset.id;
+    if (!id) return;
+    const { error } = await sb.from('compras_lista')
+      .update({ comprado: checkIn.checked }).eq('id', id);
+    if (error) return console.error(error);
+    row.classList.toggle('comprado', checkIn.checked);
+    const it = ITEMS.find(x => x.id == id);
+    if (it) it.comprado = checkIn.checked;
+    renderResumen();
+  });
+
+  delBtn.addEventListener('click', async () => {
+    const id = row.dataset.id;
+    if (id && !confirm('¿Quitar este producto?')) return;
+    if (id) {
+      await sb.from('compras_lista').delete().eq('id', id);
+      ITEMS = ITEMS.filter(x => x.id != id);
+    }
+    row.remove();
+    ensureEmptyRows();
+    renderResumen();
+  });
+
+  return row;
+}
+
+async function guardarFila(row) {
+  const id       = row.dataset.id || null;
+  const nombre   = row.querySelector('.nombre-input').value.trim();
+  const cantidad = parseFloat(row.querySelector('.cant-input').value) || 1;
+
+  // Caso 1: vacío y fila nueva → no hacer nada
+  if (!nombre && !id) return;
+
+  // Caso 2: vacío y fila existente → borrar
+  if (!nombre && id) {
+    await sb.from('compras_lista').delete().eq('id', id);
+    ITEMS = ITEMS.filter(x => x.id != id);
+    row.remove();
+    ensureEmptyRows();
+    renderResumen();
     return;
   }
 
-  cont.innerHTML = orden.map(g => {
-    const gItems = grupos[g.id] || [];
-    if (!gItems.length) return '';
-    gItems.sort((a,b) => (a.compras_ingredientes?.nombre||'').localeCompare(b.compras_ingredientes?.nombre||''));
-    return `
-      <div class="tienda-group">
-        <div class="tienda-header" style="background:${h(g.color)}">
-          <span class="dot"></span>
-          <span>${h(g.nombre)}</span>
-          <span style="margin-left:auto;font-weight:400;font-size:.85rem">${gItems.length} productos</span>
-        </div>
-        <div class="tienda-items">
-          ${gItems.map(it => {
-            const ing = it.compras_ingredientes;
-            const precio = ing?.precio_aprox != null
-              ? `~${money(Number(ing.precio_aprox) * Number(it.cantidad))}` : '';
-            return `
-              <div class="item ${it.comprado ? 'comprado' : ''}" data-id="${it.id}">
-                <input type="checkbox" ${it.comprado ? 'checked' : ''} data-act="toggle">
-                <span class="nombre">${h(ing?.nombre)}</span>
-                <span class="cant">${fmt(it.cantidad)} ${h(ing?.unidad||'')}</span>
-                <span class="cant">${precio}</span>
-                <button class="btn danger small" data-act="del">✕</button>
-              </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-  }).join('');
+  // Buscar coincidencia exacta con un ingrediente conocido
+  const ing = CATALOGO.find(i => i.nombre.toLowerCase() === nombre.toLowerCase());
 
-  cont.querySelectorAll('.item').forEach(row => {
-    const id = row.dataset.id;
-    row.querySelector('[data-act="toggle"]').addEventListener('change', async (e) => {
-      const { error } = await sb.from('compras_lista')
-        .update({ comprado: e.target.checked }).eq('id', id);
-      if (error) return alert(error.message);
-      row.classList.toggle('comprado', e.target.checked);
-    });
-    row.querySelector('[data-act="del"]').addEventListener('click', async () => {
-      if (!confirm('¿Quitar este producto?')) return;
-      const { error } = await sb.from('compras_lista').delete().eq('id', id);
-      if (error) return alert(error.message);
-      cargar();
-    });
-  });
+  const payload = {
+    cantidad,
+    semana_inicio: semana,
+    manual: true,
+  };
+
+  if (ing) {
+    payload.ingrediente_id = ing.id;
+    payload.tienda_id      = ing.tienda_id;
+    payload.nombre_libre   = null;
+    row.querySelector('.unidad-label').textContent = ing.unidad || '';
+  } else {
+    payload.ingrediente_id = null;
+    payload.tienda_id      = null;
+    payload.nombre_libre   = nombre;
+    row.querySelector('.unidad-label').textContent = '';
+  }
+
+  if (id) {
+    // Update
+    const { error } = await sb.from('compras_lista').update(payload).eq('id', id);
+    if (error) return console.error(error);
+    const it = ITEMS.find(x => x.id == id);
+    if (it) {
+      Object.assign(it, payload);
+      it.compras_ingredientes = ing
+        ? { nombre: ing.nombre, unidad: ing.unidad, precio_aprox: ing.precio_aprox }
+        : null;
+    }
+  } else {
+    // Insert
+    const { data, error } = await sb.from('compras_lista')
+      .insert(payload)
+      .select('*, compras_ingredientes(nombre, unidad, precio_aprox)')
+      .single();
+    if (error) return console.error(error);
+    row.dataset.id = data.id;
+    ITEMS.push(data);
+    ensureEmptyRows();
+  }
+  renderResumen();
 }
 
-/* Añadir producto manual */
-document.getElementById('form-manual').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const f = e.target;
-  const ingId = parseInt(f.ingrediente_id.value, 10);
+function ensureEmptyRows() {
+  const cont = document.getElementById('lista-filas');
+  const vacias = [...cont.querySelectorAll('.lista-row')]
+    .filter(r => !r.dataset.id && !r.querySelector('.nombre-input').value.trim()).length;
+  for (let i = vacias; i < MAX_FILAS_VACIAS; i++) {
+    cont.appendChild(buildFila(null));
+  }
+}
 
-  // Traer tienda del ingrediente
-  const { data: ing } = await sb.from('compras_ingredientes')
-    .select('tienda_id').eq('id', ingId).single();
-
-  const { error } = await sb.from('compras_lista').insert({
-    ingrediente_id: ingId,
-    cantidad:       parseFloat(f.cantidad.value),
-    tienda_id:      ing?.tienda_id ?? null,
-    semana_inicio:  semana,
-    manual:         true,
-    comprado:       false,
-  });
-  if (error) return alert(error.message);
-  f.cantidad.value = 1;
-  cargar();
-});
-
-cargar();
+init();
