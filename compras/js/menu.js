@@ -2,6 +2,9 @@ import { sb, h, fmt, renderHeader } from './app.js';
 
 renderHeader('menus');
 
+// Unidades permitidas
+const UNIDADES = ['und', 'gr', 'kg', 'ml', 'l'];
+
 const id = parseInt(new URLSearchParams(location.search).get('id') || '0', 10);
 const cont = document.getElementById('contenido');
 
@@ -11,7 +14,7 @@ if (!id) {
   const [menuResp, ingsResp, allResp] = await Promise.all([
     sb.from('compras_menus').select('*').eq('id', id).single(),
     sb.from('compras_menu_ingredientes')
-      .select('cantidad, compras_ingredientes (id, nombre, unidad, compras_tiendas(nombre))')
+      .select('cantidad, unidad, compras_ingredientes (id, nombre, unidad, compras_tiendas(nombre))')
       .eq('menu_id', id),
     sb.from('compras_ingredientes').select('id, nombre, unidad').order('nombre'),
   ]);
@@ -58,9 +61,9 @@ if (!id) {
             </thead>
             <tbody>
               ${ings.map(i => {
-                const ing = i.compras_ingredientes;
+                const ing  = i.compras_ingredientes;
                 const cant = Number(i.cantidad);
-                const uni  = ing?.unidad ?? '';
+                const uni  = i.unidad || ing?.unidad || 'und';
                 return `
                   <tr>
                     <td>${h(ing?.nombre ?? '(sin nombre)')}</td>
@@ -77,15 +80,49 @@ if (!id) {
 
         <h3 style="margin-top:1.2rem">➕ Añadir ingrediente</h3>
         <form id="form-add-ing" class="form-row">
-          <select name="ingrediente_id" required style="flex:1;min-width:220px">
+          <select name="ingrediente_id" id="sel-ing-menu" required style="flex:1;min-width:220px">
             <option value="">— Selecciona ingrediente —</option>
-            ${todos.map(i => `<option value="${i.id}">${h(i.nombre)} (${h(i.unidad)})</option>`).join('')}
+            ${todos.map(i => `
+              <option value="${i.id}" data-unidad="${h(i.unidad || 'und')}">
+                ${h(i.nombre)}
+              </option>`).join('')}
           </select>
-          <input type="number" name="cantidad" step="0.01" min="0.01" value="1" style="width:110px" required>
+
+          <input type="number" name="cantidad" step="0.01" min="0.01" value="1"
+                 style="width:110px" required placeholder="Cantidad">
+
+          <select name="unidad" id="sel-unidad" style="width:90px" required>
+            ${UNIDADES.map(u => `<option value="${u}">${u}</option>`).join('')}
+          </select>
+
           <button class="btn">Añadir</button>
         </form>
       </div>
     `;
+
+    // Al cambiar el ingrediente seleccionado, preseleccionar su unidad base
+    const selIngMenu = document.getElementById('sel-ing-menu');
+    const selUnidad  = document.getElementById('sel-unidad');
+
+    // Normalizar la unidad base del ingrediente a una de las permitidas
+    function normalizarUnidad(u) {
+      if (!u) return 'und';
+      const low = String(u).toLowerCase().trim();
+      if (UNIDADES.includes(low)) return low;
+      // Alias comunes
+      if (low === 'g'   || low === 'gramo' || low === 'gramos') return 'gr';
+      if (low === 'kilo'|| low === 'kilos' || low === 'kilogramo') return 'kg';
+      if (low === 'litro' || low === 'litros') return 'l';
+      if (low === 'mililitro' || low === 'mililitros' || low === 'cc') return 'ml';
+      if (low === 'u' || low === 'ud.' || low === 'unidad' || low === 'unidades') return 'und';
+      return 'und';
+    }
+
+    selIngMenu.addEventListener('change', () => {
+      const opt = selIngMenu.selectedOptions[0];
+      const u = opt?.dataset.unidad;
+      if (u) selUnidad.value = normalizarUnidad(u);
+    });
 
     // Guardar cambios del menú
     document.getElementById('form-menu').addEventListener('submit', async (e) => {
@@ -108,13 +145,17 @@ if (!id) {
       const f = e.target;
       const ingId = parseInt(f.ingrediente_id.value, 10);
       const cant  = parseFloat(f.cantidad.value);
+      const uni   = f.unidad.value;
 
       if (!ingId || !isFinite(cant) || cant <= 0) {
         return alert('Revisa el ingrediente y la cantidad');
       }
+      if (!UNIDADES.includes(uni)) {
+        return alert('Unidad no válida');
+      }
 
       const { error } = await sb.from('compras_menu_ingredientes').upsert(
-        { menu_id: id, ingrediente_id: ingId, cantidad: cant },
+        { menu_id: id, ingrediente_id: ingId, cantidad: cant, unidad: uni },
         { onConflict: 'menu_id,ingrediente_id' }
       );
       if (error) return alert(error.message);
