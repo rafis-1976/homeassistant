@@ -19,7 +19,7 @@ async function cargar() {
           const nIng = m.compras_menu_ingredientes?.[0]?.count ?? 0;
           return `
             <tr>
-              <td><a href="/menu.html?id=${m.id}" style="color:#2563eb;text-decoration:none;font-weight:600">${h(m.nombre)}</a></td>
+              <td><a href="menu.html?id=${m.id}" style="color:#2563eb;text-decoration:none;font-weight:600">${h(m.nombre)}</a></td>
               <td><span class="badge ${h(m.tipo)}">${h(m.tipo)}</span></td>
               <td>${m.raciones}</td>
               <td>${nIng}</td>
