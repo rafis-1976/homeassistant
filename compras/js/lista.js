@@ -1,4 +1,4 @@
-import { sb, h, weekStart, addDays, fmtFecha, renderHeader, money } from './app.js';
+import { sb, h, weekStart, addDays, fmtFecha, renderHeader } from './app.js';
 
 renderHeader('lista');
 
@@ -19,11 +19,11 @@ document.getElementById('week-nav').innerHTML = `
 async function init() {
   const [cat, tien, items] = await Promise.all([
     sb.from('compras_ingredientes')
-      .select('id, nombre, unidad, tienda_id, precio_aprox')
+      .select('id, nombre, unidad, tienda_id')
       .order('nombre'),
     sb.from('compras_tiendas').select('*').order('orden'),
     sb.from('compras_lista')
-      .select('*, compras_ingredientes(nombre, unidad, precio_aprox), compras_tiendas(nombre, color)')
+      .select('*, compras_ingredientes(nombre, unidad), compras_tiendas(nombre, color)')
       .eq('semana_inicio', semana)
       .order('created_at', { ascending: true }),
   ]);
@@ -45,16 +45,9 @@ function renderDatalist() {
 function renderResumen() {
   const total = ITEMS.length;
   const pend  = ITEMS.filter(i => !i.comprado).length;
-  const coste = ITEMS.reduce((s, it) => {
-    if (it.comprado) return s;
-    const precio = it.compras_ingredientes?.precio_aprox;
-    if (precio == null) return s;
-    return s + Number(precio) * Number(it.cantidad);
-  }, 0);
   document.getElementById('resumen').innerHTML = `
     <span>📦 <strong>${total}</strong> productos</span>
     <span>⏳ <strong>${pend}</strong> pendientes</span>
-    <span>💶 ~<strong>${money(coste)}</strong></span>
   `;
 }
 
@@ -112,8 +105,6 @@ function buildFila(item) {
   // Botón "comprado" — toggle
   checkBtn.addEventListener('click', async () => {
     const id = row.dataset.id;
-
-    // Si la fila aún no existe en BD, ignorar
     if (!id) return;
 
     const nuevoEstado = !row.classList.contains('comprado');
@@ -192,13 +183,13 @@ async function guardarFila(row) {
     if (it) {
       Object.assign(it, payload);
       it.compras_ingredientes = ing
-        ? { nombre: ing.nombre, unidad: ing.unidad, precio_aprox: ing.precio_aprox }
+        ? { nombre: ing.nombre, unidad: ing.unidad }
         : null;
     }
   } else {
     const { data, error } = await sb.from('compras_lista')
       .insert(payload)
-      .select('*, compras_ingredientes(nombre, unidad, precio_aprox)')
+      .select('*, compras_ingredientes(nombre, unidad)')
       .single();
     if (error) return console.error(error);
     row.dataset.id = data.id;
