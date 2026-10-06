@@ -62,11 +62,9 @@ function renderLista() {
   const cont = document.getElementById('lista-filas');
   cont.innerHTML = '';
 
-  // Filas existentes
   for (const it of ITEMS) {
     cont.appendChild(buildFila(it));
   }
-  // Filas vacías al final
   for (let i = 0; i < MAX_FILAS_VACIAS; i++) {
     cont.appendChild(buildFila(null));
   }
@@ -90,7 +88,10 @@ function buildFila(item) {
   const comprado = item?.comprado ?? false;
 
   row.innerHTML = `
-    <input type="checkbox" class="check-input" ${comprado ? 'checked' : ''}>
+    <button class="check-btn" title="Marcar como comprado" type="button"
+            aria-pressed="${comprado}">
+      <span class="check-icon">${comprado ? '✓' : ''}</span>
+    </button>
     <input type="text" class="nombre-input" list="lista-ings"
            value="${h(nombre)}" placeholder="Escribe un ingrediente o algo libre…"
            autocomplete="off">
@@ -102,21 +103,31 @@ function buildFila(item) {
 
   const nombreIn = row.querySelector('.nombre-input');
   const cantIn   = row.querySelector('.cant-input');
-  const checkIn  = row.querySelector('.check-input');
+  const checkBtn = row.querySelector('.check-btn');
   const delBtn   = row.querySelector('.del-btn');
 
   nombreIn.addEventListener('change', () => guardarFila(row));
   cantIn.addEventListener('change',   () => guardarFila(row));
 
-  checkIn.addEventListener('change', async () => {
+  // Botón "comprado" — toggle
+  checkBtn.addEventListener('click', async () => {
     const id = row.dataset.id;
+
+    // Si la fila aún no existe en BD, ignorar
     if (!id) return;
+
+    const nuevoEstado = !row.classList.contains('comprado');
+
     const { error } = await sb.from('compras_lista')
-      .update({ comprado: checkIn.checked }).eq('id', id);
+      .update({ comprado: nuevoEstado }).eq('id', id);
     if (error) return console.error(error);
-    row.classList.toggle('comprado', checkIn.checked);
+
+    row.classList.toggle('comprado', nuevoEstado);
+    checkBtn.setAttribute('aria-pressed', nuevoEstado ? 'true' : 'false');
+    checkBtn.querySelector('.check-icon').textContent = nuevoEstado ? '✓' : '';
+
     const it = ITEMS.find(x => x.id == id);
-    if (it) it.comprado = checkIn.checked;
+    if (it) it.comprado = nuevoEstado;
     renderResumen();
   });
 
@@ -140,10 +151,10 @@ async function guardarFila(row) {
   const nombre   = row.querySelector('.nombre-input').value.trim();
   const cantidad = parseFloat(row.querySelector('.cant-input').value) || 1;
 
-  // Caso 1: vacío y fila nueva → no hacer nada
+  // Vacío y fila nueva → no hacer nada
   if (!nombre && !id) return;
 
-  // Caso 2: vacío y fila existente → borrar
+  // Vacío y fila existente → borrar
   if (!nombre && id) {
     await sb.from('compras_lista').delete().eq('id', id);
     ITEMS = ITEMS.filter(x => x.id != id);
@@ -175,7 +186,6 @@ async function guardarFila(row) {
   }
 
   if (id) {
-    // Update
     const { error } = await sb.from('compras_lista').update(payload).eq('id', id);
     if (error) return console.error(error);
     const it = ITEMS.find(x => x.id == id);
@@ -186,7 +196,6 @@ async function guardarFila(row) {
         : null;
     }
   } else {
-    // Insert
     const { data, error } = await sb.from('compras_lista')
       .insert(payload)
       .select('*, compras_ingredientes(nombre, unidad, precio_aprox)')
