@@ -35,13 +35,6 @@ export function addDays(ymd, n) {
 
 /**
  * Formatea números con coma decimal (es-ES) y un máximo de 2 decimales.
- *  1        → "1"
- *  1.5      → "1,5"
- *  0.30     → "0,3"
- *  0.05     → "0,05"
- *  100      → "100"
- *  100.25   → "100,25"
- *  null / "" / NaN → ""
  */
 export function fmt(n) {
   if (n === null || n === undefined || n === '') return '';
@@ -74,20 +67,29 @@ export function money(n) {
   }) + ' €';
 }
 
-/* ---------- Navegación común (rutas relativas) ---------- */
+/* ---------- Navegación común (rutas relativas) ----------
+   Cada item tiene:
+     icono → se muestra siempre (y en móvil es lo único visible)
+     label → texto completo (escritorio)
+     short → abreviatura corta en móvil (opcional, oculta por defecto) */
 export function renderHeader(active) {
   const items = [
-    { key: 'calendario',   href: 'index.html',        label: '📅 Calendario' },
-    { key: 'menus',        href: 'menus.html',        label: '📖 Menús' },
-    { key: 'ingredientes', href: 'ingredientes.html', label: '🥕 Ingredientes' },
-    { key: 'lista',        href: 'lista.html',        label: '🛒 Lista de la compra' },
-    { key: 'recetas',      href: 'recetas.html',      label: '📖 Recetas' },
+    { key: 'calendario',   href: 'index.html',        icono: '📅', label: 'Calendario' },
+    { key: 'menus',        href: 'menus.html',        icono: '📖', label: 'Menús' },
+    { key: 'ingredientes', href: 'ingredientes.html', icono: '🥕', label: 'Ingredientes' },
+    { key: 'lista',        href: 'lista.html',        icono: '🛒', label: 'Lista de la compra' },
+    { key: 'recetas',      href: 'recetas.html',      icono: '🍽️', label: 'Recetas' },
   ];
   const header = document.createElement('header');
   header.innerHTML = `
-    <h1>🍽️ Planificador de comidas</h1>
+    <h1 class="brand-title">Hacienda Ale y Rafa</h1>
     <nav>
-      ${items.map(i => `<a href="${i.href}" class="${active === i.key ? 'active' : ''}">${i.label}</a>`).join('')}
+      ${items.map(i => `
+        <a href="${i.href}" class="${active === i.key ? 'active' : ''}"
+           title="${i.label}" aria-label="${i.label}">
+          <span class="nav-icono">${i.icono}</span>
+          <span class="nav-texto">${i.label}</span>
+        </a>`).join('')}
     </nav>`;
   document.body.insertBefore(header, document.body.firstChild);
 }
