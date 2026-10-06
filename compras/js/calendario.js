@@ -1,17 +1,17 @@
-import { sb, h, weekStart, addDays, diaEs, fmtFecha, renderHeader, regenerarLista } from './app.js';
+import { sb, h, weekStart, addDays, diaEs, fmtFecha, renderHeader, regenerarLista, toast } from './app.js';
 
 renderHeader('calendario');
 
 const params   = new URLSearchParams(location.search);
 const semana   = params.get('semana') || weekStart();
 
-// Nav de semana
+// Nav de semana (rutas relativas)
 document.getElementById('week-nav').innerHTML = `
-  <a href="/?semana=${addDays(semana, -7)}">← Semana anterior</a>
+  <a href="index.html?semana=${addDays(semana, -7)}">← Semana anterior</a>
   <strong>Semana del ${fmtFecha(semana)}</strong>
-  <a href="/?semana=${addDays(semana, 7)}">Semana siguiente →</a>
+  <a href="index.html?semana=${addDays(semana, 7)}">Semana siguiente →</a>
 `;
-document.getElementById('btn-ver-lista').href = `/lista.html?semana=${semana}`;
+document.getElementById('btn-ver-lista').href = `lista.html?semana=${semana}`;
 
 // Días de la semana
 const dias = [];
@@ -29,7 +29,7 @@ if (calResp.error)   console.error(calResp.error);
 const menus = menusResp.data || [];
 const cal   = {};
 for (const row of (calResp.data || [])) {
-  cal[row.fecha]        = cal[row.fecha] || {};
+  cal[row.fecha] = cal[row.fecha] || {};
   cal[row.fecha][row.tipo] = row;
 }
 
@@ -63,6 +63,8 @@ tbody.addEventListener('change', async (e) => {
   const el = e.target;
   const fecha = el.dataset.fecha;
   const tipo  = el.dataset.tipo;
+  if (!fecha || !tipo) return;
+
   const form  = el.closest('form');
   const menuId     = parseInt(form.querySelector('.menu-select').value, 10);
   const comensales = parseInt(form.querySelector('.comensales-input').value, 10) || 1;
@@ -96,13 +98,3 @@ document.getElementById('btn-regen').addEventListener('click', async () => {
     btn.textContent = '🔄 Regenerar lista de la compra';
   }
 });
-
-/* Toast helper global */
-function toast(msg, error = false) {
-  const t = document.createElement('div');
-  t.className = 'toast' + (error ? ' error' : '');
-  t.textContent = msg;
-  document.body.appendChild(t);
-  requestAnimationFrame(() => t.classList.add('show'));
-  setTimeout(() => t.remove(), 2200);
-}
