@@ -244,6 +244,11 @@ main{
   --accent-soft:rgba(236,72,153,.15);
   --accent-border:rgba(236,72,153,.35);
 }
+.card.padel{
+  --accent:#84cc16;
+  --accent-soft:rgba(132,204,22,.15);
+  --accent-border:rgba(132,204,22,.35);
+}
 
 /* ============ FOOTER ============ */
 footer{
@@ -412,6 +417,17 @@ footer .dot{
     <h2>Compras</h2>
     <p>Planificador semanal de comidas, carta de platos y lista de la compra por supermercado.</p>
   </a>
+
+  <!-- PÁDEL -->
+  <a class="card padel" href="padel/index.html" title="Pádel" aria-label="Pádel">
+    <span class="card-tag">Deporte</span>
+    <div class="card-top">
+      <div class="card-icon">🎾</div>
+      <div class="card-arrow">↗</div>
+    </div>
+    <h2>Pádel</h2>
+    <p>Organiza partidos, jugadores, pistas, resultados y estadísticas de tus torneos de pádel.</p>
+  </a>
 </main>
 
 <footer>
@@ -441,7 +457,8 @@ footer .dot{
       '2': 'coches/index.html',
       '3': 'taller/index.html',
       '4': 'tiempo/index.html',
-      '5': 'compras/index.html'
+      '5': 'compras/index.html',
+      '6': 'padel/index.html'
     };
     if (atajos[e.key]) window.location.href = atajos[e.key];
   });
