@@ -27,7 +27,7 @@ nav a {
 nav a:hover { background: rgba(255,255,255,.15); }
 nav a.active { background: rgba(255,255,255,.28); font-weight: 600; }
 
-main { max-width: 1400px; margin: 1.5rem auto; padding: 0 1rem; }
+main { max-width: 1500px; margin: 1.5rem auto; padding: 0 1rem; }
 
 h2 { font-size: 1.3rem; margin-bottom: 1rem; color: #111827; }
 h3 { font-size: 1.05rem; margin: 1rem 0 .6rem; }
@@ -135,8 +135,8 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
 .whiteboard {
   position: relative;
   border-radius: 10px;
-  padding: 26px 22px 18px;
-  min-height: 560px;
+  padding: 22px 18px 16px;
+  min-height: 520px;
   font-family: 'Kalam', 'Caveat', cursive;
   color: #16385a;
   background:
@@ -168,16 +168,16 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  padding-bottom: 14px;
-  margin-bottom: 16px;
+  gap: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
   border-bottom: 2px solid rgba(60,100,150,.22);
   position: relative;
   z-index: 1;
 }
 .board-title {
   font-family: 'Caveat', cursive;
-  font-size: 2.1rem;
+  font-size: 1.9rem;
   font-weight: 700;
   color: #16385a;
   letter-spacing: .5px;
@@ -189,16 +189,16 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
 #week-nav {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   font-family: 'Kalam', cursive;
-  font-size: .95rem;
+  font-size: .9rem;
   flex-wrap: wrap;
 }
 #week-nav a {
   color: #2b6cb0;
   text-decoration: none;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 6px;
   border: 1.5px dashed rgba(60,100,150,.35);
   transition: all .15s;
@@ -209,52 +209,31 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
 }
 #week-nav strong {
   font-family: 'Caveat', cursive;
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   color: #16385a;
   font-weight: 700;
 }
 
-/* ---- Contenedor con scroll horizontal ---- */
-.board-scroll {
-  position: relative;
-  z-index: 1;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 6px;
-  /* Scrollbar estilizada (webkit) */
-}
-.board-scroll::-webkit-scrollbar { height: 10px; }
-.board-scroll::-webkit-scrollbar-track {
-  background: rgba(120,150,190,.12);
-  border-radius: 10px;
-}
-.board-scroll::-webkit-scrollbar-thumb {
-  background: rgba(60,100,150,.35);
-  border-radius: 10px;
-}
-.board-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(60,100,150,.55);
-}
-
-/* ---- Rejilla: SIEMPRE 7 columnas, con ancho mínimo ---- */
+/* ---- Rejilla: SIEMPRE 7 columnas, sin scroll ---- */
 .board-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(200px, 1fr));
-  gap: 12px;
-  /* Fuerza scroll si no caben */
-  min-width: max-content;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  position: relative;
+  z-index: 1;
 }
 
 .day-column {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 8px 12px;
+  gap: 6px;
+  padding: 8px 6px 10px;
   border-radius: 10px;
   background: rgba(255,255,255,.55);
   border: 1.5px dashed rgba(60,100,150,.35);
   transition: background .2s;
-  width: 100%;
+  min-width: 0;              /* permite que las columnas encojan */
+  overflow: hidden;
 }
 .day-column:hover {
   background: rgba(255,255,255,.85);
@@ -276,23 +255,26 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
 /* Cabecera del día */
 .day-header {
   text-align: center;
-  padding-bottom: 6px;
+  padding-bottom: 5px;
   border-bottom: 1.5px dashed rgba(60,100,150,.3);
   margin-bottom: 2px;
 }
 .day-name {
   font-family: 'Caveat', cursive;
-  font-size: 1.55rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #16385a;
   line-height: 1.05;
   text-shadow: .5px .5px 0 rgba(255,255,255,.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .day-column.weekend .day-name { color: #a04a1e; }
 .day-column.today .day-name { color: #1d4ed8; }
 .day-date {
   font-family: 'Kalam', cursive;
-  font-size: .82rem;
+  font-size: .75rem;
   color: #6b7a8c;
   margin-top: 1px;
 }
@@ -301,24 +283,27 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
 .meal-slot {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 6px 6px 8px;
+  gap: 2px;
+  padding: 5px 5px 6px;
   border-radius: 6px;
   background: rgba(255,255,255,.4);
   border: 1px solid rgba(120,150,190,.15);
+  min-width: 0;
 }
 .meal-label {
   font-family: 'Kalam', cursive;
-  font-size: .78rem;
+  font-size: .72rem;
   font-weight: 700;
   color: #4a5a70;
   letter-spacing: .3px;
   margin-bottom: 1px;
+  white-space: nowrap;
 }
 .meal-row {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   align-items: center;
+  min-width: 0;
 }
 
 /* Selects e inputs "escritos a mano" sobre la pizarra */
@@ -331,27 +316,29 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
   border-bottom: 2px dotted rgba(60,100,150,.38);
   border-radius: 0;
   font-family: 'Kalam', cursive;
-  font-size: .88rem;
+  font-size: .82rem;
   color: #16385a;
-  padding: 3px 0;
+  padding: 2px 0;
   transition: border-color .15s, background-color .15s;
+  min-width: 0;
 }
 .meal-slot select {
   flex: 1;
-  min-width: 0;
-  padding-right: 16px;
+  width: 100%;
+  padding-right: 12px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%234a5a70' d='M0 3l5 5 5-5z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 2px center;
-  background-size: 9px;
+  background-size: 8px;
   cursor: pointer;
   text-overflow: ellipsis;
 }
 .meal-slot input[type=number] {
-  width: 40px;
+  width: 30px;
   text-align: center;
   font-weight: 700;
   color: #2b6cb0;
+  flex-shrink: 0;
 }
 .meal-slot select:focus,
 .meal-slot input[type=number]:focus {
@@ -375,17 +362,18 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
   border-bottom: 1.5px dashed rgba(160,90,60,.45);
   border-radius: 0;
   font-family: 'Kalam', cursive;
-  font-size: .82rem;
+  font-size: .76rem;
   font-style: italic;
   color: #a04a1e;
-  padding: 3px 0 2px;
+  padding: 2px 0 1px;
   width: 100%;
   transition: border-color .15s, background-color .15s;
+  min-width: 0;
 }
 .meal-slot .notas-input::placeholder {
   color: rgba(160,90,60,.5);
   font-style: italic;
-  font-size: .78rem;
+  font-size: .72rem;
 }
 .meal-slot .notas-input:focus {
   outline: none;
@@ -396,8 +384,8 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
 
 /* ---- Pie de pizarra ---- */
 .board-footer {
-  margin-top: 20px;
-  padding-top: 14px;
+  margin-top: 16px;
+  padding-top: 12px;
   border-top: 2px solid rgba(60,100,150,.18);
   display: flex;
   justify-content: flex-end;
@@ -406,11 +394,11 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
 }
 .board-btn {
   font-family: 'Caveat', cursive;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #16385a;
   text-decoration: none;
-  padding: 8px 18px;
+  padding: 6px 16px;
   border-radius: 8px;
   border: 2px dashed rgba(60,100,150,.5);
   background: rgba(255,255,255,.6);
@@ -467,15 +455,71 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
 .toast.error { background: #dc2626; }
 
 /* ============ RESPONSIVE ============ */
-@media (max-width: 760px) {
+@media (max-width: 1200px) {
   .board-title { font-size: 1.7rem; }
-  #week-nav { width: 100%; justify-content: space-between; }
-  #week-nav strong { font-size: 1.1rem; }
-  .board-grid { grid-template-columns: repeat(7, minmax(180px, 1fr)); }
+  .day-name { font-size: 1.1rem; }
+  .meal-slot select { font-size: .78rem; }
+  .meal-slot .notas-input { font-size: .72rem; }
 }
-@media (max-width: 480px) {
-  .board-frame { padding: 12px; }
-  .whiteboard { padding: 18px 12px 14px; }
+
+@media (max-width: 950px) {
+  .whiteboard { padding: 16px 12px 12px; }
+  .board-grid { gap: 6px; }
+  .day-column { padding: 6px 4px 8px; }
+  .day-name { font-size: 1rem; }
+  .day-date { font-size: .68rem; }
+  .meal-label { font-size: .66rem; }
+  .meal-slot select { font-size: .72rem; padding-right: 10px; }
+  .meal-slot input[type=number] { width: 26px; font-size: .72rem; }
+  .meal-slot .notas-input { font-size: .68rem; }
+  .meal-slot .notas-input::placeholder { font-size: .64rem; }
+}
+
+@media (max-width: 720px) {
   main { padding: 0 .5rem; }
-  .board-grid { grid-template-columns: repeat(7, minmax(170px, 1fr)); }
+  .board-frame { padding: 12px; }
+  .board-title { font-size: 1.4rem; }
+  #week-nav { font-size: .8rem; gap: 6px; }
+  #week-nav strong { font-size: 1rem; }
+  #week-nav a { padding: 2px 6px; }
+
+  .day-name { font-size: .9rem; }
+  .day-date { font-size: .62rem; }
+  .meal-label { font-size: .6rem; }
+  .meal-slot { padding: 4px 3px 5px; }
+  .meal-slot select { font-size: .68rem; }
+  .meal-slot input[type=number] { width: 22px; font-size: .66rem; }
+  .meal-slot .notas-input { font-size: .62rem; }
+  .meal-slot .notas-input::placeholder { font-size: .58rem; }
+}
+
+/* Móvil muy estrecho: apilar días en vertical */
+@media (max-width: 520px) {
+  .board-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .day-column {
+    padding: 10px 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .day-header {
+    flex: 0 0 100%;
+    text-align: left;
+    padding: 0 0 6px;
+    margin-bottom: 4px;
+  }
+  .day-name { font-size: 1.3rem; text-align: left; }
+  .day-date { font-size: .8rem; }
+  .meal-slot {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 140px;
+  }
+  .meal-label { font-size: .72rem; }
+  .meal-slot select { font-size: .82rem; }
+  .meal-slot input[type=number] { width: 32px; font-size: .8rem; }
+  .meal-slot .notas-input { font-size: .74rem; }
+  .meal-slot .notas-input::placeholder { font-size: .7rem; }
 }
