@@ -8,21 +8,22 @@
 </head>
 <body>
 <main>
-  <h2>Calendario semanal</h2>
+  <div class="board-frame">
+    <div class="whiteboard">
 
-  <div class="week-nav" id="week-nav"></div>
+      <div class="board-header">
+        <h2 class="board-title">🍽️ Menú semanal</h2>
+        <div class="week-nav" id="week-nav"></div>
+      </div>
 
-  <div class="form-row">
-    <button class="btn success" id="btn-regen">🔄 Regenerar lista de la compra</button>
-    <a class="btn secondary" id="btn-ver-lista" href="lista.html">Ver lista →</a>
+      <div class="board-grid" id="board-grid"></div>
+
+      <div class="board-footer">
+        <a class="board-btn" id="btn-ver-lista" href="lista.html">🛒 Ver lista de la compra →</a>
+      </div>
+
+    </div>
   </div>
-
-  <table class="calendario">
-    <thead>
-      <tr><th></th><th>🍲 Comida</th><th>🌙 Cena</th></tr>
-    </thead>
-    <tbody id="cal-body"></tbody>
-  </table>
 </main>
 <script type="module" src="js/calendario.js"></script>
 </body>
