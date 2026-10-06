@@ -953,6 +953,102 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   background: linear-gradient(180deg, #a42525, #6d1616);
 }
 
+/* ============================================================
+   SECCIÓN RECETAS — tarjetas de enlaces a webs de cocina
+   ============================================================ */
+.recetas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.2rem;
+}
+
+.receta-card {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  background:
+    linear-gradient(180deg, #fdfaf1, var(--paper));
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1.2rem 1.3rem;
+  text-decoration: none;
+  color: inherit;
+  transition: all .2s ease;
+  box-shadow:
+    0 3px 10px rgba(61,31,26,.08),
+    inset 0 0 30px rgba(201,162,39,.03);
+  position: relative;
+  overflow: hidden;
+}
+.receta-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--gold), var(--burgundy));
+  opacity: .7;
+  transition: opacity .2s;
+}
+.receta-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 10px 28px rgba(61,31,26,.16),
+    inset 0 0 30px rgba(201,162,39,.05);
+  border-color: var(--gold);
+}
+.receta-card:hover::before { opacity: 1; }
+
+.receta-icono {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(201,162,39,.2), rgba(139,30,30,.15));
+  border: 1px solid rgba(201,162,39,.35);
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  transition: transform .25s;
+}
+.receta-card:hover .receta-icono {
+  transform: scale(1.08) rotate(-5deg);
+}
+
+.receta-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.receta-info h3 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--mahogany);
+  margin: 0 0 .35rem;
+  letter-spacing: .2px;
+}
+
+.receta-info p {
+  font-size: .88rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin-bottom: .5rem;
+}
+
+.receta-url {
+  display: inline-block;
+  font-family: 'Lora', serif;
+  font-size: .78rem;
+  color: var(--burgundy);
+  font-weight: 600;
+  letter-spacing: .3px;
+  padding: .15rem .55rem;
+  border-radius: 4px;
+  background: rgba(139,30,30,.08);
+  border: 1px solid rgba(139,30,30,.18);
+}
+
 /* ============ RESPONSIVE ============ */
 @media (max-width: 1200px) {
   .board-title { font-size: 1.7rem; }
@@ -1058,4 +1154,9 @@ textarea { width: 100%; min-height: 80px; resize: vertical; font-family: 'Lora',
   .lista-row .cant-input { width: 48px; font-size: .95rem; }
   .lista-row .unidad-label { min-width: 1.5rem; font-size: .9rem; }
   .lista-row .del-btn { width: 22px; height: 22px; font-size: .7rem; }
+
+  /* Recetas en móvil: una sola columna */
+  .recetas-grid { grid-template-columns: 1fr; }
+  .receta-card { padding: 1rem; }
+  .receta-icono { width: 44px; height: 44px; font-size: 22px; }
 }
