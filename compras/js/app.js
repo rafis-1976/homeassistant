@@ -10,18 +10,27 @@ export function h(s) {
   }[c]));
 }
 
+/** YYYY-MM-DD en hora LOCAL (sin desfase UTC) */
+function fmtYMD(d) {
+  const y  = d.getFullYear();
+  const m  = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+/** Lunes de la semana (semana de lunes a domingo) */
 export function weekStart(d = null) {
   const dt = d ? new Date(d + 'T00:00:00') : new Date();
-  const day = dt.getDay();              // 0=dom, 1=lun...
-  const diff = (day === 0 ? -6 : 1 - day);
+  const day = dt.getDay();                 // 0=dom, 1=lun …
+  const diff = (day === 0 ? -6 : 1 - day); // lunes como primer día
   dt.setDate(dt.getDate() + diff);
-  return dt.toISOString().slice(0, 10);
+  return fmtYMD(dt);
 }
 
 export function addDays(ymd, n) {
   const d = new Date(ymd + 'T00:00:00');
   d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  return fmtYMD(d);
 }
 
 export function fmt(n) {
@@ -72,7 +81,9 @@ export function toast(msg, error = false) {
   setTimeout(() => t.remove(), 2200);
 }
 
-/* ---------- Regenerar lista de la compra ---------- */
+/* ---------- Regenerar lista de la compra ----------
+   IMPORTANTE: esta función SOLO la llama lista.html.
+   El calendario NO la usa nunca.                        */
 export async function regenerarLista(semana) {
   // 1. Borrar ítems automáticos de esa semana
   {
