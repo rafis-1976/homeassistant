@@ -17,6 +17,7 @@ document.getElementById('btn-ver-lista').href = `lista.html?semana=${semana}`;
 const dias = [];
 for (let i = 0; i < 7; i++) dias.push(addDays(semana, i));
 
+// Día actual
 const hoy = new Date();
 const hoyYMD = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
 
@@ -49,8 +50,8 @@ for (const fecha of dias) {
   if (dow === 0 || dow === 6) col.classList.add('weekend');
   if (fecha === hoyYMD)       col.classList.add('today');
 
-  const com  = cal[fecha]?.comida || null;
-  const cen  = cal[fecha]?.cena   || null;
+  const com = cal[fecha]?.comida || null;
+  const cen = cal[fecha]?.cena   || null;
 
   const opciones = (cel) => `
     <option value="0">— sin menú —</option>
@@ -73,6 +74,10 @@ for (const fecha of dias) {
                class="comensales-input" data-fecha="${fecha}" data-tipo="comida"
                title="Comensales">
       </div>
+      <input type="text" class="notas-input" maxlength="120"
+             placeholder="✏️ o escribe aquí…"
+             value="${h(com?.notas ?? '')}"
+             data-fecha="${fecha}" data-tipo="comida">
     </div>
 
     <div class="meal-slot">
@@ -85,6 +90,10 @@ for (const fecha of dias) {
                class="comensales-input" data-fecha="${fecha}" data-tipo="cena"
                title="Comensales">
       </div>
+      <input type="text" class="notas-input" maxlength="120"
+             placeholder="✏️ o escribe aquí…"
+             value="${h(cen?.notas ?? '')}"
+             data-fecha="${fecha}" data-tipo="cena">
     </div>
   `;
   grid.appendChild(col);
@@ -101,14 +110,26 @@ grid.addEventListener('change', async (e) => {
   const slot       = el.closest('.meal-slot');
   const menuId     = parseInt(slot.querySelector('.menu-select').value, 10);
   const comensales = parseInt(slot.querySelector('.comensales-input').value, 10) || 1;
+  const notas      = slot.querySelector('.notas-input').value.trim();
 
-  if (menuId === 0) {
+  // Regla:
+  //   Sin menú Y sin notas  → borrar la entrada
+  //   En cualquier otro caso → guardar (menu_id puede ser null)
+  const vacio = (menuId === 0 && notas === '');
+
+  if (vacio) {
     const { error } = await sb.from('compras_calendario')
       .delete().eq('fecha', fecha).eq('tipo', tipo);
     if (error) return toast('Error al borrar', true);
   } else {
     const { error } = await sb.from('compras_calendario').upsert(
-      { fecha, tipo, menu_id: menuId, comensales },
+      {
+        fecha,
+        tipo,
+        menu_id:   menuId === 0 ? null : menuId,
+        comensales,
+        notas:     notas === '' ? null : notas,
+      },
       { onConflict: 'fecha,tipo' }
     );
     if (error) return toast('Error al guardar', true);
