@@ -45,13 +45,13 @@ export function money(n) {
   return Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 }
 
-/* ---------- Navegación común ---------- */
+/* ---------- Navegación común (rutas relativas) ---------- */
 export function renderHeader(active) {
   const items = [
-    { key: 'calendario',   href: '/',                 label: '📅 Calendario' },
-    { key: 'menus',        href: '/menus.html',       label: '📖 Menús' },
-    { key: 'ingredientes', href: '/ingredientes.html',label: '🥕 Ingredientes' },
-    { key: 'lista',        href: '/lista.html',       label: '🛒 Lista de la compra' },
+    { key: 'calendario',   href: 'index.html',        label: '📅 Calendario' },
+    { key: 'menus',        href: 'menus.html',        label: '📖 Menús' },
+    { key: 'ingredientes', href: 'ingredientes.html', label: '🥕 Ingredientes' },
+    { key: 'lista',        href: 'lista.html',        label: '🛒 Lista de la compra' },
   ];
   const header = document.createElement('header');
   header.innerHTML = `
@@ -60,6 +60,16 @@ export function renderHeader(active) {
       ${items.map(i => `<a href="${i.href}" class="${active === i.key ? 'active' : ''}">${i.label}</a>`).join('')}
     </nav>`;
   document.body.insertBefore(header, document.body.firstChild);
+}
+
+/* ---------- Toast global ---------- */
+export function toast(msg, error = false) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (error ? ' error' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.remove(), 2200);
 }
 
 /* ---------- Regenerar lista de la compra ---------- */
