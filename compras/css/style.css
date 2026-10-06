@@ -115,7 +115,6 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
   position: relative;
 }
 .board-frame::before {
-  /* vetas de madera */
   content: '';
   position: absolute;
   inset: 0;
@@ -152,7 +151,6 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
   overflow: hidden;
 }
 .whiteboard::before {
-  /* líneas tenues tipo cuadrícula */
   content: '';
   position: absolute;
   inset: 0;
@@ -194,6 +192,7 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
   gap: 14px;
   font-family: 'Kalam', cursive;
   font-size: .95rem;
+  flex-wrap: wrap;
 }
 #week-nav a {
   color: #2b6cb0;
@@ -215,13 +214,35 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
   font-weight: 700;
 }
 
-/* ---- Rejilla de la semana ---- */
-.board-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 12px;
+/* ---- Contenedor con scroll horizontal ---- */
+.board-scroll {
   position: relative;
   z-index: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+  /* Scrollbar estilizada (webkit) */
+}
+.board-scroll::-webkit-scrollbar { height: 10px; }
+.board-scroll::-webkit-scrollbar-track {
+  background: rgba(120,150,190,.12);
+  border-radius: 10px;
+}
+.board-scroll::-webkit-scrollbar-thumb {
+  background: rgba(60,100,150,.35);
+  border-radius: 10px;
+}
+.board-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(60,100,150,.55);
+}
+
+/* ---- Rejilla: SIEMPRE 7 columnas, con ancho mínimo ---- */
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(200px, 1fr));
+  gap: 12px;
+  /* Fuerza scroll si no caben */
+  min-width: max-content;
 }
 
 .day-column {
@@ -233,6 +254,7 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
   background: rgba(255,255,255,.55);
   border: 1.5px dashed rgba(60,100,150,.35);
   transition: background .2s;
+  width: 100%;
 }
 .day-column:hover {
   background: rgba(255,255,255,.85);
@@ -344,6 +366,34 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
 }
 .meal-slot input[type=number] { -moz-appearance: textfield; }
 
+/* Campo libre de notas (comer fuera, etc.) */
+.meal-slot .notas-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px dashed rgba(160,90,60,.45);
+  border-radius: 0;
+  font-family: 'Kalam', cursive;
+  font-size: .82rem;
+  font-style: italic;
+  color: #a04a1e;
+  padding: 3px 0 2px;
+  width: 100%;
+  transition: border-color .15s, background-color .15s;
+}
+.meal-slot .notas-input::placeholder {
+  color: rgba(160,90,60,.5);
+  font-style: italic;
+  font-size: .78rem;
+}
+.meal-slot .notas-input:focus {
+  outline: none;
+  border-bottom-color: #a04a1e;
+  border-bottom-style: solid;
+  background-color: rgba(255,238,225,.5);
+}
+
 /* ---- Pie de pizarra ---- */
 .board-footer {
   margin-top: 20px;
@@ -417,18 +467,15 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
 .toast.error { background: #dc2626; }
 
 /* ============ RESPONSIVE ============ */
-@media (max-width: 1100px) {
-  .board-grid { grid-template-columns: repeat(4, 1fr); }
-}
 @media (max-width: 760px) {
-  .board-grid { grid-template-columns: repeat(2, 1fr); }
   .board-title { font-size: 1.7rem; }
   #week-nav { width: 100%; justify-content: space-between; }
   #week-nav strong { font-size: 1.1rem; }
+  .board-grid { grid-template-columns: repeat(7, minmax(180px, 1fr)); }
 }
 @media (max-width: 480px) {
-  .board-grid { grid-template-columns: 1fr; }
   .board-frame { padding: 12px; }
   .whiteboard { padding: 18px 12px 14px; }
   main { padding: 0 .5rem; }
+  .board-grid { grid-template-columns: repeat(7, minmax(170px, 1fr)); }
 }
