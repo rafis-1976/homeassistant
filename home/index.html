@@ -297,12 +297,12 @@
         <span class="badge green" id="badge-fronius">Produciendo</span>
       </div>
       <div class="card-name">Inversor Fronius</div>
-      <div class="card-sub">Primo GEN24 6.0 · AC 230 V</div>
+      <div class="card-sub">Primo 4.6 · AC 230 V</div>
       <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px">
         <div class="card-value" id="fron-prod">0.0</div>
         <span style="font-size:13px;color:var(--td)">kW AC salida</span>
       </div>
-      <div class="sensor-row" style="margin-top:12px"><span class="sensor-label">Eficiencia</span><span class="sensor-val">98.2 %</span></div>
+      <div class="sensor-row" style="margin-top:12px"><span class="sensor-label">Pico hoy</span><span class="sensor-val" id="fron-pico">—</span></div>
       <div class="sensor-row"><span class="sensor-label">Energía hoy</span><span class="sensor-val" id="fron-hoy">—</span></div>
       <div class="sensor-row"><span class="sensor-label">Temperatura</span><span class="sensor-val" id="fron-temp">—</span></div>
     </div>
@@ -385,6 +385,7 @@
   </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
