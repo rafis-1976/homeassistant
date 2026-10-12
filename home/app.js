@@ -11,18 +11,18 @@ const CONFIG = {
 
   // Si el último dato tiene más de X segundos, se marca "sin conexión"
   STALE_SEG: 90,
-
+ 
   // Convención de signos de red tal y como la guarda Home Assistant:
   // Fronius → positivo = importas de la red, negativo = exportas
   RED_POSITIVA_ES_IMPORTACION: true,
-
+ 
   // true si el consumo del Fronius (power_load) ya incluye el cargador del coche
   LOAD_INCLUYE_COCHE: true,
-
+ 
   // Para el "ahorro estimado" semanal (€/kWh)
   PRECIO_IMPORT: 0.12,      // lo que te ahorras por cada kWh autoconsumido
   PRECIO_EXCEDENTE: 0.06,   // lo que te compensan por kWh exportado
-
+ 
   // Hardware
   TIENE_BATERIA: false,
   BAT_CAP: 10,
@@ -30,12 +30,12 @@ const CONFIG = {
   COCHE_MAX: 11,
   FRONIUS_MODELO: 'Primo 4.6'
 };
-
+ 
 const TZ = 'Europe/Madrid';
 const $=id=>document.getElementById(id),cl=(v,a,b)=>Math.max(a,Math.min(b,v));
 const REAL = CONFIG.USAR_DATOS_REALES && !!window.supabase && !CONFIG.SUPABASE_URL.includes('TU_PROYECTO');
 const sb = REAL ? window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY) : null;
-
+ 
 /* ============================================================
    RELOJ
    ============================================================ */
@@ -49,7 +49,7 @@ function reloj(){
   $('saludo').textContent=hr>=6&&hr<13?'Buenos días 👋':hr>=13&&hr<20?'Buenas tardes 👋':'Buenas noches 👋';
 }
 reloj();setInterval(reloj,1000);
-
+ 
 /* ============================================================
    LUCES
    ============================================================ */
@@ -67,7 +67,7 @@ function brillo(s){
   if(v==0&&t.classList.contains('on')){t.classList.remove('on');c.classList.remove('on')}
   c.querySelector('.card-sub').textContent=t.classList.contains('on')?'Encendida · '+v+'%':'Apagada';
 }
-
+ 
 /* ============================================================
    TERMOSTATO
    ============================================================ */
@@ -77,7 +77,7 @@ function temp(d){
   $('temp-set').textContent=tempObj;
   document.querySelector('.dial .fg').style.strokeDashoffset=251.3*(1-(tempObj-10)/20);
 }
-
+ 
 /* ============================================================
    ESCENAS
    ============================================================ */
@@ -98,7 +98,7 @@ function setL(on,br){
   });
 }
 function setT(t){tempObj=t;$('temp-set').textContent=t;document.querySelector('.dial .fg').style.strokeDashoffset=251.3*(1-(t-10)/20)}
-
+ 
 /* ============================================================
    NAV
    ============================================================ */
@@ -107,7 +107,7 @@ document.querySelectorAll('.nav-item').forEach(i=>i.addEventListener('click',()=
   i.classList.add('active');
   if(innerWidth<=900)document.querySelector('.sidebar').classList.remove('open');
 }));
-
+ 
 /* ============================================================
    SIMULACIÓN DE SENSORES (temperaturas, solo demo)
    ============================================================ */
@@ -117,7 +117,7 @@ setInterval(()=>{
   if(v[1])v[1].textContent=(20+Math.random()*.6).toFixed(1)+' °C';
   if(v[2])v[2].textContent=(23.5+Math.random()*.6).toFixed(1)+' °C';
 },5000);
-
+ 
 /* ============================================================
    ESTADO ENERGÉTICO
    ============================================================ */
@@ -130,10 +130,10 @@ const E={
   kwhCoche:0, kwhFronius:0, kwhBat:0, picoKw:null
 };
 if(!REAL){E.sol=3;E.casa=1.5}
-
+ 
 // Estado de la conexión (solo modo real)
 const ESTADO={ts:null,reposo:false,offline:false};
-
+ 
 /* ============================================================
    BALANCE ENERGÉTICO (solo simulación)
    ============================================================ */
@@ -148,11 +148,11 @@ function bal(){
     }
   }
   E.coche=cochePot;
-
+ 
   const consTotal=E.casa+E.coche;
   const neto=E.sol-consTotal;
   let cb=0,db=0,ex=0,im=0;
-
+ 
   if(neto>0){
     if(CONFIG.TIENE_BATERIA){
       const hd=cl((100-E.bat)/10,0,1);
@@ -168,13 +168,13 @@ function bal(){
   }
   E.cb=cb;E.db=db;E.exp=ex;E.imp=im;
   if(CONFIG.TIENE_BATERIA) E.bat=cl(E.bat+(cb-db)*.6,0,100);
-
+ 
   const step=0.1/60;
   E.kwhFronius+=E.sol*step;
   if(E.cocheOn) E.kwhCoche+=E.coche*step;
   if(CONFIG.TIENE_BATERIA) E.kwhBat+=Math.abs(cb-db)*step;
 }
-
+ 
 /* ============================================================
    SUPABASE · datos reales
    ============================================================ */
@@ -183,44 +183,44 @@ let S24=[0,0,0,0,0,0,.1,.4,1.1,2,3,3.9,4.3,4,3.3,2.4,1.4,.7,.2,.05,0,0,0,0];
 let C24=[.7,.6,.5,.5,.5,.7,1.3,2.2,1.7,1.1,1,1.3,1.7,1.4,1.2,1.3,1.9,2.7,2.5,2,1.6,1.3,1,.8];
 let HMAX=23;           // última hora con datos en la gráfica
 if(REAL){S24=new Array(24).fill(0);C24=new Array(24).fill(0);HMAX=0}
-
+ 
 const fechaES=(d)=>d.toLocaleDateString('sv-SE',{timeZone:TZ});            // YYYY-MM-DD
 const horaES=()=>parseInt(new Intl.DateTimeFormat('es-ES',{timeZone:TZ,hour:'numeric',hourCycle:'h23'}).format(new Date()),10);
 const diaOffset=n=>fechaES(new Date(Date.now()+n*864e5));
-
+ 
 function aplicarDatos(r){
   if(!r) return;
   ESTADO.ts=new Date(r.ts);
   ESTADO.reposo=(r.solar_w==null && r.casa_w==null);   // inversor dormido
   const kw=v=>v==null?0:Number(v)/1000;
-
+ 
   const coche=Math.max(0,kw(r.coche_w));
   E.sol=Math.max(0,kw(r.solar_w));
   E.coche=coche;E.cocheOn=coche>0.05;
   let casa=Math.max(0,kw(r.casa_w));
   if(CONFIG.LOAD_INCLUYE_COCHE) casa=Math.max(0,casa-coche);
   E.casa=casa;
-
+ 
   const imp=kw(r.red_w)*(CONFIG.RED_POSITIVA_ES_IMPORTACION?1:-1);
   E.imp=Math.max(0,imp);E.exp=Math.max(0,-imp);
   E.cb=0;E.db=0;
   if(r.energia_dia_kwh!=null) E.kwhFronius=Number(r.energia_dia_kwh);
   frescura();
 }
-
+ 
 function frescura(){
   if(!REAL) return;
   ESTADO.offline=!ESTADO.ts || (Date.now()-ESTADO.ts.getTime())/1000>CONFIG.STALE_SEG;
   if(ESTADO.offline){E.sol=E.casa=E.coche=E.exp=E.imp=0;E.cocheOn=false}
   renderE();
 }
-
+ 
 async function cargarActual(){
   const {data,error}=await sb.from('estado_actual').select('*').eq('id',1).maybeSingle();
   if(error){console.warn('Supabase:',error.message);ESTADO.offline=true;renderE();return}
   aplicarDatos(data);
 }
-
+ 
 async function cargarResumenes(){
   const hoy=diaOffset(0);
   const [d,c]=await Promise.all([
@@ -240,13 +240,13 @@ async function cargarResumenes(){
   }
   graf24();kpis();semana();renderE();
 }
-
+ 
 function suscribir(){
   sb.channel('estado-actual')
     .on('postgres_changes',{event:'*',schema:'public',table:'estado_actual'},p=>aplicarDatos(p.new))
     .subscribe();
 }
-
+ 
 function iniciarSupabase(){
   const btn=$('btn-auto');
   btn.textContent='🟢 Datos reales';btn.style.opacity='.7';
@@ -257,7 +257,7 @@ function iniciarSupabase(){
   setInterval(cargarResumenes,60000);   // gráficas, KPIs y semana
   setInterval(frescura,10000);
 }
-
+ 
 function marcarIndicador(){
   let el=$('db-indicator');
   if(!el){
@@ -270,29 +270,29 @@ function marcarIndicador(){
   else if(ESTADO.reposo){el.textContent='😴 Inversor en reposo';el.style.color='var(--td)'}
   else{el.textContent='🟢 En directo';el.style.color='var(--g)'}
 }
-
+ 
 /* ============================================================
    RENDERIZADO
    ============================================================ */
 function pintaS(el){const a=+el.min,b=+el.max,v=+el.value;el.style.setProperty('--p',((v-a)/(b-a)*100)+'%')}
-
+ 
 function pFlujo(el,on,col,p){
   if(!el)return;el.classList.toggle('on',on);if(!on)return;
   el.style.stroke=col;
   el.style.filter='drop-shadow(0 0 5px '+col+')';
   el.style.animationDuration=Math.max(.5,1.5-p*.15).toFixed(2)+'s';
 }
-
+ 
 function renderE(){
   const{sol,casa,coche,cb,db,exp,imp,bat}=E;
-
+ 
   $('v-solar').textContent=sol.toFixed(1)+' kW';
   $('v-casa').textContent=casa.toFixed(1)+' kW';
   $('v-coche').textContent=coche>0.05?coche.toFixed(1)+' kW':'Apagado';
   $('v-fronius').textContent=sol.toFixed(1)+' kW';
   $('v-red').textContent=(exp>.05?exp:imp).toFixed(1)+' kW';
   if(CONFIG.TIENE_BATERIA) $('v-bat').textContent=Math.round(bat)+' %';
-
+ 
   pFlujo($('f-solar'),sol>.05,'#ffc107',sol);
   pFlujo($('f-casa'),casa>.05,'#4fc3f7',casa);
   pFlujo($('f-coche'),coche>.05,'#b388ff',coche);
@@ -303,13 +303,13 @@ function renderE(){
     pFlujo($('f-bat-in'),cb>.05,'#7c4dff',cb);
     $('n-bat').classList.toggle('act',cb>.05||db>.05);
   }
-
+ 
   $('n-solar').classList.toggle('act',sol>.05);
   $('n-fronius').classList.add('act');
   $('n-casa').classList.toggle('act',casa>.05);
   $('n-coche').classList.toggle('act',coche>.05);
   $('n-red').classList.toggle('act',exp>.05||imp>.05);
-
+ 
   const badge=$('estado-red');badge.className='badge';
   if(REAL&&ESTADO.offline){badge.classList.add('blue');badge.textContent='Sin datos recientes'}
   else if(REAL&&ESTADO.reposo){badge.classList.add('blue');badge.textContent='😴 Inversor en reposo'}
@@ -317,11 +317,11 @@ function renderE(){
   else if(imp>.05){badge.classList.add('red');badge.textContent='⬇️ Importando '+imp.toFixed(1)+' kW de la red'}
   else if(cb>.05){badge.classList.add('blue');badge.textContent='🔋 Cargando batería'}
   else{badge.classList.add('blue');badge.textContent='♻️ Autoconsumo total'}
-
+ 
   $('lbl-solar').textContent=sol.toFixed(1)+' kW';
   $('lbl-casa').textContent=casa.toFixed(1)+' kW';
   $('lbl-coche').textContent=coche.toFixed(1)+' kW';
-
+ 
   if(REAL){
     $('sim-hora').parentElement.innerHTML='🕐 Última lectura: <b id="sim-hora" style="color:var(--t)">'+(ESTADO.ts?ESTADO.ts.toLocaleTimeString('es-ES'):'—')+'</b>';
   } else {
@@ -329,7 +329,7 @@ function renderE(){
     const mm=String(Math.floor((E.h%1)*60)).padStart(2,'0');
     $('sim-hora').textContent=hh+':'+mm;
   }
-
+ 
   /* Fronius */
   $('fron-prod').textContent=sol.toFixed(1);
   $('fron-hoy').textContent=E.kwhFronius.toFixed(1)+' kWh';
@@ -343,7 +343,7 @@ function renderE(){
   const bf=$('badge-fronius');
   if(sol>.1){bf.className='badge green';bf.textContent='Produciendo'}
   else{bf.className='badge blue';bf.textContent='Standby'}
-
+ 
   /* Coche */
   const bc=$('badge-coche');bc.className='badge';
   if(E.cocheOn&&coche>.05){bc.classList.add('purple');bc.textContent=(E.cocheModo==='solar'?'☀️ Solar':'⚡ Cargando')}
@@ -354,7 +354,7 @@ function renderE(){
   $('coche-sesion').textContent=REAL?'—':(E.cocheOn?(coche>.05?(Math.min(80,E.kwhCoche*8).toFixed(0)+' %'):'—'):'—');
   $('ico-coche').style.background=E.cocheOn?'rgba(179,136,255,.18)':'rgba(255,255,255,.05)';
   $('card-coche').classList.toggle('on',E.cocheOn&&coche>.05);
-
+ 
   /* Batería */
   if(CONFIG.TIENE_BATERIA){
     $('bat-nivel').textContent=Math.round(bat);
@@ -367,7 +367,7 @@ function renderE(){
   }
   marcarIndicador();
 }
-
+ 
 /* ============================================================
    PASO DE SIMULACIÓN
    ============================================================ */
@@ -386,7 +386,7 @@ function pasoE(){
   bal();
   renderE();
 }
-
+ 
 /* ============================================================
    INTERACCIÓN COCHE (solo simulación)
    ============================================================ */
@@ -403,7 +403,7 @@ function setModoCoche(modo){
   $('modo-solar').classList.toggle('active',modo==='solar');
   bal();renderE();
 }
-
+ 
 /* ============================================================
    GRÁFICO 24 H
    ============================================================ */
@@ -425,15 +425,15 @@ function graf24(){
   const base=' L'+px(last)+','+py(0)+' L'+px(0)+','+py(0)+' Z';
   $('line-solar').setAttribute('d',dS);
   $('line-cons').setAttribute('d',dC);
-  $('area-solar').setAttribute('d',dS+base);
-  $('area-cons').setAttribute('d',dC+base);
+  $('area-solar').setAttribute('d',dS?dS+base:'');
+  $('area-cons').setAttribute('d',dC?dC+base:'');
   let g='';
   for(let v=0;v<=mY;v++){const y=py(v);g+='<line class="grid-line" x1="'+pL+'" y1="'+y+'" x2="'+(W-pR)+'" y2="'+y+'"/><text class="ax-lbl" x="'+(pL-8)+'" y="'+(y+4)+'" text-anchor="end">'+v+'</text>'}
   [0,4,8,12,16,20,23].forEach(i=>{g+='<text class="ax-lbl" x="'+px(i)+'" y="'+(H-8)+'" text-anchor="middle">'+String(i).padStart(2,'0')+'h</text>'});
   g+='<text class="ax-lbl" x="'+(pL-8)+'" y="'+(pT-4)+'" text-anchor="end">kW</text>';
   $('chart-grid').innerHTML=g;
 }
-
+ 
 /* ============================================================
    KPIs DEL DÍA
    ============================================================ */
@@ -466,7 +466,7 @@ function kpis(){
   const total=c+coche, auto=Math.max(0,p-e);
   $('badge-auto').textContent='Autoconsumo '+(total>0?Math.min(100,Math.round(auto/total*100)):0)+'%';
 }
-
+ 
 /* ============================================================
    SEMANA
    ============================================================ */
@@ -495,7 +495,7 @@ function semana(){
   $('sem-auto').textContent=(c>0?Math.min(100,Math.round(a/c*100)):0)+' %';
   $('sem-ahorro').textContent=(a*CONFIG.PRECIO_IMPORT+ex*CONFIG.PRECIO_EXCEDENTE).toFixed(2)+' €';
 }
-
+ 
 /* ============================================================
    INTERACCIÓN SLIDERS (solo simulación)
    ============================================================ */
@@ -518,7 +518,7 @@ $('btn-auto').addEventListener('click',()=>{
   E.auto=!E.auto;
   $('btn-auto').textContent=E.auto?'⏸ Pausar simulación':'▶ Reanudar simulación';
 });
-
+ 
 /* ============================================================
    ARRANQUE
    ============================================================ */
@@ -532,11 +532,11 @@ function initBateria(){
     $('card-bat').style.display='';
   }
 }
-
+ 
 initBateria();
 graf24();kpis();semana();
 pintaS($('in-solar'));pintaS($('in-casa'));pintaS($('in-coche'));
-
+ 
 if(REAL){
   renderE();
   iniciarSupabase();
@@ -544,3 +544,10 @@ if(REAL){
   pasoE();
   setInterval(pasoE,1000);
 }
+ 
+
+
+
+
+
+
