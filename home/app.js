@@ -313,14 +313,14 @@ $('v-red').textContent=(exp>.05?exp:imp).toFixed(2)+' kW';
   const badge=$('estado-red');badge.className='badge';
   if(REAL&&ESTADO.offline){badge.classList.add('blue');badge.textContent='Sin datos recientes'}
   else if(REAL&&ESTADO.reposo){badge.classList.add('blue');badge.textContent='😴 Inversor en reposo'}
-  else if(exp>.05){badge.classList.add('green');badge.textContent='⬆️ Exportando '+exp.toFixed(1)+' kW a la red'}
-  else if(imp>.05){badge.classList.add('red');badge.textContent='⬇️ Importando '+imp.toFixed(1)+' kW de la red'}
+  else if(exp>.05){badge.classList.add('green');badge.textContent='⬆️ Exportando '+exp.toFixed(2)+' kW a la red'}
+  else if(imp>.05){badge.classList.add('red');badge.textContent='⬇️ Importando '+imp.toFixed(2)+' kW de la red'}
   else if(cb>.05){badge.classList.add('blue');badge.textContent='🔋 Cargando batería'}
   else{badge.classList.add('blue');badge.textContent='♻️ Autoconsumo total'}
  
-  $('lbl-solar').textContent=sol.toFixed(1)+' kW';
-  $('lbl-casa').textContent=casa.toFixed(1)+' kW';
-  $('lbl-coche').textContent=coche.toFixed(1)+' kW';
+  $('lbl-solar').textContent=sol.toFixed(2)+' kW';
+$('lbl-casa').textContent=casa.toFixed(2)+' kW';
+$('lbl-coche').textContent=coche.toFixed(2)+' kW';
  
   if(REAL){
     $('sim-hora').parentElement.innerHTML='🕐 Última lectura: <b id="sim-hora" style="color:var(--t)">'+(ESTADO.ts?ESTADO.ts.toLocaleTimeString('es-ES'):'—')+'</b>';
