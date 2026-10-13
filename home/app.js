@@ -286,11 +286,11 @@ function pFlujo(el,on,col,p){
 function renderE(){
   const{sol,casa,coche,cb,db,exp,imp,bat}=E;
  
-  $('v-solar').textContent=sol.toFixed(1)+' kW';
-  $('v-casa').textContent=casa.toFixed(1)+' kW';
-  $('v-coche').textContent=coche>0.05?coche.toFixed(1)+' kW':'Apagado';
-  $('v-fronius').textContent=sol.toFixed(1)+' kW';
-  $('v-red').textContent=(exp>.05?exp:imp).toFixed(1)+' kW';
+  $('v-solar').textContent=sol.toFixed(2)+' kW';
+$('v-casa').textContent=casa.toFixed(2)+' kW';
+$('v-coche').textContent=coche>0.05?coche.toFixed(2)+' kW':'Apagado';
+$('v-fronius').textContent=sol.toFixed(2)+' kW';
+$('v-red').textContent=(exp>.05?exp:imp).toFixed(2)+' kW';
   if(CONFIG.TIENE_BATERIA) $('v-bat').textContent=Math.round(bat)+' %';
  
   pFlujo($('f-solar'),sol>.05,'#ffc107',sol);
