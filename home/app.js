@@ -23,8 +23,10 @@ const _fmtFecha = new Intl.DateTimeFormat('fr-CA',{timeZone:TZ,year:'numeric',mo
 const _fmtHora  = new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hour:'2-digit',hour12:false});
 const _fmtMin   = new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit',hour12:false});
 const fechaMadrid   = d => _fmtFecha.format(d);
-const horaMadrid    = d => parseInt(_fmtHora.format(d),10);
 const minutosMadrid = d => { const [h,m]=_fmtMin.format(d).split(':').map(Number); return h*60+m; };
+
+/** Formatea un valor en kW a W (entero) con unidad "W". */
+const fmtW = kw => Math.round((kw||0)*1000) + ' W';
 
 /* ============================================================
    RELOJ
@@ -96,7 +98,7 @@ document.querySelectorAll('.nav-item').forEach(i=>i.addEventListener('click',()=
 }));
 
 /* ============================================================
-   ESTADO
+   ESTADO · internamente en kW, se muestra en W en el flujo
    ============================================================ */
 const E={sol:0,casa:0,coche:0,cocheOn:false,cocheDeseada:7.4,cocheModo:'max',
   exp:0,imp:0,bat:65,energiaDiaKwh:0,kwhCoche:0};
@@ -172,57 +174,65 @@ function addClass(id,c){const e=$(id);if(e)e.classList.add(c)}
 function toggleClass(id,c,v){const e=$(id);if(e)e.classList.toggle(c,v)}
 
 /* ============================================================
-   RENDER · estado en vivo
+   RENDER · estado en vivo (flujo en W)
    ============================================================ */
 function renderE(){
   const{sol,casa,coche,exp,imp}=E;
-  setTxt('v-solar',sol.toFixed(2)+' kW');
-  setTxt('v-casa',casa.toFixed(2)+' kW');
-  setTxt('v-coche',coche>0.05?coche.toFixed(2)+' kW':'Apagado');
-  setTxt('v-fronius',sol.toFixed(2)+' kW');
-  setTxt('v-red',(exp>.05?exp:imp).toFixed(2)+' kW');
 
-  pFlujo($('f-solar'),sol>.05,'#ffc107',sol);
-  pFlujo($('f-casa'),casa>.05,'#4fc3f7',casa);
-  pFlujo($('f-coche'),coche>.05,'#b388ff',coche);
-  pFlujo($('f-export'),exp>.05,'#4caf50',exp);
-  pFlujo($('f-import'),imp>.05,'#ef5350',imp);
+  /* --- Nodos del diagrama: en W --- */
+  setTxt('v-solar',  fmtW(sol));
+  setTxt('v-casa',   fmtW(casa));
+  setTxt('v-coche',  coche>0.005 ? fmtW(coche) : 'Apagado');
+  setTxt('v-fronius',fmtW(sol));
+  setTxt('v-red',    fmtW(exp>0.005 ? exp : imp));
 
-  toggleClass('n-solar','act',sol>.05);
+  pFlujo($('f-solar'),sol>.005,'#ffc107',sol);
+  pFlujo($('f-casa'),casa>.005,'#4fc3f7',casa);
+  pFlujo($('f-coche'),coche>.005,'#b388ff',coche);
+  pFlujo($('f-export'),exp>.005,'#4caf50',exp);
+  pFlujo($('f-import'),imp>.005,'#ef5350',imp);
+
+  toggleClass('n-solar','act',sol>.005);
   addClass('n-fronius','act');
-  toggleClass('n-casa','act',casa>.05);
-  toggleClass('n-coche','act',coche>.05);
-  toggleClass('n-red','act',exp>.05||imp>.05);
+  toggleClass('n-casa','act',casa>.005);
+  toggleClass('n-coche','act',coche>.005);
+  toggleClass('n-red','act',exp>.005||imp>.005);
 
+  /* --- Badge superior: en W --- */
   const b=$('estado-red');
   if(b){
     b.className='badge';
-    if(exp>.05){b.classList.add('green');b.textContent='⬆️ Exportando '+exp.toFixed(2)+' kW a la red'}
-    else if(imp>.05){b.classList.add('red');b.textContent='⬇️ Importando '+imp.toFixed(2)+' kW de la red'}
+    if(exp>.005){b.classList.add('green');b.textContent='⬆️ Exportando '+fmtW(exp)+' a la red'}
+    else if(imp>.005){b.classList.add('red');b.textContent='⬇️ Importando '+fmtW(imp)+' de la red'}
     else{b.classList.add('blue');b.textContent='♻️ Autoconsumo total'}
   }
-  setTxt('lbl-solar',sol.toFixed(2)+' kW');
-  setTxt('lbl-casa',casa.toFixed(2)+' kW');
-  setTxt('lbl-coche',coche.toFixed(2)+' kW');
 
-  setTxt('fron-prod',sol.toFixed(2));
-  setTxt('fron-hoy',E.energiaDiaKwh.toFixed(2)+' kWh');
-  setTxt('fron-temp',(32+sol*2).toFixed(0)+' °C');
+  /* --- Etiquetas junto a los sliders: en W --- */
+  setTxt('lbl-solar', fmtW(sol));
+  setTxt('lbl-casa',  fmtW(casa));
+  setTxt('lbl-coche', fmtW(coche));
+
+  /* --- Tarjeta Fronius: en W --- */
+  setTxt('fron-prod', Math.round(sol*1000));
+  setTxt('fron-hoy',  E.energiaDiaKwh.toFixed(2)+' kWh');
+  setTxt('fron-temp', (32+sol*2).toFixed(0)+' °C');
   const bf=$('badge-fronius');
   if(bf){
-    if(sol>.05){bf.className='badge green';bf.textContent='Produciendo'}
+    if(sol>.005){bf.className='badge green';bf.textContent='Produciendo'}
     else{bf.className='badge blue';bf.textContent='Standby'}
   }
+
+  /* --- Tarjeta coche: en W --- */
   const bc=$('badge-coche');
   if(bc){
     bc.className='badge';
-    if(E.cocheOn&&coche>.05){bc.classList.add('purple');bc.textContent=(E.cocheModo==='solar'?'☀️ Solar':'⚡ Cargando')}
-    else if(E.cocheOn&&coche<=.05){bc.classList.add('blue');bc.textContent='⏸ En espera'}
+    if(E.cocheOn&&coche>.005){bc.classList.add('purple');bc.textContent=(E.cocheModo==='solar'?'☀️ Solar':'⚡ Cargando')}
+    else if(E.cocheOn&&coche<=.005){bc.classList.add('blue');bc.textContent='⏸ En espera'}
     else{bc.classList.add('blue');bc.textContent='Desconectado'}
   }
-  setTxt('coche-pot',coche.toFixed(2));
+  setTxt('coche-pot', Math.round(coche*1000));
   const ic=$('ico-coche'); if(ic) ic.style.background=E.cocheOn?'rgba(179,136,255,.18)':'rgba(255,255,255,.05)';
-  toggleClass('card-coche','on',E.cocheOn&&coche>.05);
+  toggleClass('card-coche','on',E.cocheOn&&coche>.005);
 }
 
 /* ============================================================
@@ -236,7 +246,7 @@ function aplicarEstado(fila){
   if(solar!==null) E.sol=solar;
   if(casa!==null) E.casa=casa;
   if(coche!==null){
-    E.coche=coche; E.cocheOn=coche>0.05;
+    E.coche=coche; E.cocheOn=coche>0.005;
     const t=$('t-coche'); if(t) t.classList.toggle('on',E.cocheOn);
   }
   if(red!==null){
@@ -263,11 +273,10 @@ async function pollEstado(){
 }
 
 /* ============================================================
-   GRÁFICA DETALLADA · 24h líneas + 7d barras
+   GRÁFICA DETALLADA
    ============================================================ */
 const ChartDet={rango:'24h',crudo:[],puntos:null,escala:null,modo:null};
 
-/* ---------- Datos para 24h (un punto por lectura) ---------- */
 function prepararPuntos24h(filas){
   const hoyStr = fechaMadrid(new Date());
   const pts = [];
@@ -288,7 +297,6 @@ function prepararPuntos24h(filas){
   return pts;
 }
 
-/* ---------- Datos para 7d (barras por día) ---------- */
 function prepararPuntos7d(filas){
   const porDia = {};
   filas.forEach(f=>{
@@ -297,7 +305,6 @@ function prepararPuntos7d(filas){
     porDia[k].solar += (+f.solar_kw||0);
     porDia[k].casa  += (+f.casa_kw ||0);
   });
-
   const nombres=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
   const arr = [];
   for(let i=6;i>=0;i--){
@@ -317,7 +324,6 @@ function prepararPuntos7d(filas){
   return arr;
 }
 
-/* ---------- Curva suave ---------- */
 function curve(p){
   if(p.length<2)return'';
   let d='M'+p[0][0]+','+p[0][1];
@@ -330,12 +336,9 @@ function curve(p){
   return d;
 }
 
-/* ---------- Función principal de dibujo ---------- */
 function dibujarChartDet(){
   const svg=$('chart-det');
   if(!svg) return;
-
-  // Grupo de barras (se crea la primera vez)
   let gBars = svg.querySelector('#chart-det-bars');
   if(!gBars){
     gBars = document.createElementNS('http://www.w3.org/2000/svg','g');
@@ -353,15 +356,10 @@ function dibujarChartDet(){
   }
 }
 
-/* ============================================================
-   MODO 24H · línea con punto cada 10 min
-   ============================================================ */
 function dibujar24hLineas(gBars){
   const puntos = prepararPuntos24h(ChartDet.crudo);
   const W=900,H=340,pL=50,pR=20,pT=20,pB=40;
   const innerW=W-pL-pR, innerH=H-pT-pB;
-
-  // Ocultar barras (por si venimos de 7d)
   gBars.innerHTML='';
 
   const valsFlat = puntos.flatMap(p=>[p.solar,p.casa,p.coche,p.red]);
@@ -376,12 +374,9 @@ function dibujar24hLineas(gBars){
   const maxV=Math.max(1,...valsFlat);
   const minV=Math.min(0,...puntos.map(p=>p.red));
   const spanV=Math.max(0.5,maxV-minV);
-
-  // X = minuto del día (0-1440)
   const px=min=>pL+innerW*min/1440;
   const py=v=>pT+innerH*(1-(v-minV)/spanV);
 
-  // Grid horizontal (Y)
   let g='';
   const pasos=5;
   for(let i=0;i<=pasos;i++){
@@ -390,7 +385,6 @@ function dibujar24hLineas(gBars){
     g+='<line class="grid-line" x1="'+pL+'" y1="'+y+'" x2="'+(W-pR)+'" y2="'+y+'"/>';
     g+='<text class="ax-lbl" x="'+(pL-8)+'" y="'+(y+4)+'" text-anchor="end">'+v.toFixed(1)+'</text>';
   }
-  // Grid vertical (X) cada 2 horas
   for(let h=0;h<=24;h+=2){
     const x=px(h*60);
     g+='<line class="grid-line" x1="'+x+'" y1="'+pT+'" x2="'+x+'" y2="'+(H-pB)+'" opacity=".4"/>';
@@ -403,7 +397,6 @@ function dibujar24hLineas(gBars){
   }
   $('chart-det-grid').innerHTML=g;
 
-  // Líneas
   const linea=(getter,filtro)=>{
     const pts=[];
     puntos.forEach(p=>{
@@ -426,15 +419,13 @@ function dibujar24hLineas(gBars){
   $('det-line-red-exp').setAttribute('d',dExp);
   $('det-line-red-imp').setAttribute('d',dImp);
 
-  // Puntos cada lectura (cada 10 min)
   let dots='';
   puntos.forEach(p=>{
     if(p.solar>0) dots+='<circle cx="'+px(p.min)+'" cy="'+py(p.solar)+'" r="2" fill="#ffc107" opacity=".8"/>';
     if(p.casa >0) dots+='<circle cx="'+px(p.min)+'" cy="'+py(p.casa )+'" r="2" fill="#4fc3f7" opacity=".7"/>';
   });
-  gBars.innerHTML=dots;  // reutilizamos el grupo para los dots
+  gBars.innerHTML=dots;
 
-  // Área bajo solar
   if(dSolar){
     const base=' L'+px(1440)+','+py(0)+' L'+px(0)+','+py(0)+' Z';
     $('det-area-solar').setAttribute('d',dSolar+base);
@@ -445,22 +436,17 @@ function dibujar24hLineas(gBars){
   dibujarStats24h(puntos);
 }
 
-/* ============================================================
-   MODO 7D · barras agrupadas por día
-   ============================================================ */
 function dibujar7dBarras(gBars){
   const datos = prepararPuntos7d(ChartDet.crudo);
   const W=900,H=340,pL=50,pR=20,pT=20,pB=60;
   const innerW=W-pL-pR, innerH=H-pT-pB;
 
-  // Ocultar líneas
   ['det-area-solar','det-line-solar','det-line-casa','det-line-coche','det-line-red-exp','det-line-red-imp']
     .forEach(id=>{const e=$(id); if(e) e.setAttribute('d','')});
 
   const maxV = Math.max(1, ...datos.flatMap(d=>[d.solar,d.casa]));
   const yMax = Math.ceil(maxV*1.1);
 
-  // Grid
   let g='';
   const pasos=5;
   for(let i=0;i<=pasos;i++){
@@ -472,7 +458,6 @@ function dibujar7dBarras(gBars){
   g+='<text class="ax-lbl" x="'+(pL-8)+'" y="'+(pT-4)+'" text-anchor="end">kWh</text>';
   $('chart-det-grid').innerHTML=g;
 
-  // Dibujar barras
   const nDias = datos.length;
   const anchoGrupo = innerW / nDias;
   const anchoBarra = Math.min(38, anchoGrupo * 0.32);
@@ -494,14 +479,11 @@ function dibujar7dBarras(gBars){
     bars+='<rect x="'+xS.toFixed(1)+'" y="'+yS.toFixed(1)+'" width="'+anchoBarra.toFixed(1)+'" height="'+Math.max(0,hS).toFixed(1)+'" rx="4" fill="#ffc107" opacity=".9"/>';
     bars+='<rect x="'+xC.toFixed(1)+'" y="'+yC.toFixed(1)+'" width="'+anchoBarra.toFixed(1)+'" height="'+Math.max(0,hC).toFixed(1)+'" rx="4" fill="#4fc3f7" opacity=".85"/>';
 
-    // Etiqueta del día
     const colorEt = d.esHoy ? '#4fc3f7' : '#9aa0a6';
     const pesoEt  = d.esHoy ? '700' : '400';
     etiquetas+='<text x="'+cx.toFixed(1)+'" y="'+(H-30)+'" text-anchor="middle" fill="'+colorEt+'" font-size="12" font-weight="'+pesoEt+'" font-family="inherit">'+d.label+'</text>';
     etiquetas+='<text x="'+cx.toFixed(1)+'" y="'+(H-14)+'" text-anchor="middle" fill="#6b7280" font-size="10" font-family="inherit">'+d.labelFull.split(' ')[1]+'</text>';
 
-    // Zona de hover invisible sobre el grupo
-    const yTop = Math.min(yS,yC);
     bars+='<rect x="'+(cx-anchoGrupo/2).toFixed(1)+'" y="'+pT+'" width="'+anchoGrupo.toFixed(1)+'" height="'+innerH+'" fill="transparent" class="bar-hit" data-idx="'+i+'"/>';
   });
 
@@ -513,7 +495,7 @@ function dibujar7dBarras(gBars){
 }
 
 /* ============================================================
-   ESTADÍSTICAS BAJO LA GRÁFICA
+   ESTADÍSTICAS
    ============================================================ */
 function dibujarStats24h(puntos){
   const el=$('chart-det-stats'); if(!el) return;
@@ -524,7 +506,6 @@ function dibujarStats24h(puntos){
   const sV=val('solar'),cV=val('casa'),chV=val('coche'),rV=val('red');
   const u=' kW';
   const nPuntos=puntos.length;
-
   const bloque=(color,valor,texto)=>`
     <div class="stat">
       <span class="dot" style="background:${color}"></span>
@@ -543,13 +524,11 @@ function dibujarStats24h(puntos){
 
 function dibujarStats7d(datos){
   const el=$('chart-det-stats'); if(!el) return;
-
   const totalS = datos.reduce((s,d)=>s+d.solar,0);
   const totalC = datos.reduce((s,d)=>s+d.casa,0);
   const auto   = datos.reduce((s,d)=>s+Math.min(d.solar,d.casa),0);
   const exp    = Math.max(0,totalS-auto);
   const imp    = Math.max(0,totalC-auto);
-
   const bloque=(color,valor,texto)=>`
     <div class="stat">
       <span class="dot" style="background:${color}"></span>
@@ -566,25 +545,18 @@ function dibujarStats7d(datos){
 }
 
 /* ============================================================
-   HOVER / TOOLTIP
+   HOVER
    ============================================================ */
 function initHoverChartDet(){
   const svg=$('chart-det'); if(!svg) return;
   const tooltip=$('chart-det-tooltip');
-
   svg.addEventListener('mousemove',e=>{
     if(!ChartDet.puntos||!ChartDet.escala) return;
     const rect=svg.getBoundingClientRect();
     const xVB=(e.clientX-rect.left)/rect.width*900;
-    const yVB=(e.clientY-rect.top)/rect.height*340;
-
-    if(ChartDet.modo==='line'){
-      hover24h(xVB,e,rect);
-    } else {
-      hover7d(xVB,e,rect);
-    }
+    if(ChartDet.modo==='line') hover24h(xVB,e,rect);
+    else hover7d(xVB,e,rect);
   });
-
   svg.addEventListener('mouseleave',()=>{
     const h=$('chart-det-hover'); if(h) h.style.display='none';
     if(tooltip) tooltip.classList.remove('show');
@@ -634,7 +606,6 @@ function hover24h(xVB,evt,rect){
 
 function hover7d(xVB,evt,rect){
   const{pL,pR,W,anchoGrupo,nDias}=ChartDet.escala;
-  const innerW=W-pL-pR;
   const rel = xVB - pL;
   let idx = Math.floor(rel/anchoGrupo);
   if(idx<0) idx=0; if(idx>=nDias) idx=nDias-1;
@@ -647,7 +618,6 @@ function hover7d(xVB,evt,rect){
   cr.setAttribute('x1',cx); cr.setAttribute('x2',cx);
   cr.setAttribute('y1',20); cr.setAttribute('y2',280);
 
-  // Ocultar los dots del hover (no aplican en modo barras)
   ['det-dot-solar','det-dot-casa','det-dot-coche','det-dot-red'].forEach(id=>{
     const e=$(id); if(e) e.style.display='none';
   });
@@ -682,11 +652,9 @@ function posicionarTooltip(tt,evt,rect){
 async function cargarChartDet(){
   try{
     if(ChartDet.rango==='24h'){
-      // Últimas 26 h de lecturas crudas (para cubrir el día actual completo)
       const filas = await leerLecturasHoras(26);
       ChartDet.crudo = filas;
     } else {
-      // Últimos 7 días de la vista curva_horaria
       const filas = await leerCurvaDias(7);
       ChartDet.crudo = filas;
     }
@@ -705,7 +673,7 @@ function setRango(r){
 }
 
 /* ============================================================
-   BARRAS SEMANALES INFERIORES (independiente del chart detallado)
+   BARRAS SEMANALES INFERIORES
    ============================================================ */
 async function cargarSemana(){
   if(!$('bars-semana')) return;
