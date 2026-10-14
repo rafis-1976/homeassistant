@@ -10,31 +10,52 @@
 
 <button class="burger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
 
-<aside class="sidebar">
+<aside class="sidebar" id="sidebar">
+  <button class="collapse-btn" id="collapse-btn" title="Minimizar menú" onclick="toggleSidebar()">«</button>
+
   <div class="brand">
     <a href="../index.html" class="brand-link">
       <div class="brand-icon">🏠</div>
-      <div><h1>Mi Casa</h1><span>Panel de control</span></div>
+      <div class="brand-text"><h1>Mi Casa</h1><span>Panel de control</span></div>
     </a>
   </div>
+
   <nav class="nav">
-    <a href="index.html" class="nav-item active"><span class="ico">⊞</span> Resumen</a>
-    <a href="iluminacion.html" class="nav-item"><span class="ico">💡</span> Iluminación</a>
-    <a href="climatizacion.html" class="nav-item"><span class="ico">🌡️</span> Climatización</a>
-    <a href="seguridad.html" class="nav-item"><span class="ico">🔒</span> Seguridad</a>
-    <a href="escenas.html" class="nav-item"><span class="ico">🎬</span> Escenas</a>
-    <a href="energia.html" class="nav-item"><span class="ico">📊</span> Energía</a>
-    <a href="ajustes.html" class="nav-item"><span class="ico">⚙️</span> Ajustes</a>
+    <a href="index.html" class="nav-item active" title="Resumen">
+      <span class="ico">⊞</span><span class="nav-text">Resumen</span>
+    </a>
+    <a href="iluminacion.html" class="nav-item" title="Iluminación">
+      <span class="ico">💡</span><span class="nav-text">Iluminación</span>
+    </a>
+    <a href="climatizacion.html" class="nav-item" title="Climatización">
+      <span class="ico">🌡️</span><span class="nav-text">Climatización</span>
+    </a>
+    <a href="seguridad.html" class="nav-item" title="Seguridad">
+      <span class="ico">🔒</span><span class="nav-text">Seguridad</span>
+    </a>
+    <a href="escenas.html" class="nav-item" title="Escenas">
+      <span class="ico">🎬</span><span class="nav-text">Escenas</span>
+    </a>
+    <a href="energia.html" class="nav-item" title="Energía">
+      <span class="ico">📊</span><span class="nav-text">Energía</span>
+    </a>
+    <a href="ajustes.html" class="nav-item" title="Ajustes">
+      <span class="ico">⚙️</span><span class="nav-text">Ajustes</span>
+    </a>
   </nav>
+
   <div class="sidebar-footer">
     <div class="user">
       <div class="avatar">AD</div>
-      <div><div style="color:var(--t);font-size:13px;font-weight:600">Admin</div><div style="font-size:11px">Sistema en línea</div></div>
+      <div class="user-text">
+        <div style="color:var(--t);font-size:13px;font-weight:600">Admin</div>
+        <div style="font-size:11px">Sistema en línea</div>
+      </div>
     </div>
   </div>
 </aside>
 
-<main class="main">
+<main class="main" id="main">
   <header class="top">
     <div class="greeting">
       <h2 id="saludo">Buenos días 👋</h2>
@@ -63,38 +84,14 @@
     </div>
 
     <div class="tariff-grid">
-      <div class="tariff-item">
-        <small>Tarifa actual</small>
-        <b id="tar-periodo">—</b>
-      </div>
-      <div class="tariff-item">
-        <small>Precio consumo</small>
-        <b id="tar-precio">—</b>
-      </div>
-      <div class="tariff-item">
-        <small>Precio excedente</small>
-        <b id="tar-precio-exc">—</b>
-      </div>
-      <div class="tariff-item">
-        <small>Potencia contratada</small>
-        <b id="tar-contratada">—</b>
-      </div>
-      <div class="tariff-item">
-        <small>Consumo actual</small>
-        <b id="tar-consumo">—</b>
-      </div>
-      <div class="tariff-item">
-        <small>Potencia sobrante</small>
-        <b id="tar-sobrante">—</b>
-      </div>
-      <div class="tariff-item">
-        <small>Exceso FV disponible</small>
-        <b id="tar-exceso">—</b>
-      </div>
-      <div class="tariff-item">
-        <small>Ganancia estimada</small>
-        <b id="tar-ganancia">—</b>
-      </div>
+      <div class="tariff-item"><small>Tarifa actual</small><b id="tar-periodo">—</b></div>
+      <div class="tariff-item"><small>Precio consumo</small><b id="tar-precio">—</b></div>
+      <div class="tariff-item"><small>Precio excedente</small><b id="tar-precio-exc">—</b></div>
+      <div class="tariff-item"><small>Potencia contratada</small><b id="tar-contratada">—</b></div>
+      <div class="tariff-item"><small>Consumo actual</small><b id="tar-consumo">—</b></div>
+      <div class="tariff-item"><small>Potencia sobrante</small><b id="tar-sobrante">—</b></div>
+      <div class="tariff-item"><small>Exceso FV disponible</small><b id="tar-exceso">—</b></div>
+      <div class="tariff-item"><small>Ganancia estimada</small><b id="tar-ganancia">—</b></div>
     </div>
   </div>
 
@@ -102,11 +99,8 @@
   <div class="section-title">Energía solar</div>
   <div class="card energy-card">
     <div class="card-head" style="align-items:center;flex-wrap:wrap;gap:12px">
-      <div>
-        <div class="card-name">Sistema fotovoltaico Fronius</div>
-      </div>
+      <div><div class="card-name">Sistema fotovoltaico Fronius</div></div>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-        <!-- Semáforo tarifario -->
         <div class="tariff-indicator" id="tariff-indicator">
           <span class="tariff-dot" id="tariff-dot"></span>
           <div class="tariff-indicator-info">
@@ -135,18 +129,15 @@
         </linearGradient>
       </defs>
 
-      <!-- CABLES -->
       <path class="wire-h" d="M220,130 L 300,130"/>
       <path class="wire-h" d="M480,130 L 560,130"/>
       <path class="wire-h" d="M740,130 L 820,130"/>
       <path class="wire-h" d="M650,200 L 650,240"/>
       <path class="wire-h" id="w-bat" d="M130,200 L 130,255" style="display:none"/>
 
-      <!-- LÍNEA EXPORTACIÓN FV → RED -->
       <path class="wire-export" d="M 390,60 L 390,25 L 910,25 L 910,60"/>
       <text class="wire-lbl" x="650" y="16">⬆️ Exportación directa FV → Red</text>
 
-      <!-- FLUJOS ANIMADOS -->
       <path id="f-solar"  class="flow"     d="M220,130 L 300,130"/>
       <path id="f-casa"   class="flow"     d="M480,130 L 560,130"/>
       <path id="f-export" class="flow"     d="M740,130 L 820,130"/>
@@ -156,7 +147,7 @@
       <path id="f-bat-in"  class="flow rev" d="M130,200 L 130,255" style="display:none"/>
       <path id="f-bat-out" class="flow"     d="M130,200 L 130,255" style="display:none"/>
 
-      <!-- TARJETA: SOLAR -->
+      <!-- SOLAR -->
       <g class="node" id="n-solar">
         <rect class="box" x="40" y="60" width="180" height="140" rx="16"/>
         <g transform="translate(130,108)">
@@ -185,7 +176,7 @@
         <text class="val" x="130" y="186" id="v-solar">0 W</text>
       </g>
 
-      <!-- TARJETA: FRONIUS -->
+      <!-- FRONIUS -->
       <g class="node" id="n-fronius">
         <rect class="box" x="300" y="60" width="180" height="140" rx="16"/>
         <g transform="translate(390,110)">
@@ -205,20 +196,16 @@
         <text class="val" x="390" y="186" id="v-fronius">0 W</text>
       </g>
 
-      <!-- ===== BLOQUE GRANDE: POTENCIA SOBRANTE (debajo de Solar y Fronius) ===== -->
+      <!-- BLOQUE GRANDE SOBRANTE -->
       <g class="sobrante-g" id="g-sobrante">
         <rect class="box-sobrante" x="40" y="220" width="440" height="150" rx="16"/>
-
         <text class="lbl-sobrante" x="260" y="248">POTENCIA SOBRANTE</text>
-
         <text class="val-sobrante" x="260" y="298" id="v-sobrante">0 W</text>
-
         <text class="exc-sobrante" x="260" y="326" id="v-excedente" style="display:none">+0 W FV</text>
-
         <text class="sub-sobrante" x="260" y="352" id="v-sub-sobrante">—</text>
       </g>
 
-      <!-- TARJETA: CASA -->
+      <!-- CASA -->
       <g class="node" id="n-casa">
         <rect class="box" x="560" y="60" width="180" height="140" rx="16"/>
         <g transform="translate(650,112)">
@@ -236,7 +223,7 @@
         <text class="val" x="650" y="186" id="v-casa">0 W</text>
       </g>
 
-      <!-- TARJETA: RED -->
+      <!-- RED -->
       <g class="node" id="n-red">
         <rect class="box" x="820" y="60" width="180" height="140" rx="16"/>
         <g transform="translate(910,105)">
@@ -261,12 +248,11 @@
         <text class="val" x="910" y="186" id="v-red">0 W</text>
       </g>
 
-      <!-- TARJETA: COCHE -->
+      <!-- COCHE -->
       <g class="node" id="n-coche">
         <rect class="box" x="560" y="240" width="180" height="90" rx="16"/>
         <g transform="translate(610,285)">
-          <path d="M-32,10 L-24,-6 Q-16,-16 0,-16 Q16,-16 24,-6 L32,10 Z"
-                fill="#1a1f28" stroke="#b388ff" stroke-width="1.8"/>
+          <path d="M-32,10 L-24,-6 Q-16,-16 0,-16 Q16,-16 24,-6 L32,10 Z" fill="#1a1f28" stroke="#b388ff" stroke-width="1.8"/>
           <path d="M-22,-2 L-14,-11 Q-7,-14 0,-14 L0,-2 Z" fill="#b388ff" opacity=".4"/>
           <path d="M0,-2 L0,-14 Q7,-14 14,-11 L22,-2 Z" fill="#b388ff" opacity=".4"/>
           <circle cx="-16" cy="12" r="5.5" fill="#0f1115" stroke="#b388ff" stroke-width="1.2"/>
@@ -277,7 +263,7 @@
         <text class="val" x="680" y="307" text-anchor="start" id="v-coche">0 W</text>
       </g>
 
-      <!-- TARJETA: BATERÍA (oculta) -->
+      <!-- BATERÍA (oculta) -->
       <g class="node" id="n-bat" style="display:none">
         <rect class="box" x="40" y="240" width="180" height="90" rx="16"/>
         <g transform="translate(90,285)">
@@ -289,7 +275,6 @@
         <text class="box-name" x="160" y="285" text-anchor="start">Batería</text>
         <text class="val" x="160" y="307" text-anchor="start" id="v-bat">0 %</text>
       </g>
-
     </svg>
 
     <div class="flow-controls">
@@ -457,6 +442,31 @@
 
 </main>
 
+<script>
+/* ---------- SIDEBAR COLAPSABLE ---------- */
+function toggleSidebar(){
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('collapse-btn');
+  const colapsado = sb.classList.toggle('collapsed');
+  btn.textContent = colapsado ? '»' : '«';
+  btn.title = colapsado ? 'Expandir menú' : 'Minimizar menú';
+  try{ localStorage.setItem('sidebar-collapsed', colapsado ? '1' : '0'); }catch(e){}
+}
+// Restaurar estado al cargar
+(function(){
+  try{
+    if(localStorage.getItem('sidebar-collapsed') === '1'){
+      const sb = document.getElementById('sidebar');
+      const btn = document.getElementById('collapse-btn');
+      if(sb && btn){
+        sb.classList.add('collapsed');
+        btn.textContent = '»';
+        btn.title = 'Expandir menú';
+      }
+    }
+  }catch(e){}
+})();
+</script>
 <script src="supabase-config.js"></script>
 <script src="app.js"></script>
 <script src="tarifa.js"></script>
