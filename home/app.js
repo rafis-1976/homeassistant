@@ -4,8 +4,8 @@
 const CONFIG = {
   USAR_DATOS_REALES: true,
   SUPABASE: {
-    URL: SUPABASE_URL,   // ← viene de supabase-config.js
-    KEY: SUPABASE_KEY,   // ← viene de supabase-config.js
+    URL: SUPABASE_URL,
+    KEY: SUPABASE_KEY,
     TABLA_ESTADO: 'estado_actual',
     TABLA_HIST:   'lecturas',
     VISTA_CURVA:  'curva_horaria',
@@ -18,11 +18,13 @@ const CONFIG = {
 
 const $=id=>document.getElementById(id),cl=(v,a,b)=>Math.max(a,Math.min(b,v));
 
-// Zona horaria local (Madrid)
 const TZ = 'Europe/Madrid';
-const fmtFecha = new Intl.DateTimeFormat('fr-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'});
-const fechaMadrid = d => fmtFecha.format(d);         // "2026-10-14"
-const horaMadrid  = d => parseInt(new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hour:'2-digit',hour12:false}).format(d),10);
+const _fmtFecha = new Intl.DateTimeFormat('fr-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'});
+const _fmtHora  = new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hour:'2-digit',hour12:false});
+const _fmtMin   = new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit',hour12:false});
+const fechaMadrid   = d => _fmtFecha.format(d);
+const horaMadrid    = d => parseInt(_fmtHora.format(d),10);
+const minutosMadrid = d => { const [h,m]=_fmtMin.format(d).split(':').map(Number); return h*60+m; };
 
 /* ============================================================
    RELOJ
@@ -94,13 +96,13 @@ document.querySelectorAll('.nav-item').forEach(i=>i.addEventListener('click',()=
 }));
 
 /* ============================================================
-   ESTADO ENERGÉTICO
+   ESTADO
    ============================================================ */
 const E={sol:0,casa:0,coche:0,cocheOn:false,cocheDeseada:7.4,cocheModo:'max',
   exp:0,imp:0,bat:65,energiaDiaKwh:0,kwhCoche:0};
 
 /* ============================================================
-   SUPABASE · fetch base
+   SUPABASE
    ============================================================ */
 async function supaFetch(path){
   const s=CONFIG.SUPABASE;
@@ -110,46 +112,25 @@ async function supaFetch(path){
   if(!r.ok){const t=await r.text();throw new Error('Supabase '+r.status+': '+t)}
   return r.json();
 }
-
-/* ============================================================
-   ESTADO ACTUAL
-   ============================================================ */
 async function leerEstadoActual(){
   const d=await supaFetch(CONFIG.SUPABASE.TABLA_ESTADO+'?id=eq.1&select=*');
   return d&&d[0]?d[0]:null;
 }
-
-function aplicarEstado(fila){
-  if(!fila) return;
-  const w=k=>{const v=parseFloat(fila[k]);return isNaN(v)?null:v/1000};
-  const solar=w('solar_w'),casa=w('casa_w'),coche=w('coche_w'),red=w('red_w');
-  if(solar!==null) E.sol=solar;
-  if(casa!==null) E.casa=casa;
-  if(coche!==null){
-    E.coche=coche; E.cocheOn=coche>0.05;
-    const t=$('t-coche'); if(t) t.classList.toggle('on',E.cocheOn);
-  }
-  if(red!==null){
-    if(CONFIG.SUPABASE.RED_POSITIVA_ES_EXPORT){
-      if(red>=0){E.exp=red;E.imp=0} else {E.exp=0;E.imp=-red}
-    } else {
-      if(red>=0){E.imp=red;E.exp=0} else {E.imp=0;E.exp=-red}
-    }
-  }
-  if(fila.energia_dia_kwh!=null) E.energiaDiaKwh=parseFloat(fila.energia_dia_kwh)||0;
-
-  const s=$('in-solar'),cc=$('in-casa'),cch=$('in-coche');
-  if(s){s.value=E.sol.toFixed(2);pintaS(s)}
-  if(cc){cc.value=E.casa.toFixed(2);pintaS(cc)}
-  if(cch&&E.cocheOn){cch.value=E.coche.toFixed(2);pintaS(cch)}
-  renderE();
+async function leerLecturasHoras(horas){
+  const s=CONFIG.SUPABASE;
+  const desde=new Date(Date.now()-horas*3600*1000).toISOString();
+  return await supaFetch(
+    s.TABLA_HIST+'?ts=gte.'+desde+
+    '&select=ts,solar_w,casa_w,red_w,coche_w&order=ts.asc'
+  );
 }
-async function pollEstado(){
-  try{
-    const f=await leerEstadoActual();
-    if(f){aplicarEstado(f);marcarIndicador(true)}
-    else marcarIndicador(false,'sin fila id=1');
-  }catch(e){marcarIndicador(false,e.message);console.warn('Supabase:',e.message)}
+async function leerCurvaDias(dias){
+  const s=CONFIG.SUPABASE;
+  const desde=new Date(); desde.setDate(desde.getDate()-(dias-1));
+  const desdeStr=fechaMadrid(desde);
+  return await supaFetch(
+    s.VISTA_CURVA+'?dia=gte.'+desdeStr+'&order=dia.asc,hora.asc'
+  );
 }
 
 /* ============================================================
@@ -172,7 +153,7 @@ function crearIndicador(){
 }
 
 /* ============================================================
-   HELPERS de render
+   HELPERS
    ============================================================ */
 function pintaS(el){
   if(!el)return;
@@ -245,76 +226,98 @@ function renderE(){
 }
 
 /* ============================================================
-   GRÁFICA DETALLADA
+   APLICAR estado_actual
    ============================================================ */
-const ChartDet={rango:'24h',crudo:[],puntos:null,escala:null};
+function aplicarEstado(fila){
+  if(!fila) return;
+  const w=k=>{const v=parseFloat(fila[k]);return isNaN(v)?null:v/1000};
+  const solar=w('solar_w'),casa=w('casa_w'),coche=w('coche_w'),red=w('red_w');
 
-/* --- Lectura cruda de lecturas (para 24h) --- */
-async function leerLecturasHoras(horas){
-  const s=CONFIG.SUPABASE;
-  const desde=new Date(Date.now()-horas*3600*1000).toISOString();
-  return await supaFetch(
-    s.TABLA_HIST+'?ts=gte.'+desde+
-    '&select=ts,solar_w,casa_w,red_w,coche_w&order=ts.asc'
-  );
+  if(solar!==null) E.sol=solar;
+  if(casa!==null) E.casa=casa;
+  if(coche!==null){
+    E.coche=coche; E.cocheOn=coche>0.05;
+    const t=$('t-coche'); if(t) t.classList.toggle('on',E.cocheOn);
+  }
+  if(red!==null){
+    if(CONFIG.SUPABASE.RED_POSITIVA_ES_EXPORT){
+      if(red>=0){E.exp=red;E.imp=0} else {E.exp=0;E.imp=-red}
+    } else {
+      if(red>=0){E.imp=red;E.exp=0} else {E.imp=0;E.exp=-red}
+    }
+  }
+  if(fila.energia_dia_kwh!=null) E.energiaDiaKwh=parseFloat(fila.energia_dia_kwh)||0;
+
+  const s=$('in-solar'),cc=$('in-casa'),cch=$('in-coche');
+  if(s){s.value=E.sol.toFixed(2);pintaS(s)}
+  if(cc){cc.value=E.casa.toFixed(2);pintaS(cc)}
+  if(cch&&E.cocheOn){cch.value=E.coche.toFixed(2);pintaS(cch)}
+  renderE();
+}
+async function pollEstado(){
+  try{
+    const f=await leerEstadoActual();
+    if(f){aplicarEstado(f);marcarIndicador(true)}
+    else marcarIndicador(false,'sin fila id=1');
+  }catch(e){marcarIndicador(false,e.message);console.warn('Supabase:',e.message)}
 }
 
-/* --- 24h: agrupar por hora (usando hora local Madrid) --- */
-function agrupar24h(filas){
-  const buckets=Array.from({length:24},(_,i)=>({hora:i,solar:[],casa:[],coche:[],red:[]}));
+/* ============================================================
+   GRÁFICA DETALLADA · 24h líneas + 7d barras
+   ============================================================ */
+const ChartDet={rango:'24h',crudo:[],puntos:null,escala:null,modo:null};
+
+/* ---------- Datos para 24h (un punto por lectura) ---------- */
+function prepararPuntos24h(filas){
   const hoyStr = fechaMadrid(new Date());
+  const pts = [];
   filas.forEach(f=>{
-    const t=new Date(f.ts);
-    if(fechaMadrid(t)!==hoyStr) return;
-    const h=horaMadrid(t);
-    buckets[h].solar.push((+f.solar_w||0)/1000);
-    buckets[h].casa .push((+f.casa_w ||0)/1000);
-    buckets[h].coche.push((+f.coche_w||0)/1000);
-    buckets[h].red  .push((+f.red_w  ||0)/1000);
+    const t = new Date(f.ts);
+    if(fechaMadrid(t) !== hoyStr) return;
+    const min = minutosMadrid(t);
+    pts.push({
+      min: min,
+      label: String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0'),
+      solar: (+f.solar_w||0)/1000,
+      casa:  (+f.casa_w ||0)/1000,
+      coche: (+f.coche_w||0)/1000,
+      red:   (+f.red_w  ||0)/1000
+    });
   });
-  const prom=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
-  return buckets.map(b=>({
-    x:b.hora,
-    label:String(b.hora).padStart(2,'0')+':00',
-    solar:prom(b.solar), casa:prom(b.casa), coche:prom(b.coche), red:prom(b.red)
-  }));
+  pts.sort((a,b)=>a.min-b.min);
+  return pts;
 }
 
-/* --- 7d: agrupar por día (usando fecha local Madrid) --- */
-function agrupar7d(filas){
-  const porDia={};
+/* ---------- Datos para 7d (barras por día) ---------- */
+function prepararPuntos7d(filas){
+  const porDia = {};
   filas.forEach(f=>{
-    const t=new Date(f.ts);
-    const k=fechaMadrid(t);
-    if(!porDia[k]) porDia[k]={solar:[],casa:[],coche:[],red:[]};
-    porDia[k].solar.push((+f.solar_w||0)/1000);
-    porDia[k].casa .push((+f.casa_w ||0)/1000);
-    porDia[k].coche.push((+f.coche_w||0)/1000);
-    porDia[k].red  .push((+f.red_w  ||0)/1000);
+    const k = f.dia;
+    if(!porDia[k]) porDia[k] = {solar:0, casa:0};
+    porDia[k].solar += (+f.solar_kw||0);
+    porDia[k].casa  += (+f.casa_kw ||0);
   });
-  const prom=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
-  const nombres=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 
-  // Rellenar SIEMPRE los últimos 7 días, aunque no haya datos
-  const arr=[];
+  const nombres=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const arr = [];
   for(let i=6;i>=0;i--){
-    const d=new Date();
+    const d = new Date();
     d.setDate(d.getDate()-i);
-    const key=fechaMadrid(d);
-    const x=porDia[key];
+    const key = fechaMadrid(d);
+    const datos = porDia[key] || {solar:0, casa:0};
     arr.push({
-      x:key,
-      label:nombres[d.getDay()]+' '+String(d.getDate()).padStart(2,'0'),
-      solar:x?prom(x.solar):0,
-      casa: x?prom(x.casa):0,
-      coche:x?prom(x.coche):0,
-      red:  x?prom(x.red):0
+      dia: key,
+      label: nombres[d.getDay()],
+      labelFull: nombres[d.getDay()]+' '+String(d.getDate()).padStart(2,'0'),
+      solar: datos.solar,
+      casa: datos.casa,
+      esHoy: key === fechaMadrid(new Date())
     });
   }
   return arr;
 }
 
-/* --- Curva suave --- */
+/* ---------- Curva suave ---------- */
 function curve(p){
   if(p.length<2)return'';
   let d='M'+p[0][0]+','+p[0][1];
@@ -327,22 +330,43 @@ function curve(p){
   return d;
 }
 
-/* --- Dibujar la gráfica detallada --- */
+/* ---------- Función principal de dibujo ---------- */
 function dibujarChartDet(){
   const svg=$('chart-det');
   if(!svg) return;
 
-  const puntos = ChartDet.rango==='24h'
-    ? agrupar24h(ChartDet.crudo)
-    : agrupar7d(ChartDet.crudo);
+  // Grupo de barras (se crea la primera vez)
+  let gBars = svg.querySelector('#chart-det-bars');
+  if(!gBars){
+    gBars = document.createElementNS('http://www.w3.org/2000/svg','g');
+    gBars.id = 'chart-det-bars';
+    svg.appendChild(gBars);
+  }
+  gBars.innerHTML='';
 
+  if(ChartDet.rango==='24h'){
+    ChartDet.modo='line';
+    dibujar24hLineas(gBars);
+  } else {
+    ChartDet.modo='bars';
+    dibujar7dBarras(gBars);
+  }
+}
+
+/* ============================================================
+   MODO 24H · línea con punto cada 10 min
+   ============================================================ */
+function dibujar24hLineas(gBars){
+  const puntos = prepararPuntos24h(ChartDet.crudo);
   const W=900,H=340,pL=50,pR=20,pT=20,pB=40;
   const innerW=W-pL-pR, innerH=H-pT-pB;
-  const N=puntos.length;
 
-  const valsFlat = puntos.flatMap(p=>[p.solar,p.casa,p.coche,p.red]).filter(v=>v!==null&&v!==undefined);
+  // Ocultar barras (por si venimos de 7d)
+  gBars.innerHTML='';
+
+  const valsFlat = puntos.flatMap(p=>[p.solar,p.casa,p.coche,p.red]);
   if(valsFlat.length===0){
-    $('chart-det-grid').innerHTML='<text x="'+W/2+'" y="'+(H/2)+'" text-anchor="middle" fill="#9aa0a6" font-size="14">Sin datos en este rango</text>';
+    $('chart-det-grid').innerHTML='<text x="'+W/2+'" y="'+(H/2)+'" text-anchor="middle" fill="#9aa0a6" font-size="14">Sin datos hoy</text>';
     ['det-area-solar','det-line-solar','det-line-casa','det-line-coche','det-line-red-exp','det-line-red-imp']
       .forEach(id=>{const e=$(id); if(e) e.setAttribute('d','')});
     const st=$('chart-det-stats'); if(st) st.innerHTML='';
@@ -350,12 +374,14 @@ function dibujarChartDet(){
   }
 
   const maxV=Math.max(1,...valsFlat);
-  const minV=Math.min(0,...puntos.map(p=>p.red===null||p.red===undefined?0:p.red));
+  const minV=Math.min(0,...puntos.map(p=>p.red));
   const spanV=Math.max(0.5,maxV-minV);
 
-  const px=i=>pL+(N===1?innerW/2:innerW*i/(N-1));
+  // X = minuto del día (0-1440)
+  const px=min=>pL+innerW*min/1440;
   const py=v=>pT+innerH*(1-(v-minV)/spanV);
 
+  // Grid horizontal (Y)
   let g='';
   const pasos=5;
   for(let i=0;i<=pasos;i++){
@@ -364,12 +390,12 @@ function dibujarChartDet(){
     g+='<line class="grid-line" x1="'+pL+'" y1="'+y+'" x2="'+(W-pR)+'" y2="'+y+'"/>';
     g+='<text class="ax-lbl" x="'+(pL-8)+'" y="'+(y+4)+'" text-anchor="end">'+v.toFixed(1)+'</text>';
   }
-  let marcasX;
-  if(N<=12) marcasX=puntos.map((_,i)=>i);
-  else marcasX=[0,Math.floor(N/4),Math.floor(N/2),Math.floor(3*N/4),N-1];
-  marcasX.forEach(i=>{
-    g+='<text class="ax-lbl" x="'+px(i)+'" y="'+(H-12)+'" text-anchor="middle">'+puntos[i].label+'</text>';
-  });
+  // Grid vertical (X) cada 2 horas
+  for(let h=0;h<=24;h+=2){
+    const x=px(h*60);
+    g+='<line class="grid-line" x1="'+x+'" y1="'+pT+'" x2="'+x+'" y2="'+(H-pB)+'" opacity=".4"/>';
+    g+='<text class="ax-lbl" x="'+x+'" y="'+(H-12)+'" text-anchor="middle">'+String(h).padStart(2,'0')+'h</text>';
+  }
   g+='<text class="ax-lbl" x="'+(pL-8)+'" y="'+(pT-4)+'" text-anchor="end">kW</text>';
 
   if(minV<0){
@@ -377,13 +403,14 @@ function dibujarChartDet(){
   }
   $('chart-det-grid').innerHTML=g;
 
+  // Líneas
   const linea=(getter,filtro)=>{
     const pts=[];
-    puntos.forEach((p,i)=>{
+    puntos.forEach(p=>{
       const v=getter(p);
       if(v===null||v===undefined) return;
       if(filtro&&!filtro(v)) return;
-      pts.push([px(i),py(v)]);
+      pts.push([px(p.min),py(v)]);
     });
     return pts.length>1?curve(pts):'';
   };
@@ -399,18 +426,96 @@ function dibujarChartDet(){
   $('det-line-red-exp').setAttribute('d',dExp);
   $('det-line-red-imp').setAttribute('d',dImp);
 
+  // Puntos cada lectura (cada 10 min)
+  let dots='';
+  puntos.forEach(p=>{
+    if(p.solar>0) dots+='<circle cx="'+px(p.min)+'" cy="'+py(p.solar)+'" r="2" fill="#ffc107" opacity=".8"/>';
+    if(p.casa >0) dots+='<circle cx="'+px(p.min)+'" cy="'+py(p.casa )+'" r="2" fill="#4fc3f7" opacity=".7"/>';
+  });
+  gBars.innerHTML=dots;  // reutilizamos el grupo para los dots
+
+  // Área bajo solar
   if(dSolar){
-    const base=' L'+px(N-1)+','+py(0)+' L'+px(0)+','+py(0)+' Z';
+    const base=' L'+px(1440)+','+py(0)+' L'+px(0)+','+py(0)+' Z';
     $('det-area-solar').setAttribute('d',dSolar+base);
   } else $('det-area-solar').setAttribute('d','');
 
   ChartDet.puntos=puntos;
-  ChartDet.escala={px,py,N,pL,pR,pT,pB,W,H};
-  dibujarStatsDet(puntos);
+  ChartDet.escala={px,py,pL,pR,pT,pB,W,H};
+  dibujarStats24h(puntos);
 }
 
-/* --- Estadísticas debajo de la gráfica --- */
-function dibujarStatsDet(puntos){
+/* ============================================================
+   MODO 7D · barras agrupadas por día
+   ============================================================ */
+function dibujar7dBarras(gBars){
+  const datos = prepararPuntos7d(ChartDet.crudo);
+  const W=900,H=340,pL=50,pR=20,pT=20,pB=60;
+  const innerW=W-pL-pR, innerH=H-pT-pB;
+
+  // Ocultar líneas
+  ['det-area-solar','det-line-solar','det-line-casa','det-line-coche','det-line-red-exp','det-line-red-imp']
+    .forEach(id=>{const e=$(id); if(e) e.setAttribute('d','')});
+
+  const maxV = Math.max(1, ...datos.flatMap(d=>[d.solar,d.casa]));
+  const yMax = Math.ceil(maxV*1.1);
+
+  // Grid
+  let g='';
+  const pasos=5;
+  for(let i=0;i<=pasos;i++){
+    const v=yMax*i/pasos;
+    const y=pT+innerH*(1-i/pasos);
+    g+='<line class="grid-line" x1="'+pL+'" y1="'+y+'" x2="'+(W-pR)+'" y2="'+y+'"/>';
+    g+='<text class="ax-lbl" x="'+(pL-8)+'" y="'+(y+4)+'" text-anchor="end">'+v.toFixed(1)+'</text>';
+  }
+  g+='<text class="ax-lbl" x="'+(pL-8)+'" y="'+(pT-4)+'" text-anchor="end">kWh</text>';
+  $('chart-det-grid').innerHTML=g;
+
+  // Dibujar barras
+  const nDias = datos.length;
+  const anchoGrupo = innerW / nDias;
+  const anchoBarra = Math.min(38, anchoGrupo * 0.32);
+  const gap = 6;
+
+  let bars='';
+  let etiquetas='';
+  const pyBar = v => pT + innerH * (1 - v/yMax);
+
+  datos.forEach((d,i)=>{
+    const cx = pL + anchoGrupo*(i + 0.5);
+    const xS = cx - gap/2 - anchoBarra;
+    const xC = cx + gap/2;
+    const yS = pyBar(d.solar);
+    const yC = pyBar(d.casa);
+    const hS = pT + innerH - yS;
+    const hC = pT + innerH - yC;
+
+    bars+='<rect x="'+xS.toFixed(1)+'" y="'+yS.toFixed(1)+'" width="'+anchoBarra.toFixed(1)+'" height="'+Math.max(0,hS).toFixed(1)+'" rx="4" fill="#ffc107" opacity=".9"/>';
+    bars+='<rect x="'+xC.toFixed(1)+'" y="'+yC.toFixed(1)+'" width="'+anchoBarra.toFixed(1)+'" height="'+Math.max(0,hC).toFixed(1)+'" rx="4" fill="#4fc3f7" opacity=".85"/>';
+
+    // Etiqueta del día
+    const colorEt = d.esHoy ? '#4fc3f7' : '#9aa0a6';
+    const pesoEt  = d.esHoy ? '700' : '400';
+    etiquetas+='<text x="'+cx.toFixed(1)+'" y="'+(H-30)+'" text-anchor="middle" fill="'+colorEt+'" font-size="12" font-weight="'+pesoEt+'" font-family="inherit">'+d.label+'</text>';
+    etiquetas+='<text x="'+cx.toFixed(1)+'" y="'+(H-14)+'" text-anchor="middle" fill="#6b7280" font-size="10" font-family="inherit">'+d.labelFull.split(' ')[1]+'</text>';
+
+    // Zona de hover invisible sobre el grupo
+    const yTop = Math.min(yS,yC);
+    bars+='<rect x="'+(cx-anchoGrupo/2).toFixed(1)+'" y="'+pT+'" width="'+anchoGrupo.toFixed(1)+'" height="'+innerH+'" fill="transparent" class="bar-hit" data-idx="'+i+'"/>';
+  });
+
+  gBars.innerHTML = bars + etiquetas;
+
+  ChartDet.puntos = datos;
+  ChartDet.escala = {px:null,py:pyBar,pL,pR,pT,pB,W,H,anchoGrupo,nDias};
+  dibujarStats7d(datos);
+}
+
+/* ============================================================
+   ESTADÍSTICAS BAJO LA GRÁFICA
+   ============================================================ */
+function dibujarStats24h(puntos){
   const el=$('chart-det-stats'); if(!el) return;
   const val=k=>puntos.map(p=>p[k]).filter(v=>v!==null&&v!==undefined);
   const prom=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
@@ -418,8 +523,7 @@ function dibujarStatsDet(puntos){
 
   const sV=val('solar'),cV=val('casa'),chV=val('coche'),rV=val('red');
   const u=' kW';
-  const es24h = ChartDet.rango==='24h';
-  const lblMedia = es24h?'media':'media día';
+  const nPuntos=puntos.length;
 
   const bloque=(color,valor,texto)=>`
     <div class="stat">
@@ -428,48 +532,84 @@ function dibujarStatsDet(puntos){
     </div>`;
 
   el.innerHTML =
-    bloque('#ffc107', prom(sV).toFixed(2)+u, '☀️ Solar · '+lblMedia) +
+    bloque('#ffc107', prom(sV).toFixed(2)+u, '☀️ Solar · media ('+nPuntos+' lecturas)') +
     bloque('#ffc107', max(sV).toFixed(2)+u,  '☀️ Solar · pico') +
-    bloque('#4fc3f7', prom(cV).toFixed(2)+u, '🏠 Casa · '+lblMedia) +
+    bloque('#4fc3f7', prom(cV).toFixed(2)+u, '🏠 Casa · media') +
     bloque('#4fc3f7', max(cV).toFixed(2)+u,  '🏠 Casa · pico') +
-    bloque('#b388ff', prom(chV).toFixed(2)+u,'🚗 Coche · '+lblMedia) +
+    bloque('#b388ff', prom(chV).toFixed(2)+u,'🚗 Coche · media') +
     bloque('#4caf50', (rV.length?Math.max(0,...rV):0).toFixed(2)+u, '⬆️ Red · máx export') +
     bloque('#ef5350', (rV.length?Math.abs(Math.min(0,...rV)):0).toFixed(2)+u, '⬇️ Red · máx import');
 }
 
-/* --- Hover / tooltip --- */
+function dibujarStats7d(datos){
+  const el=$('chart-det-stats'); if(!el) return;
+
+  const totalS = datos.reduce((s,d)=>s+d.solar,0);
+  const totalC = datos.reduce((s,d)=>s+d.casa,0);
+  const auto   = datos.reduce((s,d)=>s+Math.min(d.solar,d.casa),0);
+  const exp    = Math.max(0,totalS-auto);
+  const imp    = Math.max(0,totalC-auto);
+
+  const bloque=(color,valor,texto)=>`
+    <div class="stat">
+      <span class="dot" style="background:${color}"></span>
+      <div><b>${valor}</b><small>${texto}</small></div>
+    </div>`;
+
+  el.innerHTML =
+    bloque('#ffc107', totalS.toFixed(1)+' kWh', '☀️ Solar · total semana') +
+    bloque('#4fc3f7', totalC.toFixed(1)+' kWh', '🏠 Casa · total semana') +
+    bloque('#4caf50', exp.toFixed(1)+' kWh',    '⬆️ Red · export total') +
+    bloque('#ef5350', imp.toFixed(1)+' kWh',    '⬇️ Red · import total') +
+    bloque('#b388ff', (totalC>0?Math.round(auto/totalC*100):0)+' %', '♻️ Autoconsumo') +
+    bloque('#8bc34a', (auto*0.15).toFixed(2)+' €', '💶 Ahorro estimado');
+}
+
+/* ============================================================
+   HOVER / TOOLTIP
+   ============================================================ */
 function initHoverChartDet(){
   const svg=$('chart-det'); if(!svg) return;
   const tooltip=$('chart-det-tooltip');
+
   svg.addEventListener('mousemove',e=>{
     if(!ChartDet.puntos||!ChartDet.escala) return;
     const rect=svg.getBoundingClientRect();
     const xVB=(e.clientX-rect.left)/rect.width*900;
-    const{px,N}=ChartDet.escala;
-    let idx=0,dist=Infinity;
-    for(let i=0;i<N;i++){
-      const d=Math.abs(px(i)-xVB);
-      if(d<dist){dist=d;idx=i}
+    const yVB=(e.clientY-rect.top)/rect.height*340;
+
+    if(ChartDet.modo==='line'){
+      hover24h(xVB,e,rect);
+    } else {
+      hover7d(xVB,e,rect);
     }
-    mostrarHoverChartDet(idx,e,rect);
   });
+
   svg.addEventListener('mouseleave',()=>{
     const h=$('chart-det-hover'); if(h) h.style.display='none';
     if(tooltip) tooltip.classList.remove('show');
   });
 }
-function mostrarHoverChartDet(idx,evt,rect){
-  const{px,py}=ChartDet.escala;
+
+function hover24h(xVB,evt,rect){
+  const{px}=ChartDet.escala;
+  let idx=0,dist=Infinity;
+  ChartDet.puntos.forEach((p,i)=>{
+    const d=Math.abs(px(p.min)-xVB);
+    if(d<dist){dist=d;idx=i}
+  });
   const p=ChartDet.puntos[idx];
   if(!p) return;
+  const x=px(p.min);
   const hov=$('chart-det-hover'); hov.style.display='';
-  const x=px(idx);
   const cr=$('det-cross');
   cr.setAttribute('x1',x); cr.setAttribute('x2',x);
   cr.setAttribute('y1',20); cr.setAttribute('y2',300);
+
+  const{py}=ChartDet.escala;
   const setDot=(id,v)=>{
     const el=$(id);
-    if(v===null||v===undefined){el.style.display='none';return}
+    if(v===null||v===undefined||v===0){el.style.display='none';return}
     el.style.display='';
     el.setAttribute('cx',x);
     el.setAttribute('cy',py(v));
@@ -480,7 +620,7 @@ function mostrarHoverChartDet(idx,evt,rect){
   setDot('det-dot-red',  p.red);
 
   const tt=$('chart-det-tooltip'); if(!tt) return;
-  const redColor=(p.red||0)>=0?'#4caf50':'#ef5350';
+  const redColor=p.red>=0?'#4caf50':'#ef5350';
   const fmt=v=>(v===null||v===undefined)?'—':v.toFixed(2)+' kW';
   tt.innerHTML=
     '<div style="font-weight:600;color:#4fc3f7;margin-bottom:4px">'+p.label+'</div>'+
@@ -489,11 +629,45 @@ function mostrarHoverChartDet(idx,evt,rect){
     '<div><span class="dot" style="background:#b388ff"></span>Coche<b>'+fmt(p.coche)+'</b></div>'+
     '<div><span class="dot" style="background:'+redColor+'"></span>Red<b>'+fmt(p.red)+'</b></div>';
   tt.classList.add('show');
+  posicionarTooltip(tt,evt,rect);
+}
 
+function hover7d(xVB,evt,rect){
+  const{pL,pR,W,anchoGrupo,nDias}=ChartDet.escala;
+  const innerW=W-pL-pR;
+  const rel = xVB - pL;
+  let idx = Math.floor(rel/anchoGrupo);
+  if(idx<0) idx=0; if(idx>=nDias) idx=nDias-1;
+  const d=ChartDet.puntos[idx];
+  if(!d) return;
+
+  const cx = pL + anchoGrupo*(idx+0.5);
+  const hov=$('chart-det-hover'); hov.style.display='';
+  const cr=$('det-cross');
+  cr.setAttribute('x1',cx); cr.setAttribute('x2',cx);
+  cr.setAttribute('y1',20); cr.setAttribute('y2',280);
+
+  // Ocultar los dots del hover (no aplican en modo barras)
+  ['det-dot-solar','det-dot-casa','det-dot-coche','det-dot-red'].forEach(id=>{
+    const e=$(id); if(e) e.style.display='none';
+  });
+
+  const tt=$('chart-det-tooltip'); if(!tt) return;
+  const auto = Math.min(d.solar,d.casa);
+  tt.innerHTML=
+    '<div style="font-weight:600;color:#4fc3f7;margin-bottom:4px">'+d.labelFull+'</div>'+
+    '<div><span class="dot" style="background:#ffc107"></span>Solar<b>'+d.solar.toFixed(2)+' kWh</b></div>'+
+    '<div><span class="dot" style="background:#4fc3f7"></span>Casa<b>'+d.casa.toFixed(2)+' kWh</b></div>'+
+    '<div style="border-top:1px solid #2a2f3a;margin-top:4px;padding-top:4px"><span class="dot" style="background:#b388ff"></span>Autoconsumo<b>'+auto.toFixed(2)+' kWh</b></div>';
+  tt.classList.add('show');
+  posicionarTooltip(tt,evt,rect);
+}
+
+function posicionarTooltip(tt,evt,rect){
   const wrap=tt.parentElement.getBoundingClientRect();
   let left=(evt.clientX-wrap.left)+16;
   let top =(evt.clientY-wrap.top)-30;
-  const ttW=180, ttH=110;
+  const ttW=200, ttH=130;
   if(left+ttW>wrap.width) left=left-ttW-30;
   if(left<0) left=10;
   if(top<0) top=10;
@@ -502,14 +676,20 @@ function mostrarHoverChartDet(idx,evt,rect){
   tt.style.top =top+'px';
 }
 
-/* --- Cargar la gráfica detallada --- */
+/* ============================================================
+   CARGA DE LA GRÁFICA
+   ============================================================ */
 async function cargarChartDet(){
   try{
-    // 24h → últimas 26 horas de lecturas crudas
-    // 7d  → 8 días (por si hoy está a medias) de lecturas crudas
-    const horas = ChartDet.rango==='24h' ? 26 : 8*24;
-    const filas = await leerLecturasHoras(horas);
-    ChartDet.crudo=filas;
+    if(ChartDet.rango==='24h'){
+      // Últimas 26 h de lecturas crudas (para cubrir el día actual completo)
+      const filas = await leerLecturasHoras(26);
+      ChartDet.crudo = filas;
+    } else {
+      // Últimos 7 días de la vista curva_horaria
+      const filas = await leerCurvaDias(7);
+      ChartDet.crudo = filas;
+    }
     dibujarChartDet();
   }catch(e){
     console.warn('Error chart det:',e.message);
@@ -525,23 +705,12 @@ function setRango(r){
 }
 
 /* ============================================================
-   BARRAS SEMANALES · con datos reales de curva_horaria
+   BARRAS SEMANALES INFERIORES (independiente del chart detallado)
    ============================================================ */
 async function cargarSemana(){
-  const s=CONFIG.SUPABASE;
   if(!$('bars-semana')) return;
-
   try{
-    // Pedir los últimos 7 días de la vista curva_horaria
-    const hoy=new Date();
-    const desde=new Date(); desde.setDate(desde.getDate()-6);
-    const desdeStr=fechaMadrid(desde);
-
-    const filas=await supaFetch(
-      s.VISTA_CURVA+'?dia=gte.'+desdeStr+'&order=dia.asc,hora.asc'
-    );
-
-    // Agrupar kWh por día (suma de kW/hora = kWh del día)
+    const filas=await leerCurvaDias(7);
     const porDia={};
     filas.forEach(f=>{
       const k=f.dia;
@@ -549,39 +718,26 @@ async function cargarSemana(){
       porDia[k].solar += (+f.solar_kw||0);
       porDia[k].casa  += (+f.casa_kw ||0);
     });
-
-    // Generar SIEMPRE los últimos 7 días, aunque no haya datos
     const arr=[];
-    const nombres=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
     for(let i=6;i>=0;i--){
       const d=new Date();
       d.setDate(d.getDate()-i);
       const key=fechaMadrid(d);
       const datos=porDia[key]||{solar:0,casa:0};
-      arr.push({
-        fecha:key,
-        dia:d,
-        solar:datos.solar,
-        casa:datos.casa
-      });
+      arr.push({fecha:key,dia:d,solar:datos.solar,casa:datos.casa});
     }
     dibujarSemana(arr);
   }catch(e){
     console.warn('Error semana:',e.message);
   }
 }
-
 function dibujarSemana(arr){
   const el=$('bars-semana'); if(!el) return;
   const nombres=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-
-  // Escala común
   const maxV=Math.max(1,...arr.map(d=>Math.max(d.solar,d.casa)));
-
   let totalProd=0,totalCons=0;
   el.innerHTML=arr.map(d=>{
-    totalProd+=d.solar;
-    totalCons+=d.casa;
+    totalProd+=d.solar; totalCons+=d.casa;
     const hS=maxV>0?(d.solar/maxV*100):0;
     const hC=maxV>0?(d.casa /maxV*100):0;
     const esHoy=fechaMadrid(d.dia)===fechaMadrid(new Date());
@@ -593,7 +749,6 @@ function dibujarSemana(arr){
       <div class="bar-day" ${esHoy?'style="color:var(--a);font-weight:700"':''}>${nombres[d.dia.getDay()]}</div>
     </div>`;
   }).join('');
-
   setTxt('sem-prod',totalProd.toFixed(1)+' kWh');
   setTxt('sem-cons',totalCons.toFixed(1)+' kWh');
   const auto=totalCons>0?Math.round(Math.min(totalProd,totalCons)/totalCons*100):0;
@@ -618,7 +773,6 @@ const btnAuto=$('btn-auto');
 if(btnAuto) btnAuto.addEventListener('click',()=>{
   if(CONFIG.USAR_DATOS_REALES){alert('Estás en modo datos reales.');return}
 });
-
 function tCoche(el){
   el.classList.toggle('on');
   E.cocheOn=el.classList.contains('on');
@@ -639,19 +793,15 @@ function iniciarSupabase(){
   const b=$('btn-auto');
   if(b){b.textContent='🔄 Modo datos reales';b.style.opacity='.7'}
 
-  // Estado en vivo cada 5 s
   pollEstado();
   setInterval(pollEstado, CONFIG.SUPABASE.INTERVALO);
 
-  // Gráfica detallada cada 60 s
   cargarChartDet();
   setInterval(cargarChartDet, 60000);
 
-  // Barras semanales cada 5 min (los datos del día apenas cambian)
   cargarSemana();
   setInterval(cargarSemana, 300000);
 
-  // Inicializar hover
   initHoverChartDet();
 }
 
