@@ -51,7 +51,7 @@
     </div>
   </header>
 
-  <!-- ===== FLUJO DE ENERGÍA (compacto, horizontal) ===== -->
+  <!-- ===== FLUJO DE ENERGÍA (tarjetas horizontales) ===== -->
   <div class="section-title">Energía solar</div>
   <div class="card energy-card">
     <div class="card-head" style="align-items:center">
@@ -59,7 +59,7 @@
       <span class="badge blue" id="estado-red">Calculando…</span>
     </div>
 
-    <svg class="flow-svg" viewBox="0 0 1200 290" style="max-height:280px">
+    <svg class="flow-svg flow-svg-cards" viewBox="0 0 1200 340">
       <defs>
         <radialGradient id="sunGrad" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stop-color="#fff59d"/>
@@ -76,149 +76,153 @@
         </linearGradient>
       </defs>
 
-      <!-- Cables -->
-      <path class="wire" d="M145,80 Q 195,105 250,115"/>
-      <path class="wire" id="w-bat" d="M100,115 Q 60,180 40,240" style="display:none"/>
-      <path class="wire" d="M390,85 Q 470,70 552,63"/>
-      <path class="wire" d="M390,155 Q 700,160 1032,120"/>
-      <path class="wire" d="M600,113 L 600,162"/>
+      <!-- ===== CABLES ===== -->
+      <path class="wire-h" d="M220,130 L 300,130"/>
+      <path class="wire-h" d="M480,130 L 560,130"/>
+      <path class="wire-h" d="M740,130 L 820,130"/>
+      <path class="wire-h" d="M650,200 L 650,240"/>
+      <path class="wire-h" id="w-bat" d="M130,200 L 130,255" style="display:none"/>
 
-      <!-- Flujos animados -->
-      <path id="f-solar" class="flow" d="M145,80 Q 195,105 250,115"/>
-      <path id="f-bat-out" class="flow" d="M100,115 Q 60,180 40,240" style="display:none"/>
-      <path id="f-bat-in" class="flow rev" d="M100,115 Q 60,180 40,240" style="display:none"/>
-      <path id="f-casa" class="flow" d="M390,85 Q 470,70 552,63"/>
-      <path id="f-export" class="flow" d="M390,155 Q 700,160 1032,120"/>
-      <path id="f-import" class="flow rev" d="M390,155 Q 700,160 1032,120"/>
-      <path id="f-coche" class="flow" d="M600,113 L 600,162"/>
+      <!-- ===== FLUJOS ANIMADOS ===== -->
+      <path id="f-solar"  class="flow"     d="M220,130 L 300,130"/>
+      <path id="f-casa"   class="flow"     d="M480,130 L 560,130"/>
+      <path id="f-export" class="flow"     d="M740,130 L 820,130"/>
+      <path id="f-import" class="flow rev" d="M740,130 L 820,130"/>
+      <path id="f-coche"  class="flow"     d="M650,200 L 650,240"/>
+      <path id="f-bat-in"  class="flow rev" d="M130,200 L 130,255" style="display:none"/>
+      <path id="f-bat-out" class="flow"     d="M130,200 L 130,255" style="display:none"/>
 
-      <!-- ============ SOLAR ============ -->
+      <!-- ===== TARJETA: SOLAR ===== -->
       <g class="node" id="n-solar">
-        <circle class="ring" cx="100" cy="70" r="45"/>
+        <rect class="box" x="40" y="60" width="180" height="140" rx="16"/>
 
-        <g class="sun-icon" transform="translate(100,48)">
+        <g transform="translate(130,108)">
           <g class="rays" stroke="#ffc107" stroke-width="1.5" stroke-linecap="round">
-            <line x1="0" y1="-13" x2="0" y2="-16"/>
-            <line x1="0" y1="13" x2="0" y2="16"/>
-            <line x1="-13" y1="0" x2="-16" y2="0"/>
-            <line x1="13" y1="0" x2="16" y2="0"/>
-            <line x1="-9" y1="-9" x2="-11" y2="-11"/>
-            <line x1="9" y1="9" x2="11" y2="11"/>
-            <line x1="-9" y1="9" x2="-11" y2="11"/>
-            <line x1="9" y1="-9" x2="11" y2="-11"/>
+            <line x1="0" y1="-16" x2="0" y2="-19"/>
+            <line x1="0" y1="16" x2="0" y2="19"/>
+            <line x1="-16" y1="0" x2="-19" y2="0"/>
+            <line x1="16" y1="0" x2="19" y2="0"/>
+            <line x1="-11" y1="-11" x2="-13" y2="-13"/>
+            <line x1="11" y1="11" x2="13" y2="13"/>
+            <line x1="-11" y1="11" x2="-13" y2="13"/>
+            <line x1="11" y1="-11" x2="13" y2="-13"/>
           </g>
-          <circle r="9" fill="url(#sunGrad)"/>
-          <circle r="5" fill="#fff59d" opacity=".7"/>
+          <circle r="11" fill="url(#sunGrad)"/>
+          <circle r="6" fill="#fff59d" opacity=".75"/>
+
+          <g transform="translate(0,26)">
+            <polygon points="-34,-4 34,-4 28,10 -28,10" fill="url(#panelGrad)" stroke="#4fc3f7" stroke-width=".9"/>
+            <line x1="-34" y1="1" x2="34" y2="1" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
+            <line x1="-17" y1="-4" x2="-14" y2="10" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
+            <line x1="0" y1="-4" x2="0" y2="10" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
+            <line x1="17" y1="-4" x2="14" y2="10" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
+            <polygon points="-34,-4 34,-4 28,10 -28,10" fill="url(#sunGrad)" opacity=".15" class="panel-glow"/>
+          </g>
         </g>
 
-        <g class="panels" transform="translate(100,78)">
-          <polygon points="-22,-5 22,-5 18,5 -18,5" fill="url(#panelGrad)" stroke="#4fc3f7" stroke-width=".9"/>
-          <line x1="-22" y1="-1" x2="22" y2="-1" stroke="#4fc3f7" stroke-width=".35" opacity=".55"/>
-          <line x1="-22" y1="2" x2="22" y2="2" stroke="#4fc3f7" stroke-width=".35" opacity=".55"/>
-          <line x1="-11" y1="-5" x2="-9" y2="5" stroke="#4fc3f7" stroke-width=".35" opacity=".55"/>
-          <line x1="0" y1="-5" x2="0" y2="5" stroke="#4fc3f7" stroke-width=".35" opacity=".55"/>
-          <line x1="11" y1="-5" x2="9" y2="5" stroke="#4fc3f7" stroke-width=".35" opacity=".55"/>
-          <line x1="-15" y1="5" x2="15" y2="5" stroke="#9aa0a6" stroke-width="1.3" stroke-linecap="round"/>
-          <polygon points="-22,-5 22,-5 18,5 -18,5" fill="url(#sunGrad)" opacity=".15" class="panel-glow"/>
-        </g>
-
-        <text class="val" x="100" y="98" id="v-solar" style="font-size:12px">0 W</text>
+        <text class="box-name" x="130" y="164">Solar</text>
+        <text class="val" x="130" y="186" id="v-solar">0 W</text>
       </g>
-      <text class="node-lbl" x="100" y="130" style="font-size:10px">Solar</text>
 
-      <!-- ============ BATERÍA (oculta) ============ -->
-      <g class="node" id="n-bat" style="display:none">
-        <circle class="ring" cx="100" cy="240" r="42"/>
-        <g transform="translate(100,240)">
-          <rect x="-18" y="-22" width="36" height="40" rx="5" fill="#0f1115" stroke="#4caf50" stroke-width="1.5"/>
-          <rect x="-13" y="-16" width="26" height="28" rx="2" fill="#0a0d12"/>
-          <rect x="-11" y="-14" width="22" height="24" rx="1" fill="#4caf50" opacity=".7"/>
-          <rect x="-6" y="-26" width="12" height="4" rx="1" fill="#4caf50"/>
-          <text class="val" x="0" y="38" id="v-bat" style="font-size:11px">0 %</text>
-        </g>
-      </g>
-      <text class="node-lbl" id="lbl-bat" x="100" y="290" style="display:none;font-size:10px">Batería</text>
-
-      <!-- ============ FRONIUS ============ -->
+      <!-- ===== TARJETA: FRONIUS ===== -->
       <g class="node" id="n-fronius">
-        <rect class="ring-rect" x="250" y="65" width="140" height="105" rx="14"/>
-        <g class="icon-fronius" transform="translate(320,102)">
-          <rect x="-38" y="-30" width="76" height="60" rx="6" fill="url(#froniusBody)" stroke="#4fc3f7" stroke-width="1.5"/>
-          <rect x="-38" y="-30" width="76" height="14" rx="6" fill="#7c4dff" opacity=".35"/>
-          <text x="0" y="-20" text-anchor="middle" fill="#b388ff" font-size="8" font-weight="800" font-family="inherit" letter-spacing="1.2">FRONIUS</text>
-          <rect x="-32" y="-10" width="36" height="16" rx="1.5" fill="#0a0d12" stroke="#4fc3f7" stroke-width=".6"/>
-          <text x="-14" y="-1" text-anchor="middle" fill="#4fc3f7" font-size="7" font-weight="600" font-family="monospace">3.2kW</text>
-          <circle cx="16" cy="-4" r="2.8" fill="#4caf50" class="led led-1"/>
-          <circle cx="26" cy="-4" r="2.8" fill="#4caf50" class="led led-2"/>
-          <circle cx="16" cy="6" r="2.8" fill="#ffc107" class="led led-3"/>
-          <circle cx="26" cy="6" r="2.8" fill="#6b7280"/>
-          <line x1="-32" y1="16" x2="32" y2="16" stroke="#4fc3f7" stroke-width=".8" opacity=".3"/>
-          <line x1="-32" y1="20" x2="32" y2="20" stroke="#4fc3f7" stroke-width=".8" opacity=".3"/>
-          <line x1="-32" y1="24" x2="32" y2="24" stroke="#4fc3f7" stroke-width=".8" opacity=".3"/>
-        </g>
-        <text class="val" x="320" y="150" id="v-fronius" style="font-size:13px">0 W</text>
-      </g>
-      <text class="node-lbl" x="320" y="195" style="font-size:10px">Fronius</text>
+        <rect class="box" x="300" y="60" width="180" height="140" rx="16"/>
 
-      <!-- ============ CASA ============ -->
+        <g transform="translate(390,110)">
+          <rect x="-52" y="-38" width="104" height="76" rx="8" fill="url(#froniusBody)" stroke="#4fc3f7" stroke-width="1.5"/>
+          <rect x="-52" y="-38" width="104" height="18" rx="8" fill="#7c4dff" opacity=".35"/>
+          <text x="0" y="-25" text-anchor="middle" fill="#b388ff" font-size="10" font-weight="800" font-family="inherit" letter-spacing="2">FRONIUS</text>
+          <rect x="-44" y="-12" width="48" height="20" rx="2" fill="#0a0d12" stroke="#4fc3f7" stroke-width=".7"/>
+          <text x="-20" y="2" text-anchor="middle" fill="#4fc3f7" font-size="10" font-weight="700" font-family="monospace">3.2kW</text>
+          <circle cx="22" cy="-4" r="3.5" fill="#4caf50" class="led led-1"/>
+          <circle cx="34" cy="-4" r="3.5" fill="#4caf50" class="led led-2"/>
+          <circle cx="22" cy="10" r="3.5" fill="#ffc107" class="led led-3"/>
+          <circle cx="34" cy="10" r="3.5" fill="#6b7280"/>
+          <line x1="-44" y1="22" x2="44" y2="22" stroke="#4fc3f7" stroke-width="1" opacity=".35"/>
+          <line x1="-44" y1="27" x2="44" y2="27" stroke="#4fc3f7" stroke-width="1" opacity=".35"/>
+        </g>
+
+        <text class="box-name" x="390" y="164">Fronius</text>
+        <text class="val" x="390" y="186" id="v-fronius">0 W</text>
+      </g>
+
+      <!-- ===== TARJETA: CASA ===== -->
       <g class="node" id="n-casa">
-        <circle class="ring" cx="600" cy="65" r="48"/>
-        <g class="icon-casa" transform="translate(600,52)">
-          <polygon points="-26,2 0,-22 26,2" fill="#1a1f28" stroke="#4fc3f7" stroke-width="1.5"/>
-          <polygon points="0,-22 26,2 19,2 0,-15" fill="url(#panelGrad)" stroke="#ffc107" stroke-width=".9"/>
-          <line x1="6" y1="-17" x2="22" y2="-2" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
-          <line x1="3" y1="-13" x2="19" y2="2" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
-          <line x1="9" y1="-19" x2="25" y2="-4" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
-          <rect x="-20" y="2" width="40" height="24" fill="#1a1f28" stroke="#4fc3f7" stroke-width="1.5"/>
-          <rect x="-6" y="11" width="12" height="15" fill="#4fc3f7" opacity=".7"/>
-          <circle cx="3" cy="19" r="1" fill="#0f1115"/>
-          <rect x="-16" y="7" width="8" height="8" fill="#ffc107" opacity=".8" class="ventana ventana-1"/>
-          <rect x="8" y="7" width="8" height="8" fill="#ffc107" opacity=".8" class="ventana ventana-2"/>
-        </g>
-        <text class="val" x="600" y="90" id="v-casa" style="font-size:13px">0 W</text>
-      </g>
-      <text class="node-lbl" x="600" y="130" style="font-size:10px">Vivienda</text>
+        <rect class="box" x="560" y="60" width="180" height="140" rx="16"/>
 
-      <!-- ============ RED ============ -->
+        <g transform="translate(650,112)">
+          <polygon points="-38,4 0,-32 38,4" fill="#1a1f28" stroke="#4fc3f7" stroke-width="1.8"/>
+          <polygon points="0,-32 38,4 28,4 0,-22" fill="url(#panelGrad)" stroke="#ffc107" stroke-width="1"/>
+          <line x1="8" y1="-25" x2="32" y2="-1" stroke="#4fc3f7" stroke-width=".5" opacity=".6"/>
+          <line x1="4" y1="-20" x2="28" y2="3" stroke="#4fc3f7" stroke-width=".5" opacity=".6"/>
+          <rect x="-28" y="4" width="56" height="32" fill="#1a1f28" stroke="#4fc3f7" stroke-width="1.8"/>
+          <rect x="-8" y="16" width="16" height="20" fill="#4fc3f7" opacity=".75"/>
+          <circle cx="4" cy="26" r="1.2" fill="#0f1115"/>
+          <rect x="-22" y="10" width="11" height="11" fill="#ffc107" opacity=".8" class="ventana ventana-1"/>
+          <rect x="11" y="10" width="11" height="11" fill="#ffc107" opacity=".8" class="ventana ventana-2"/>
+        </g>
+
+        <text class="box-name" x="650" y="164">Vivienda</text>
+        <text class="val" x="650" y="186" id="v-casa">0 W</text>
+      </g>
+
+      <!-- ===== TARJETA: RED ===== -->
       <g class="node" id="n-red">
-        <circle class="ring" cx="1080" cy="120" r="48"/>
-        <g class="icon-red" transform="translate(1080,110)">
-          <line x1="0" y1="-26" x2="-16" y2="20" stroke="#4fc3f7" stroke-width="1.6"/>
-          <line x1="0" y1="-26" x2="16" y2="20" stroke="#4fc3f7" stroke-width="1.6"/>
-          <line x1="-16" y1="20" x2="16" y2="20" stroke="#4fc3f7" stroke-width="1.6"/>
-          <line x1="-12" y1="6" x2="12" y2="6" stroke="#4fc3f7" stroke-width="1" opacity=".85"/>
-          <line x1="-8" y1="-9" x2="8" y2="-9" stroke="#4fc3f7" stroke-width="1" opacity=".85"/>
-          <line x1="-12" y1="6" x2="8" y2="-9" stroke="#4fc3f7" stroke-width=".6" opacity=".5"/>
-          <line x1="12" y1="6" x2="-8" y2="-9" stroke="#4fc3f7" stroke-width=".6" opacity=".5"/>
-          <line x1="-20" y1="-14" x2="20" y2="-14" stroke="#4fc3f7" stroke-width="1.7"/>
-          <line x1="-14" y1="-20" x2="14" y2="-20" stroke="#4fc3f7" stroke-width="1.4"/>
-          <line x1="0" y1="-26" x2="0" y2="-20" stroke="#4fc3f7" stroke-width="1.2"/>
-          <circle cx="-20" cy="-14" r="2.2" fill="#ffc107" class="spark spark-1"/>
-          <circle cx="0" cy="-14" r="2.2" fill="#ffc107" class="spark spark-2"/>
-          <circle cx="20" cy="-14" r="2.2" fill="#ffc107" class="spark spark-3"/>
-          <circle cx="-14" cy="-20" r="1.8" fill="#4fc3f7" class="spark spark-4"/>
-          <circle cx="14" cy="-20" r="1.8" fill="#4fc3f7" class="spark spark-5"/>
-          <line x1="-18" y1="20" x2="18" y2="20" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round"/>
-        </g>
-        <text class="val" x="1080" y="143" id="v-red" style="font-size:12px">0 W</text>
-      </g>
-      <text class="node-lbl" x="1080" y="185" style="font-size:10px">Red eléctrica</text>
+        <rect class="box" x="820" y="60" width="180" height="140" rx="16"/>
 
-      <!-- ============ COCHE ============ -->
-      <g class="node" id="n-coche">
-        <circle class="ring" cx="600" cy="210" r="48"/>
-        <g class="icon-coche" transform="translate(600,202)">
-          <path d="M-24,7 L-18,-5 Q-12,-12 0,-12 Q12,-12 18,-5 L24,7 Z"
-                fill="#1a1f28" stroke="#b388ff" stroke-width="1.5"/>
-          <path d="M-16,-2 L-11,-9 Q-5,-11 0,-11 L0,-2 Z" fill="#b388ff" opacity=".4"/>
-          <path d="M0,-2 L0,-11 Q5,-11 11,-9 L16,-2 Z" fill="#b388ff" opacity=".4"/>
-          <circle cx="-13" cy="9" r="4" fill="#0f1115" stroke="#b388ff" stroke-width="1"/>
-          <circle cx="13" cy="9" r="4" fill="#0f1115" stroke="#b388ff" stroke-width="1"/>
-          <path d="M-2,-17 L-4,-12 L0,-12 L-2,-7" fill="none" stroke="#ffc107" stroke-width="1.7" stroke-linecap="round" class="bolt"/>
+        <g transform="translate(910,105)">
+          <line x1="0" y1="-34" x2="-22" y2="26" stroke="#4fc3f7" stroke-width="1.8"/>
+          <line x1="0" y1="-34" x2="22" y2="26" stroke="#4fc3f7" stroke-width="1.8"/>
+          <line x1="-22" y1="26" x2="22" y2="26" stroke="#4fc3f7" stroke-width="1.8"/>
+          <line x1="-17" y1="6" x2="17" y2="6" stroke="#4fc3f7" stroke-width="1.2" opacity=".85"/>
+          <line x1="-11" y1="-12" x2="11" y2="-12" stroke="#4fc3f7" stroke-width="1.2" opacity=".85"/>
+          <line x1="-17" y1="6" x2="11" y2="-12" stroke="#4fc3f7" stroke-width=".7" opacity=".55"/>
+          <line x1="17" y1="6" x2="-11" y2="-12" stroke="#4fc3f7" stroke-width=".7" opacity=".55"/>
+          <line x1="-28" y1="-20" x2="28" y2="-20" stroke="#4fc3f7" stroke-width="2"/>
+          <line x1="-20" y1="-28" x2="20" y2="-28" stroke="#4fc3f7" stroke-width="1.6"/>
+          <line x1="0" y1="-34" x2="0" y2="-28" stroke="#4fc3f7" stroke-width="1.3"/>
+          <circle cx="-28" cy="-20" r="2.8" fill="#ffc107" class="spark spark-1"/>
+          <circle cx="0" cy="-20" r="2.8" fill="#ffc107" class="spark spark-2"/>
+          <circle cx="28" cy="-20" r="2.8" fill="#ffc107" class="spark spark-3"/>
+          <circle cx="-20" cy="-28" r="2.3" fill="#4fc3f7" class="spark spark-4"/>
+          <circle cx="20" cy="-28" r="2.3" fill="#4fc3f7" class="spark spark-5"/>
+          <line x1="-24" y1="26" x2="24" y2="26" stroke="#4fc3f7" stroke-width="1.8" stroke-linecap="round"/>
         </g>
-        <text class="val" x="600" y="238" id="v-coche" style="font-size:12px">0 W</text>
+
+        <text class="box-name" x="910" y="164">Red eléctrica</text>
+        <text class="val" x="910" y="186" id="v-red">0 W</text>
       </g>
-      <text class="node-lbl" x="600" y="278" style="font-size:10px">Coche eléctrico</text>
+
+      <!-- ===== TARJETA: COCHE ===== -->
+      <g class="node" id="n-coche">
+        <rect class="box" x="560" y="240" width="180" height="90" rx="16"/>
+
+        <g transform="translate(610,285)">
+          <path d="M-32,10 L-24,-6 Q-16,-16 0,-16 Q16,-16 24,-6 L32,10 Z"
+                fill="#1a1f28" stroke="#b388ff" stroke-width="1.8"/>
+          <path d="M-22,-2 L-14,-11 Q-7,-14 0,-14 L0,-2 Z" fill="#b388ff" opacity=".4"/>
+          <path d="M0,-2 L0,-14 Q7,-14 14,-11 L22,-2 Z" fill="#b388ff" opacity=".4"/>
+          <circle cx="-16" cy="12" r="5.5" fill="#0f1115" stroke="#b388ff" stroke-width="1.2"/>
+          <circle cx="16" cy="12" r="5.5" fill="#0f1115" stroke="#b388ff" stroke-width="1.2"/>
+          <path d="M-3,-22 L-5,-15 L0,-15 L-3,-8" fill="none" stroke="#ffc107" stroke-width="2" stroke-linecap="round" class="bolt"/>
+        </g>
+
+        <text class="box-name" x="680" y="285" text-anchor="start">Coche</text>
+        <text class="val" x="680" y="307" text-anchor="start" id="v-coche">0 W</text>
+      </g>
+
+      <!-- ===== TARJETA: BATERÍA (oculta) ===== -->
+      <g class="node" id="n-bat" style="display:none">
+        <rect class="box" x="40" y="240" width="180" height="90" rx="16"/>
+        <g transform="translate(90,285)">
+          <rect x="-22" y="-26" width="44" height="48" rx="6" fill="#0f1115" stroke="#4caf50" stroke-width="1.6"/>
+          <rect x="-16" y="-20" width="32" height="36" rx="2" fill="#0a0d12"/>
+          <rect x="-14" y="-18" width="28" height="32" rx="1" fill="#4caf50" opacity=".7"/>
+          <rect x="-7" y="-31" width="14" height="5" rx="1" fill="#4caf50"/>
+        </g>
+        <text class="box-name" x="160" y="285" text-anchor="start">Batería</text>
+        <text class="val" x="160" y="307" text-anchor="start" id="v-bat">0 %</text>
+      </g>
 
     </svg>
 
