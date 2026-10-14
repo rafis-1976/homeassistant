@@ -2,30 +2,24 @@
    CONFIGURACIÓN
    ============================================================ */
 const CONFIG = {
-  // ← Activa los datos reales
   USAR_DATOS_REALES: true,
 
   SUPABASE: {
     URL: 'https://mwzhyozqmsqmfpgtzeek.supabase.co',   // ← cambia esto
     KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13emh5b3pxbXNxbWZwZ3R6ZWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMjE3ODEsImV4cCI6MjEwNTc5Nzc4MX0.U03Ec0QqhWznmy9_pyyjvp0yS9vzuPy9FY01UvfZDs0',                 // ← cambia esto
-    TABLA: 'lecturas',
-    COLUMNAS: {
-      solar:     'solar_w',      // W
-      casa:      'casa_w',       // W
-      coche:     'coche_w',      // W
-      red:       'red_w',        // W
-      bat:       null,           // no hay batería
-      timestamp: 'ts'
-    },
-    INTERVALO: 5000,
-    // true si red_w > 0 significa que ESTÁS EXPORTANDO
-    // false si red_w > 0 significa que ESTÁS IMPORTANDO (lo habitual)
+    // Tabla y vistas (todas existen ya en tu Supabase)
+    TABLA_ESTADO:  'estado_actual',
+    TABLA_HIST:    'lecturas',
+    VISTA_CURVA:   'curva_horaria',
+    VISTA_DT:      'lecturas_dt',
+    INTERVALO:     5000,
+    // Interpretación de red_w:
+    //   false → red_w positivo = IMPORTANDO (lo habitual)
+    //   true  → red_w positivo = EXPORTANDO
     RED_POSITIVA_ES_EXPORT: false
   },
 
   TIENE_BATERIA: false,
-  BAT_CAP: 10,
-  BAT_MAX_POT: 3,
   COCHE_MAX: 11,
   FRONIUS_MODELO: 'Primo GEN24 6.0'
 };
@@ -50,7 +44,7 @@ function reloj(){
 reloj();setInterval(reloj,1000);
 
 /* ============================================================
-   LUCES
+   LUCES · TERMOSTATO · ESCENAS
    ============================================================ */
 function tLuz(el){
   el.classList.toggle('on');
@@ -66,10 +60,6 @@ function brillo(s){
   if(v==0&&t.classList.contains('on')){t.classList.remove('on');c.classList.remove('on')}
   c.querySelector('.card-sub').textContent=t.classList.contains('on')?'Encendida · '+v+'%':'Apagada';
 }
-
-/* ============================================================
-   TERMOSTATO
-   ============================================================ */
 let tempObj=22;
 function temp(d){
   tempObj=cl(tempObj+d,10,30);
@@ -77,10 +67,6 @@ function temp(d){
   const fg=document.querySelector('.dial .fg');
   if(fg) fg.style.strokeDashoffset=251.3*(1-(tempObj-10)/20);
 }
-
-/* ============================================================
-   ESCENAS
-   ============================================================ */
 function escena(el){
   document.querySelectorAll('.scene').forEach(s=>s.classList.remove('active'));
   el.classList.add('active');
@@ -103,10 +89,6 @@ function setT(t){
   const fg=document.querySelector('.dial .fg');
   if(fg) fg.style.strokeDashoffset=251.3*(1-(t-10)/20);
 }
-
-/* ============================================================
-   NAV
-   ============================================================ */
 document.querySelectorAll('.nav-item').forEach(i=>i.addEventListener('click',()=>{
   document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
   i.classList.add('active');
@@ -114,59 +96,21 @@ document.querySelectorAll('.nav-item').forEach(i=>i.addEventListener('click',()=
 }));
 
 /* ============================================================
-   FLUCTUACIÓN DE TEMPERATURA
-   ============================================================ */
-setInterval(()=>{
-  const v=document.querySelectorAll('.sensor-val');
-  const esTemp=t=>t&&t.includes('°C');
-  if(v[0]&&esTemp(v[0].textContent)) v[0].textContent=(22+Math.random()*.6).toFixed(1)+' °C';
-  if(v[1]&&esTemp(v[1].textContent)) v[1].textContent=(20+Math.random()*.6).toFixed(1)+' °C';
-  if(v[2]&&esTemp(v[2].textContent)) v[2].textContent=(23.5+Math.random()*.6).toFixed(1)+' °C';
-},5000);
-
-/* ============================================================
    ESTADO ENERGÉTICO
    ============================================================ */
 const E={
-  h:9,
   sol:0, casa:0, coche:0, cocheOn:false, cocheDeseada:7.4, cocheModo:'max',
-  bat:65, auto:false,
-  cb:0, db:0, exp:0, imp:0,
-  kwhCoche:0, kwhFronius:0, kwhBat:0
+  exp:0, imp:0, bat:65,
+  energiaDiaKwh:0,   // viene de estado_actual
+  kwhCoche:0
 };
 
 /* ============================================================
-   BALANCE (simulación)
-   ============================================================ */
-function bal(){
-  let cochePot=0;
-  if(E.cocheOn){
-    if(E.cocheModo==='solar'){
-      const excedente=Math.max(0,E.sol-E.casa);
-      cochePot=Math.min(E.cocheDeseada,excedente);
-    } else {
-      cochePot=E.cocheDeseada;
-    }
-  }
-  E.coche=cochePot;
-  const consTotal=E.casa+E.coche;
-  const neto=E.sol-consTotal;
-  let cb=0,db=0,ex=0,im=0;
-  if(neto>0){ex=neto}
-  else if(neto<0){im=-neto}
-  E.cb=cb;E.db=db;E.exp=ex;E.imp=im;
-  const step=0.1/60;
-  E.kwhFronius+=E.sol*step;
-  if(E.cocheOn) E.kwhCoche+=E.coche*step;
-}
-
-/* ============================================================
-   SUPABASE
+   SUPABASE · Fetch base
    ============================================================ */
 async function supaFetch(path){
   const s=CONFIG.SUPABASE;
-  const url=s.URL+'/rest/v1/'+path;
-  const r=await fetch(url,{
+  const r=await fetch(s.URL+'/rest/v1/'+path,{
     headers:{
       'apikey': s.KEY,
       'Authorization': 'Bearer '+s.KEY,
@@ -180,39 +124,55 @@ async function supaFetch(path){
   return r.json();
 }
 
-async function supaUltimaFila(){
+/* ============================================================
+   LECTURA · estado_actual (fila única, id=1)
+   ============================================================ */
+async function leerEstadoActual(){
   const s=CONFIG.SUPABASE;
-  const sel='ts,solar_w,casa_w,red_w,coche_w';
   const data=await supaFetch(
-    s.TABLA+'?select='+sel+'&order='+s.COLUMNAS.timestamp+'.desc&limit=1'
+    s.TABLA_ESTADO+'?id=eq.1&select=*'
   );
   return data && data[0] ? data[0] : null;
 }
 
-async function supaHoy(){
+/* ============================================================
+   LECTURA · curva_horaria de un día concreto
+   ============================================================ */
+async function leerCurvaHoy(){
   const s=CONFIG.SUPABASE;
-  const sel='ts,solar_w,casa_w,red_w,coche_w';
-  const hoy=new Date(); hoy.setHours(0,0,0,0);
-  const iso=hoy.toISOString();
+  const hoy=new Date();
+  // Fecha en formato YYYY-MM-DD en zona Europe/Madrid
+  const fmt=new Intl.DateTimeFormat('fr-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'});
+  const fecha=fmt.format(hoy);  // "2026-10-14"
+  const data=await supaFetch(
+    s.VISTA_CURVA+'?dia=eq.'+fecha+'&order=hora.asc'
+  );
+  return data||[];
+}
+
+/* ============================================================
+   LECTURA · curva_horaria últimos N días
+   ============================================================ */
+async function leerCurvaSemana(dias){
+  const s=CONFIG.SUPABASE;
+  const fmt=new Intl.DateTimeFormat('fr-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'});
+  const desde=new Date(); desde.setDate(desde.getDate()-(dias-1));
+  const fechaDesde=fmt.format(desde);
   return await supaFetch(
-    s.TABLA+'?select='+sel+'&'+s.COLUMNAS.timestamp+'=gte.'+iso+
-    '&order='+s.COLUMNAS.timestamp+'.asc'
+    s.VISTA_CURVA+'?dia=gte.'+fechaDesde+'&order=dia.asc,hora.asc'
   );
 }
 
-function aplicarSupabase(fila){
+/* ============================================================
+   APLICAR estado_actual al estado E
+   ============================================================ */
+function aplicarEstado(fila){
   if(!fila) return;
-  const c=CONFIG.SUPABASE.COLUMNAS;
-
-  const numW=k=>{
+  const w=k=>{
     const v=parseFloat(fila[k]);
     return isNaN(v)?null:v/1000;   // W → kW
   };
-
-  const solar=numW(c.solar);
-  const casa =numW(c.casa);
-  const coche=numW(c.coche);
-  const red  =numW(c.red);
+  const solar=w('solar_w'), casa=w('casa_w'), coche=w('coche_w'), red=w('red_w');
 
   if(solar!==null) E.sol=solar;
   if(casa !==null) E.casa=casa;
@@ -223,33 +183,40 @@ function aplicarSupabase(fila){
     if(t) t.classList.toggle('on',E.cocheOn);
   }
 
-  // Interpretación de red_w
   if(red!==null){
     if(CONFIG.SUPABASE.RED_POSITIVA_ES_EXPORT){
       if(red>=0){E.exp=red;E.imp=0}
-      else{E.imp=-red;E.exp=0}
+      else{E.exp=0;E.imp=-red}
     } else {
       if(red>=0){E.imp=red;E.exp=0}
-      else{E.exp=-red;E.imp=0}
+      else{E.imp=0;E.exp=-red}
     }
   }
 
+  if(fila.energia_dia_kwh!==undefined && fila.energia_dia_kwh!==null){
+    E.energiaDiaKwh=parseFloat(fila.energia_dia_kwh)||0;
+  }
+
+  // Sincronizar sliders
   const s=$('in-solar'),cc=$('in-casa'),cch=$('in-coche');
-  if(s)   {s.value=E.sol.toFixed(1);  pintaS(s);}
-  if(cc)  {cc.value=E.casa.toFixed(1);pintaS(cc);}
-  if(cch && E.cocheOn){cch.value=E.coche.toFixed(1);pintaS(cch);}
+  if(s)   {s.value=E.sol.toFixed(2);  pintaS(s);}
+  if(cc)  {cc.value=E.casa.toFixed(2);pintaS(cc);}
+  if(cch && E.cocheOn){cch.value=E.coche.toFixed(2);pintaS(cch);}
 
   renderE();
 }
 
-async function pollSupabase(){
+/* ============================================================
+   POLLING estado_actual
+   ============================================================ */
+async function pollEstado(){
   try{
-    const fila=await supaUltimaFila();
+    const fila=await leerEstadoActual();
     if(fila){
-      aplicarSupabase(fila);
+      aplicarEstado(fila);
       marcarIndicador(true);
     } else {
-      marcarIndicador(false,'sin filas');
+      marcarIndicador(false,'sin fila id=1');
     }
   }catch(e){
     marcarIndicador(false,e.message);
@@ -298,7 +265,7 @@ function addClass(id,c){const el=$(id);if(el)el.classList.add(c);}
 function toggleClass(id,c,v){const el=$(id);if(el)el.classList.toggle(c,v);}
 
 function renderE(){
-  const{sol,casa,coche,cb,db,exp,imp,bat}=E;
+  const{sol,casa,coche,exp,imp}=E;
 
   setTxt('v-solar',sol.toFixed(2)+' kW');
   setTxt('v-casa',casa.toFixed(2)+' kW');
@@ -330,13 +297,9 @@ function renderE(){
   setTxt('lbl-casa',casa.toFixed(2)+' kW');
   setTxt('lbl-coche',coche.toFixed(2)+' kW');
 
-  const hh=String(Math.floor(E.h)).padStart(2,'0');
-  const mm=String(Math.floor((E.h%1)*60)).padStart(2,'0');
-  setTxt('sim-hora',hh+':'+mm);
-
   setTxt('fron-prod',sol.toFixed(2));
-  setTxt('fron-hoy',E.kwhFronius.toFixed(2)+' kWh');
-  setTxt('fron-temp',(32+sol*2+Math.random()*2).toFixed(0)+' °C');
+  setTxt('fron-hoy',E.energiaDiaKwh.toFixed(2)+' kWh');
+  setTxt('fron-temp',(32+sol*2).toFixed(0)+' °C');
   const bf=$('badge-fronius');
   if(bf){
     if(sol>.05){bf.className='badge green';bf.textContent='Produciendo'}
@@ -351,48 +314,18 @@ function renderE(){
     else{bc.classList.add('blue');bc.textContent='Desconectado'}
   }
   setTxt('coche-pot',coche.toFixed(2));
-  setTxt('coche-hoy',E.kwhCoche.toFixed(2)+' kWh');
-  setTxt('coche-sesion',E.cocheOn?(coche>.05?(Math.min(80,E.kwhCoche*8).toFixed(0)+' %'):'—'):'—');
   const ic=$('ico-coche'); if(ic) ic.style.background=E.cocheOn?'rgba(179,136,255,.18)':'rgba(255,255,255,.05)';
   toggleClass('card-coche','on',E.cocheOn&&coche>.05);
-}
 
-/* ============================================================
-   SIMULACIÓN (por si desactivas datos reales)
-   ============================================================ */
-function pasoE(){
-  if(E.auto && !CONFIG.USAR_DATOS_REALES){
-    E.h=(E.h+.1)%24;
-    const h=E.h;
-    const cs=Math.max(0,Math.sin((h-6)/12*Math.PI))*5.6;
-    const cc=.55+1.7*Math.exp(-Math.pow((h-7.5)/2,2))+2.3*Math.exp(-Math.pow((h-20.5)/2.4,2));
-    E.sol=cl(cs*(.85+Math.random()*.3),0,7);
-    E.casa=cl(cc*(.85+Math.random()*.3),.2,7);
-    const s=$('in-solar'),c=$('in-casa');
-    if(s){s.value=E.sol.toFixed(1);pintaS(s)}
-    if(c){c.value=E.casa.toFixed(1);pintaS(c)}
-    bal();
+  // KPI "Producción solar hoy" en vivo con el valor de estado_actual
+  if(E.energiaDiaKwh>0){
+    setHTML('kpi-prod',E.energiaDiaKwh.toFixed(1)+'<small>kWh</small>');
   }
-  if(!CONFIG.USAR_DATOS_REALES) renderE();
-}
-
-function tCoche(el){
-  el.classList.toggle('on');
-  E.cocheOn=el.classList.contains('on');
-  bal();renderE();
-}
-function setModoCoche(modo){
-  E.cocheModo=modo;
-  toggleClass('modo-max','active',modo==='max');
-  toggleClass('modo-solar','active',modo==='solar');
-  bal();renderE();
 }
 
 /* ============================================================
-   GRÁFICO 24H · KPIs · SEMANA (estáticos)
+   GRÁFICO 24H · con datos reales de curva_horaria
    ============================================================ */
-const S24=[0,0,0,0,0,0,.1,.4,1.1,2,3,3.9,4.3,4,3.3,2.4,1.4,.7,.2,.05,0,0,0,0];
-const C24=[.7,.6,.5,.5,.5,.7,1.3,2.2,1.7,1.1,1,1.3,1.7,1.4,1.2,1.3,1.9,2.7,2.5,2,1.6,1.3,1,.8];
 function curve(p){
   if(p.length<2)return'';let d='M'+p[0][0]+','+p[0][1];
   for(let i=0;i<p.length-1;i++){
@@ -401,68 +334,181 @@ function curve(p){
   }
   return d;
 }
-function graf24(){
-  if(!$('line-solar')) return;
-  const W=660,H=230,pL=40,pR=16,pT=16,pB=30,mY=5,n=24;
-  const px=i=>pL+(W-pL-pR)*i/(n-1),py=v=>H-pB-(H-pT-pB)*v/mY;
-  const dS=curve(S24.map((v,i)=>[px(i),py(v)]));
-  const dC=curve(C24.map((v,i)=>[px(i),py(v)]));
-  const base=' L'+px(23)+','+py(0)+' L'+px(0)+','+py(0)+' Z';
-  $('line-solar').setAttribute('d',dS);
-  $('line-cons').setAttribute('d',dC);
-  $('area-solar').setAttribute('d',dS+base);
-  $('area-cons').setAttribute('d',dC+base);
+
+function dibujarGrid(mY){
+  const W=660,H=230,pL=40,pR=16,pT=16,pB=30;
+  const py=v=>H-pB-(H-pT-pB)*v/mY;
+  const px=i=>pL+(W-pL-pR)*i/23;
   let g='';
-  for(let v=0;v<=mY;v++){const y=py(v);g+='<line class="grid-line" x1="'+pL+'" y1="'+y+'" x2="'+(W-pR)+'" y2="'+y+'"/><text class="ax-lbl" x="'+(pL-8)+'" y="'+(y+4)+'" text-anchor="end">'+v+'</text>'}
-  [0,4,8,12,16,20,23].forEach(i=>{g+='<text class="ax-lbl" x="'+px(i)+'" y="'+(H-8)+'" text-anchor="middle">'+String(i).padStart(2,'0')+'h</text>'});
+  for(let v=0;v<=mY;v++){
+    const y=py(v);
+    g+='<line class="grid-line" x1="'+pL+'" y1="'+y+'" x2="'+(W-pR)+'" y2="'+y+'"/>';
+    g+='<text class="ax-lbl" x="'+(pL-8)+'" y="'+(y+4)+'" text-anchor="end">'+v+'</text>';
+  }
+  [0,4,8,12,16,20,23].forEach(i=>{
+    g+='<text class="ax-lbl" x="'+px(i)+'" y="'+(H-8)+'" text-anchor="middle">'+String(i).padStart(2,'0')+'h</text>';
+  });
   g+='<text class="ax-lbl" x="'+(pL-8)+'" y="'+(pT-4)+'" text-anchor="end">kW</text>';
   $('chart-grid').innerHTML=g;
 }
-function kpis(){
-  if(!$('kpi-prod')) return;
-  let p=0,c=0,a=0;
-  for(let i=0;i<24;i++){p+=S24[i];c+=C24[i];a+=Math.min(S24[i],C24[i])}
-  const cocheKwh=8.4;
-  const e=p-a;
-  const im=c+cocheKwh-a;
-  const m=Math.max(p,c,cocheKwh,e,im);
-  setHTML('kpi-prod',p.toFixed(1)+'<small>kWh</small>');
-  setHTML('kpi-cons',c.toFixed(1)+'<small>kWh</small>');
-  setHTML('kpi-coche',cocheKwh.toFixed(1)+'<small>kWh</small>');
-  setHTML('kpi-exp',e.toFixed(1)+'<small>kWh</small>');
-  setHTML('kpi-imp',im.toFixed(1)+'<small>kWh</small>');
-  setWidth('bar-prod',p/m*100+'%');
-  setWidth('bar-cons',c/m*100+'%');
-  setWidth('bar-coche',cocheKwh/m*100+'%');
-  setWidth('bar-exp',e/m*100+'%');
-  setWidth('bar-imp',im/m*100+'%');
-  setTxt('badge-auto','Autoconsumo '+Math.round(a/(c+cocheKwh)*100)+'%');
-}
-const SEM=[['Lun',22.4,29.1,12],['Mar',26.9,31.5,13.5],['Mié',18.2,30.2,11.2],['Jue',28.7,28.4,13.8],['Vie',24.1,33.8,13],['Sáb',30.5,36.2,15.2],['Dom',27.3,31.5,13.4]];
-function semana(){
-  if(!$('bars-semana')) return;
-  let p=0,c=0,a=0;
-  $('bars-semana').innerHTML=SEM.map(d=>{
-    p+=d[1];c+=d[2];a+=d[3];
-    return '<div class="bar-group"><div class="bar-pair"><div class="bar solar" style="height:'+(d[1]/40*100).toFixed(1)+'%"></div><div class="bar cons" style="height:'+(d[2]/40*100).toFixed(1)+'%"></div></div><div class="bar-day">'+d[0]+'</div></div>';
-  }).join('');
-  setTxt('sem-prod',p.toFixed(1)+' kWh');
-  setTxt('sem-cons',c.toFixed(1)+' kWh');
-  setTxt('sem-auto',Math.round(a/c*100)+' %');
-  setTxt('sem-ahorro',(a*.15).toFixed(2)+' €');
+
+function dibujarCurva24h(datos){
+  if(!$('line-solar')) return;
+
+  // Rellenar arrays por hora (0-23)
+  const solarH=Array(24).fill(null);
+  const casaH =Array(24).fill(null);
+  datos.forEach(r=>{
+    const h=r.hora;
+    if(h>=0&&h<24){
+      solarH[h]=+r.solar_kw||0;
+      casaH[h] =+r.casa_kw||0;
+    }
+  });
+
+  // Si no hay datos, ocultar la curva
+  if(datos.length===0){
+    $('line-solar').setAttribute('d','');
+    $('line-cons').setAttribute('d','');
+    $('area-solar').setAttribute('d','');
+    $('area-cons').setAttribute('d','');
+    dibujarGrid(5);
+    return;
+  }
+
+  // Máximo para escalar
+  const maxY=Math.max(5,Math.ceil(Math.max(...solarH.filter(v=>v!==null),...casaH.filter(v=>v!==null))));
+  const W=660,H=230,pL=40,pR=16,pT=16,pB=30,n=24;
+  const px=i=>pL+(W-pL-pR)*i/(n-1),py=v=>H-pB-(H-pT-pB)*v/maxY;
+
+  // Puntos (saltamos huecos con null)
+  const puntosS=[],puntosC=[];
+  for(let i=0;i<24;i++){
+    if(solarH[i]!==null) puntosS.push([px(i),py(solarH[i])]);
+    if(casaH[i] !==null) puntosC.push([px(i),py(casaH[i])]);
+  }
+
+  const dS=puntosS.length>1?curve(puntosS):'';
+  const dC=puntosC.length>1?curve(puntosC):'';
+  const base=' L'+px(23)+','+py(0)+' L'+px(0)+','+py(0)+' Z';
+
+  $('line-solar').setAttribute('d',dS);
+  $('line-cons').setAttribute('d',dC);
+  $('area-solar').setAttribute('d',dS?dS+base:'');
+  $('area-cons').setAttribute('d',dC?dC+base:'');
+
+  dibujarGrid(maxY);
 }
 
 /* ============================================================
-   SLIDERS
+   KPIs DEL DÍA · a partir de curva_horaria de hoy
+   ============================================================ */
+function kpisDesdeCurva(datos){
+  if(!$('kpi-prod')) return;
+
+  // Sumar kWh (1 punto = 1 hora, así que kWh = suma de los kW)
+  let solarKwh=0, casaKwh=0, autoconsumoKwh=0;
+  datos.forEach(r=>{
+    const s=+r.solar_kw||0, c=+r.casa_kw||0;
+    solarKwh+=s;
+    casaKwh+=c;
+    autoconsumoKwh+=Math.min(s,c);
+  });
+
+  const exportado=Math.max(0,solarKwh-autoconsumoKwh);
+  const importado=Math.max(0,casaKwh-autoconsumoKwh);
+  const m=Math.max(solarKwh,casaKwh,exportado,importado,1);
+
+  // Si tenemos el valor oficial de estado_actual, lo usamos
+  const solarMostrar=E.energiaDiaKwh>0?E.energiaDiaKwh:solarKwh;
+
+  setHTML('kpi-prod',solarMostrar.toFixed(1)+'<small>kWh</small>');
+  setHTML('kpi-cons',casaKwh.toFixed(1)+'<small>kWh</small>');
+  setHTML('kpi-coche',E.kwhCoche.toFixed(1)+'<small>kWh</small>');
+  setHTML('kpi-exp',exportado.toFixed(1)+'<small>kWh</small>');
+  setHTML('kpi-imp',importado.toFixed(1)+'<small>kWh</small>');
+
+  setWidth('bar-prod',solarMostrar/m*100+'%');
+  setWidth('bar-cons',casaKwh/m*100+'%');
+  setWidth('bar-coche',E.kwhCoche/m*100+'%');
+  setWidth('bar-exp',exportado/m*100+'%');
+  setWidth('bar-imp',importado/m*100+'%');
+
+  const auto=casaKwh>0?Math.round(autoconsumoKwh/casaKwh*100):0;
+  setTxt('badge-auto','Autoconsumo '+auto+'%');
+}
+
+/* ============================================================
+   BARRAS SEMANALES · agrupando curva_horaria por día
+   ============================================================ */
+function semanaDesdeCurva(datos){
+  if(!$('bars-semana')) return;
+
+  // Agrupar por día
+  const porDia={};
+  datos.forEach(r=>{
+    const k=r.dia;
+    if(!porDia[k]) porDia[k]={dia:k,solar:0,casa:0};
+    porDia[k].solar+=+r.solar_kw||0;
+    porDia[k].casa +=+r.casa_kw||0;
+  });
+
+  // Ordenar por fecha y coger los últimos 7
+  const arr=Object.values(porDia).sort((a,b)=>a.dia.localeCompare(b.dia)).slice(-7);
+
+  // Máximo para escalar
+  const maxV=Math.max(1,...arr.map(d=>Math.max(d.solar,d.casa)));
+
+  const nombres=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  let prod=0,cons=0,auto=0;
+  $('bars-semana').innerHTML=arr.map(d=>{
+    prod+=d.solar; cons+=d.casa; auto+=Math.min(d.solar,d.casa);
+    const fecha=new Date(d.dia+'T12:00:00');
+    const nm=nombres[fecha.getDay()];
+    return '<div class="bar-group">'+
+      '<div class="bar-pair">'+
+        '<div class="bar solar" style="height:'+(d.solar/maxV*100).toFixed(1)+'%"></div>'+
+        '<div class="bar cons" style="height:'+(d.casa/maxV*100).toFixed(1)+'%"></div>'+
+      '</div>'+
+      '<div class="bar-day">'+nm+'</div>'+
+    '</div>';
+  }).join('');
+
+  setTxt('sem-prod',prod.toFixed(1)+' kWh');
+  setTxt('sem-cons',cons.toFixed(1)+' kWh');
+  setTxt('sem-auto',(cons>0?Math.round(auto/cons*100):0)+' %');
+  setTxt('sem-ahorro',(auto*.15).toFixed(2)+' €');
+}
+
+/* ============================================================
+   CARGA INICIAL + REFRESCO PERIÓDICO de gráficas
+   ============================================================ */
+async function cargarGraficas(){
+  try{
+    const curvaHoy=await leerCurvaHoy();
+    dibujarCurva24h(curvaHoy);
+    kpisDesdeCurva(curvaHoy);
+  }catch(e){
+    console.warn('Error curva hoy:',e.message);
+  }
+  try{
+    const curvaSem=await leerCurvaSemana(7);
+    semanaDesdeCurva(curvaSem);
+  }catch(e){
+    console.warn('Error semana:',e.message);
+  }
+}
+
+/* ============================================================
+   SLIDERS (solo activos si desactivas datos reales)
    ============================================================ */
 ['in-solar','in-casa'].forEach(id=>{
   const el=$(id);
   if(!el) return;
   el.addEventListener('input',()=>{
     if(CONFIG.USAR_DATOS_REALES) return;
-    E.auto=false; setTxt('btn-auto','▶ Reanudar simulación');
     if(id==='in-solar')E.sol=+el.value;else E.casa=+el.value;
-    pintaS(el);bal();renderE();
+    pintaS(el);renderE();
   });
 });
 const cocheSlider=$('in-coche');
@@ -470,7 +516,6 @@ if(cocheSlider){
   cocheSlider.addEventListener('input',e=>{
     E.cocheDeseada=+e.target.value;
     pintaS(e.target);
-    if(!CONFIG.USAR_DATOS_REALES){bal();renderE()}
   });
 }
 const btnAuto=$('btn-auto');
@@ -480,9 +525,19 @@ if(btnAuto){
       alert('Estás en modo datos reales.');
       return;
     }
-    E.auto=!E.auto;
-    btnAuto.textContent=E.auto?'⏸ Pausar simulación':'▶ Reanudar simulación';
   });
+}
+
+function tCoche(el){
+  el.classList.toggle('on');
+  E.cocheOn=el.classList.contains('on');
+  renderE();
+}
+function setModoCoche(modo){
+  E.cocheModo=modo;
+  toggleClass('modo-max','active',modo==='max');
+  toggleClass('modo-solar','active',modo==='solar');
+  renderE();
 }
 
 /* ============================================================
@@ -492,20 +547,23 @@ function iniciarSupabase(){
   if(!CONFIG.USAR_DATOS_REALES) return;
   const btn=$('btn-auto');
   if(btn){btn.textContent='🔄 Modo datos reales';btn.style.opacity='.7'}
-  pollSupabase();
-  setInterval(pollSupabase, CONFIG.SUPABASE.INTERVALO);
+
+  // Estado en vivo cada 5 s
+  pollEstado();
+  setInterval(pollEstado, CONFIG.SUPABASE.INTERVALO);
+
+  // Gráficas cada 60 s (son datos que cambian despacio)
+  cargarGraficas();
+  setInterval(cargarGraficas, 60000);
 }
 
-graf24();
-kpis();
-semana();
+// Arranque
 pintaS($('in-solar'));
 pintaS($('in-casa'));
 pintaS($('in-coche'));
 
-if(!CONFIG.USAR_DATOS_REALES){
-  pasoE();
-  setInterval(pasoE,1000);
-} else {
+if(CONFIG.USAR_DATOS_REALES){
   iniciarSupabase();
+} else {
+  renderE();
 }
