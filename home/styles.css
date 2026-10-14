@@ -138,9 +138,7 @@ header.top{display:flex;justify-content:space-between;align-items:flex-start;fle
 .card,.scene{animation:fadeUp .4s ease backwards}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 
-/* ============================================================
-   GRÁFICA DETALLADA
-   ============================================================ */
+/* ---------- GRÁFICA DETALLADA ---------- */
 .chart-det-card{grid-column:span 3}
 .chart-det-wrap{position:relative}
 .chart-det-svg-wrap{position:relative;width:100%}
@@ -168,80 +166,70 @@ header.top{display:flex;justify-content:space-between;align-items:flex-start;fle
 .stat b{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--t)}
 .stat small{font-size:10px;color:var(--td);letter-spacing:.3px}
 
-/* ============================================================
-   ICONOS ANIMADOS DEL FLUJO DE ENERGÍA
-   ============================================================ */
-
-/* --- Sol con rayos giratorios --- */
-.sun-icon .rays{
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: sunRays 12s linear infinite;
-}
-@keyframes sunRays{
-  from{transform: rotate(0deg)}
-  to{transform: rotate(360deg)}
-}
-
-/* --- Reflejo pulsante sobre el panel solar --- */
-.panel-glow{
-  animation: panelGlow 2.5s ease-in-out infinite;
-}
-@keyframes panelGlow{
-  0%,100%{opacity:.08}
-  50%{opacity:.28}
-}
-
-/* --- LEDs del inversor Fronius parpadeando --- */
-.led{
-  animation: ledPulse 1.8s ease-in-out infinite;
-}
+/* ---------- ICONOS ANIMADOS DEL FLUJO ---------- */
+.sun-icon .rays{transform-box:fill-box;transform-origin:center;animation:sunRays 12s linear infinite}
+@keyframes sunRays{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.panel-glow{animation:panelGlow 2.5s ease-in-out infinite}
+@keyframes panelGlow{0%,100%{opacity:.08}50%{opacity:.28}}
+.led{animation:ledPulse 1.8s ease-in-out infinite}
 .led-1{animation-delay:0s}
 .led-2{animation-delay:.3s}
 .led-3{animation-delay:.6s}
-@keyframes ledPulse{
-  0%,100%{opacity:1;filter:drop-shadow(0 0 3px currentColor)}
-  50%{opacity:.35;filter:drop-shadow(0 0 1px currentColor)}
-}
-
-/* --- Chispas de la torre de alta tensión --- */
-.spark{
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: sparkPulse 1.4s ease-in-out infinite;
-  filter: drop-shadow(0 0 3px #ffc107);
-}
+@keyframes ledPulse{0%,100%{opacity:1;filter:drop-shadow(0 0 3px currentColor)}50%{opacity:.35;filter:drop-shadow(0 0 1px currentColor)}}
+.spark{transform-box:fill-box;transform-origin:center;animation:sparkPulse 1.4s ease-in-out infinite;filter:drop-shadow(0 0 3px #ffc107)}
 .spark-1{animation-delay:0s}
 .spark-2{animation-delay:.35s}
 .spark-3{animation-delay:.7s}
 .spark-4{animation-delay:.5s;filter:drop-shadow(0 0 3px #4fc3f7)}
 .spark-5{animation-delay:1.05s;filter:drop-shadow(0 0 3px #4fc3f7)}
-@keyframes sparkPulse{
-  0%,100%{transform:scale(1);opacity:1}
-  50%{transform:scale(1.7);opacity:.4}
-}
-
-/* --- Ventanas de la casa con parpadeo suave --- */
-.ventana{
-  animation: ventanaPulse 3s ease-in-out infinite;
-}
+@keyframes sparkPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.7);opacity:.4}}
+.ventana{animation:ventanaPulse 3s ease-in-out infinite}
 .ventana-2{animation-delay:1.5s}
-@keyframes ventanaPulse{
-  0%,100%{opacity:.8}
-  50%{opacity:.4}
-}
+@keyframes ventanaPulse{0%,100%{opacity:.8}50%{opacity:.4}}
+.bolt{animation:boltFlash 1s ease-in-out infinite;filter:drop-shadow(0 0 4px #ffc107)}
+@keyframes boltFlash{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* --- Rayo de carga del coche --- */
-.bolt{
-  animation: boltFlash 1s ease-in-out infinite;
-  filter: drop-shadow(0 0 4px #ffc107);
-}
-@keyframes boltFlash{
-  0%,100%{opacity:1}
-  50%{opacity:.3}
-}
-/* Flujo de energía compacto */
-.energy-card .flow-svg{max-height:280px}
+/* ============================================================
+   FLUJO EN FORMATO TARJETAS
+   ============================================================ */
+.flow-svg-cards{max-height:400px;width:100%}
+.flow-svg-cards .wire-h{fill:none;stroke:#2a2f3a;stroke-width:6;stroke-linecap:round}
+.flow-svg-cards .node .box{fill:#161a21;stroke:#2a2f3a;stroke-width:2;transition:stroke .35s ease,fill .35s ease,filter .35s ease}
+.flow-svg-cards .node.act .box{stroke:#4fc3f7;fill:#1c2028;filter:drop-shadow(0 0 12px rgba(79,195,247,.35))}
+.flow-svg-cards .box-name{font-size:12px;font-weight:600;fill:#9aa0a6;text-anchor:middle;font-family:inherit;letter-spacing:.3px;text-transform:uppercase;transition:fill .35s}
+.flow-svg-cards .node.act .box-name{fill:#e8eaed}
+.flow-svg-cards .val{font-size:20px;font-weight:700;fill:#e8eaed;text-anchor:middle;font-family:inherit;font-variant-numeric:tabular-nums;letter-spacing:-.5px;transition:fill .35s}
+.flow-svg-cards .node.act .val{fill:#fff}
+
+/* ============================================================
+   LÍNEA DE EXPORTACIÓN DIRECTA FV → RED
+   ============================================================ */
+.wire-export{fill:none;stroke:#1e3a26;stroke-width:5;stroke-linecap:round}
+.wire-lbl{fill:#4caf50;font-size:11px;font-weight:600;letter-spacing:.5px;font-family:inherit;opacity:.85}
+
+/* ============================================================
+   TARJETA DE TARIFA ELÉCTRICA
+   ============================================================ */
+.tariff-card{padding:20px 22px;transition:border-color .3s,box-shadow .3s}
+.tariff-card.punta{border-color:rgba(239,83,80,.4);box-shadow:0 0 20px rgba(239,83,80,.08)}
+.tariff-card.llano{border-color:rgba(255,193,7,.35);box-shadow:0 0 20px rgba(255,193,7,.08)}
+.tariff-card.valle{border-color:rgba(76,175,80,.4);box-shadow:0 0 20px rgba(76,175,80,.08)}
+.tariff-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px}
+.tariff-item{display:flex;flex-direction:column;gap:5px;padding:12px 14px;background:rgba(255,255,255,.025);border:1px solid var(--b);border-radius:10px;transition:.2s}
+.tariff-item:hover{background:rgba(255,255,255,.05)}
+.tariff-item small{font-size:10px;color:var(--td);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+.tariff-item b{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--t);line-height:1.2}
+.tariff-item b small{font-size:12px;color:var(--td);font-weight:400;text-transform:none;letter-spacing:0;margin-left:3px}
+.tariff-card.punta #tar-precio{color:#ef5350}
+.tariff-card.llano #tar-precio{color:#ffc107}
+.tariff-card.valle #tar-precio{color:#4caf50}
+.tariff-card.punta #tar-badge{background:rgba(239,83,80,.18);color:#ef5350}
+.tariff-card.llano #tar-badge{background:rgba(255,193,7,.18);color:#ffc107}
+.tariff-card.valle #tar-badge{background:rgba(76,175,80,.18);color:#4caf50}
+#tar-sobrante{color:#4fc3f7}
+#tar-exceso{color:#4caf50}
+#tar-precio-exc{color:#4caf50}
+#tar-ganancia{color:#8bc34a}
 
 /* ============================================================
    RESPONSIVE
@@ -257,67 +245,16 @@ header.top{display:flex;justify-content:space-between;align-items:flex-start;fle
   .burger{display:grid;place-items:center}
   .chart-det-card{grid-column:span 1!important}
   .chart-det-stats{grid-template-columns:repeat(2,1fr)}
+  .flow-svg-cards{max-height:none}
 }
 @media(max-width:640px){
   .grid>*{grid-column:span 1!important}
   .flow-controls{grid-template-columns:1fr}
   .btn-auto{grid-column:span 1}
+  .tariff-grid{grid-template-columns:repeat(2,1fr)}
 }
 @media(max-width:500px){
   .grid{grid-template-columns:1fr}
   .greeting h2{font-size:20px}
   .clock{display:none}
-}
-
-
-/* ============================================================
-   FLUJO EN FORMATO TARJETAS
-   ============================================================ */
-.flow-svg-cards{max-height:340px;width:100%}
-
-.flow-svg-cards .wire-h{
-  fill:none;
-  stroke:#2a2f3a;
-  stroke-width:6;
-  stroke-linecap:round;
-}
-
-.flow-svg-cards .node .box{
-  fill:#161a21;
-  stroke:#2a2f3a;
-  stroke-width:2;
-  transition:stroke .35s ease, fill .35s ease, filter .35s ease;
-}
-.flow-svg-cards .node.act .box{
-  stroke:#4fc3f7;
-  fill:#1c2028;
-  filter:drop-shadow(0 0 12px rgba(79,195,247,.35));
-}
-
-.flow-svg-cards .box-name{
-  font-size:12px;
-  font-weight:600;
-  fill:#9aa0a6;
-  text-anchor:middle;
-  font-family:inherit;
-  letter-spacing:.3px;
-  text-transform:uppercase;
-  transition:fill .35s;
-}
-.flow-svg-cards .node.act .box-name{fill:#e8eaed}
-
-.flow-svg-cards .val{
-  font-size:20px;
-  font-weight:700;
-  fill:#e8eaed;
-  text-anchor:middle;
-  font-family:inherit;
-  font-variant-numeric:tabular-nums;
-  letter-spacing:-.5px;
-  transition:fill .35s;
-}
-.flow-svg-cards .node.act .val{fill:#fff}
-
-@media(max-width:900px){
-  .flow-svg-cards{max-height:none}
 }
