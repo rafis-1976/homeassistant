@@ -4,15 +4,12 @@
 
 /* ---------- FESTIVOS ---------- */
 const FESTIVOS = [
-  // 2025
   '2025-01-01','2025-01-06','2025-04-17','2025-04-18','2025-05-01',
   '2025-05-02','2025-07-25','2025-08-15','2025-10-12','2025-11-01',
   '2025-12-06','2025-12-08','2025-12-25',
-  // 2026
   '2026-01-01','2026-01-06','2026-04-02','2026-04-03','2026-05-01',
   '2026-05-02','2026-07-25','2026-08-15','2026-10-12','2026-11-02',
   '2026-12-07','2026-12-08','2026-12-25',
-  // 2027
   '2027-01-01','2027-01-06','2027-03-25','2027-03-26','2027-05-01',
   '2027-05-03','2027-07-26','2027-08-16','2027-10-12','2027-11-01',
   '2027-12-06','2027-12-08','2027-12-25',
@@ -92,7 +89,6 @@ function renderTarifa(){
   const excesoW = Math.max(0, solarW - consumoW);
   const gananciaHora = (excesoW / 1000) * PRECIO_EXCEDENTE;
 
-  // Estilos de la tarjeta
   card.classList.remove('punta','llano','valle');
   card.classList.add(tar.periodo);
 
@@ -114,10 +110,8 @@ function renderTarifa(){
   setTxtTar('tar-exceso', excesoW > 5 ? fmtW2(excesoW) : '—');
   setTxtTar('tar-ganancia', excesoW > 5 ? gananciaHora.toFixed(4).replace('.',',') + ' €/h' : '—');
 
-  // Semáforo
   actualizarSemaforo(tar, excesoW);
-
-  // Flujo directo
+  actualizarSobranteGrande(sobranteW, excesoW, tar.contratada, consumoW);
   actualizarFlujoDirecto(excesoW);
 }
 
@@ -143,6 +137,46 @@ function actualizarSemaforo(tar, excesoW){
     ind.classList.add(tar.periodo);
     if(label) label.textContent = nombrePeriodo(tar.periodo);
     if(precio) precio.textContent = fmtPrecio(tar.precio) + ' · ' + fmtW2(tar.contratada);
+  }
+}
+
+/* ---------- BLOQUE GRANDE: POTENCIA SOBRANTE (SVG) ---------- */
+function actualizarSobranteGrande(sobranteW, excesoW, contratada, consumoW){
+  const g = document.getElementById('g-sobrante');
+  const val = document.getElementById('v-sobrante');
+  const exc = document.getElementById('v-excedente');
+  const sub = document.getElementById('v-sub-sobrante');
+  if(!g || !val) return;
+
+  g.classList.toggle('excedente', excesoW > 5);
+
+  // Valor principal (W o kW)
+  if(sobranteW >= 1000){
+    val.textContent = (sobranteW/1000).toFixed(2).replace('.',',') + ' kW';
+  } else {
+    val.textContent = Math.round(sobranteW) + ' W';
+  }
+
+  // Línea "+ excedente FV"
+  if(exc){
+    if(excesoW > 5){
+      exc.style.display = '';
+      const excTxt = excesoW >= 1000
+        ? (excesoW/1000).toFixed(2).replace('.',',') + ' kW'
+        : Math.round(excesoW) + ' W';
+      exc.textContent = '+ ' + excTxt + ' FV';
+    } else {
+      exc.style.display = 'none';
+    }
+  }
+
+  // Subtexto con el desglose
+  if(sub){
+    if(excesoW > 5){
+      sub.textContent = 'contratada ' + Math.round(contratada) + ' W − consumo ' + Math.round(consumoW) + ' W';
+    } else {
+      sub.textContent = Math.round(contratada) + ' W contrat. − ' + Math.round(consumoW) + ' W consumo';
+    }
   }
 }
 
