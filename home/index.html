@@ -41,7 +41,7 @@
       <p id="resumen">5 dispositivos activos · 22.4 °C en salón · Todo en orden</p>
     </div>
     <div class="top-right">
-      <a href="index.html" class="icon-btn home-btn" title="Volver a la página principal">🏠</a>
+      <a href="../index.html" class="icon-btn home-btn" title="Volver a la página principal">🏠</a>
       <div class="clock">
         <div class="time" id="reloj">--:--</div>
         <div class="date" id="fecha">—</div>
@@ -50,6 +50,197 @@
       <button class="icon-btn" title="Buscar">🔍</button>
     </div>
   </header>
+
+  <!-- ===== FLUJO DE ENERGÍA (compacto, horizontal) ===== -->
+  <div class="section-title">Energía solar</div>
+  <div class="card energy-card">
+    <div class="card-head" style="align-items:center">
+      <div><div class="card-name">Sistema fotovoltaico Fronius</div></div>
+      <span class="badge blue" id="estado-red">Calculando…</span>
+    </div>
+
+    <svg class="flow-svg" viewBox="0 0 1200 290" style="max-height:280px">
+      <defs>
+        <radialGradient id="sunGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#fff59d"/>
+          <stop offset="60%" stop-color="#ffc107"/>
+          <stop offset="100%" stop-color="#ff9800"/>
+        </radialGradient>
+        <linearGradient id="panelGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#1e5c8a"/>
+          <stop offset="100%" stop-color="#0d3a5c"/>
+        </linearGradient>
+        <linearGradient id="froniusBody" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#232833"/>
+          <stop offset="100%" stop-color="#15181e"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Cables -->
+      <path class="wire" d="M145,80 Q 195,105 250,115"/>
+      <path class="wire" id="w-bat" d="M100,115 Q 60,180 40,240" style="display:none"/>
+      <path class="wire" d="M390,85 Q 470,70 552,63"/>
+      <path class="wire" d="M390,155 Q 700,160 1032,120"/>
+      <path class="wire" d="M600,113 L 600,162"/>
+
+      <!-- Flujos animados -->
+      <path id="f-solar" class="flow" d="M145,80 Q 195,105 250,115"/>
+      <path id="f-bat-out" class="flow" d="M100,115 Q 60,180 40,240" style="display:none"/>
+      <path id="f-bat-in" class="flow rev" d="M100,115 Q 60,180 40,240" style="display:none"/>
+      <path id="f-casa" class="flow" d="M390,85 Q 470,70 552,63"/>
+      <path id="f-export" class="flow" d="M390,155 Q 700,160 1032,120"/>
+      <path id="f-import" class="flow rev" d="M390,155 Q 700,160 1032,120"/>
+      <path id="f-coche" class="flow" d="M600,113 L 600,162"/>
+
+      <!-- ============ SOLAR ============ -->
+      <g class="node" id="n-solar">
+        <circle class="ring" cx="100" cy="70" r="45"/>
+
+        <g class="sun-icon" transform="translate(100,48)">
+          <g class="rays" stroke="#ffc107" stroke-width="1.5" stroke-linecap="round">
+            <line x1="0" y1="-13" x2="0" y2="-16"/>
+            <line x1="0" y1="13" x2="0" y2="16"/>
+            <line x1="-13" y1="0" x2="-16" y2="0"/>
+            <line x1="13" y1="0" x2="16" y2="0"/>
+            <line x1="-9" y1="-9" x2="-11" y2="-11"/>
+            <line x1="9" y1="9" x2="11" y2="11"/>
+            <line x1="-9" y1="9" x2="-11" y2="11"/>
+            <line x1="9" y1="-9" x2="11" y2="-11"/>
+          </g>
+          <circle r="9" fill="url(#sunGrad)"/>
+          <circle r="5" fill="#fff59d" opacity=".7"/>
+        </g>
+
+        <g class="panels" transform="translate(100,78)">
+          <polygon points="-22,-5 22,-5 18,5 -18,5" fill="url(#panelGrad)" stroke="#4fc3f7" stroke-width=".9"/>
+          <line x1="-22" y1="-1" x2="22" y2="-1" stroke="#4fc3f7" stroke-width=".35" opacity=".55"/>
+          <line x1="-22" y1="2" x2="22" y2="2" stroke="#4fc3f7" stroke-width=".35" opacity=".55"/>
+          <line x1="-11" y1="-5" x2="-9" y2="5" stroke="#4fc3f7" stroke-width=".35" opacity=".55"/>
+          <line x1="0" y1="-5" x2="0" y2="5" stroke="#4fc3f7" stroke-width=".35" opacity=".55"/>
+          <line x1="11" y1="-5" x2="9" y2="5" stroke="#4fc3f7" stroke-width=".35" opacity=".55"/>
+          <line x1="-15" y1="5" x2="15" y2="5" stroke="#9aa0a6" stroke-width="1.3" stroke-linecap="round"/>
+          <polygon points="-22,-5 22,-5 18,5 -18,5" fill="url(#sunGrad)" opacity=".15" class="panel-glow"/>
+        </g>
+
+        <text class="val" x="100" y="98" id="v-solar" style="font-size:12px">0 W</text>
+      </g>
+      <text class="node-lbl" x="100" y="130" style="font-size:10px">Solar</text>
+
+      <!-- ============ BATERÍA (oculta) ============ -->
+      <g class="node" id="n-bat" style="display:none">
+        <circle class="ring" cx="100" cy="240" r="42"/>
+        <g transform="translate(100,240)">
+          <rect x="-18" y="-22" width="36" height="40" rx="5" fill="#0f1115" stroke="#4caf50" stroke-width="1.5"/>
+          <rect x="-13" y="-16" width="26" height="28" rx="2" fill="#0a0d12"/>
+          <rect x="-11" y="-14" width="22" height="24" rx="1" fill="#4caf50" opacity=".7"/>
+          <rect x="-6" y="-26" width="12" height="4" rx="1" fill="#4caf50"/>
+          <text class="val" x="0" y="38" id="v-bat" style="font-size:11px">0 %</text>
+        </g>
+      </g>
+      <text class="node-lbl" id="lbl-bat" x="100" y="290" style="display:none;font-size:10px">Batería</text>
+
+      <!-- ============ FRONIUS ============ -->
+      <g class="node" id="n-fronius">
+        <rect class="ring-rect" x="250" y="65" width="140" height="105" rx="14"/>
+        <g class="icon-fronius" transform="translate(320,102)">
+          <rect x="-38" y="-30" width="76" height="60" rx="6" fill="url(#froniusBody)" stroke="#4fc3f7" stroke-width="1.5"/>
+          <rect x="-38" y="-30" width="76" height="14" rx="6" fill="#7c4dff" opacity=".35"/>
+          <text x="0" y="-20" text-anchor="middle" fill="#b388ff" font-size="8" font-weight="800" font-family="inherit" letter-spacing="1.2">FRONIUS</text>
+          <rect x="-32" y="-10" width="36" height="16" rx="1.5" fill="#0a0d12" stroke="#4fc3f7" stroke-width=".6"/>
+          <text x="-14" y="-1" text-anchor="middle" fill="#4fc3f7" font-size="7" font-weight="600" font-family="monospace">3.2kW</text>
+          <circle cx="16" cy="-4" r="2.8" fill="#4caf50" class="led led-1"/>
+          <circle cx="26" cy="-4" r="2.8" fill="#4caf50" class="led led-2"/>
+          <circle cx="16" cy="6" r="2.8" fill="#ffc107" class="led led-3"/>
+          <circle cx="26" cy="6" r="2.8" fill="#6b7280"/>
+          <line x1="-32" y1="16" x2="32" y2="16" stroke="#4fc3f7" stroke-width=".8" opacity=".3"/>
+          <line x1="-32" y1="20" x2="32" y2="20" stroke="#4fc3f7" stroke-width=".8" opacity=".3"/>
+          <line x1="-32" y1="24" x2="32" y2="24" stroke="#4fc3f7" stroke-width=".8" opacity=".3"/>
+        </g>
+        <text class="val" x="320" y="150" id="v-fronius" style="font-size:13px">0 W</text>
+      </g>
+      <text class="node-lbl" x="320" y="195" style="font-size:10px">Fronius</text>
+
+      <!-- ============ CASA ============ -->
+      <g class="node" id="n-casa">
+        <circle class="ring" cx="600" cy="65" r="48"/>
+        <g class="icon-casa" transform="translate(600,52)">
+          <polygon points="-26,2 0,-22 26,2" fill="#1a1f28" stroke="#4fc3f7" stroke-width="1.5"/>
+          <polygon points="0,-22 26,2 19,2 0,-15" fill="url(#panelGrad)" stroke="#ffc107" stroke-width=".9"/>
+          <line x1="6" y1="-17" x2="22" y2="-2" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
+          <line x1="3" y1="-13" x2="19" y2="2" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
+          <line x1="9" y1="-19" x2="25" y2="-4" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
+          <rect x="-20" y="2" width="40" height="24" fill="#1a1f28" stroke="#4fc3f7" stroke-width="1.5"/>
+          <rect x="-6" y="11" width="12" height="15" fill="#4fc3f7" opacity=".7"/>
+          <circle cx="3" cy="19" r="1" fill="#0f1115"/>
+          <rect x="-16" y="7" width="8" height="8" fill="#ffc107" opacity=".8" class="ventana ventana-1"/>
+          <rect x="8" y="7" width="8" height="8" fill="#ffc107" opacity=".8" class="ventana ventana-2"/>
+        </g>
+        <text class="val" x="600" y="90" id="v-casa" style="font-size:13px">0 W</text>
+      </g>
+      <text class="node-lbl" x="600" y="130" style="font-size:10px">Vivienda</text>
+
+      <!-- ============ RED ============ -->
+      <g class="node" id="n-red">
+        <circle class="ring" cx="1080" cy="120" r="48"/>
+        <g class="icon-red" transform="translate(1080,110)">
+          <line x1="0" y1="-26" x2="-16" y2="20" stroke="#4fc3f7" stroke-width="1.6"/>
+          <line x1="0" y1="-26" x2="16" y2="20" stroke="#4fc3f7" stroke-width="1.6"/>
+          <line x1="-16" y1="20" x2="16" y2="20" stroke="#4fc3f7" stroke-width="1.6"/>
+          <line x1="-12" y1="6" x2="12" y2="6" stroke="#4fc3f7" stroke-width="1" opacity=".85"/>
+          <line x1="-8" y1="-9" x2="8" y2="-9" stroke="#4fc3f7" stroke-width="1" opacity=".85"/>
+          <line x1="-12" y1="6" x2="8" y2="-9" stroke="#4fc3f7" stroke-width=".6" opacity=".5"/>
+          <line x1="12" y1="6" x2="-8" y2="-9" stroke="#4fc3f7" stroke-width=".6" opacity=".5"/>
+          <line x1="-20" y1="-14" x2="20" y2="-14" stroke="#4fc3f7" stroke-width="1.7"/>
+          <line x1="-14" y1="-20" x2="14" y2="-20" stroke="#4fc3f7" stroke-width="1.4"/>
+          <line x1="0" y1="-26" x2="0" y2="-20" stroke="#4fc3f7" stroke-width="1.2"/>
+          <circle cx="-20" cy="-14" r="2.2" fill="#ffc107" class="spark spark-1"/>
+          <circle cx="0" cy="-14" r="2.2" fill="#ffc107" class="spark spark-2"/>
+          <circle cx="20" cy="-14" r="2.2" fill="#ffc107" class="spark spark-3"/>
+          <circle cx="-14" cy="-20" r="1.8" fill="#4fc3f7" class="spark spark-4"/>
+          <circle cx="14" cy="-20" r="1.8" fill="#4fc3f7" class="spark spark-5"/>
+          <line x1="-18" y1="20" x2="18" y2="20" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round"/>
+        </g>
+        <text class="val" x="1080" y="143" id="v-red" style="font-size:12px">0 W</text>
+      </g>
+      <text class="node-lbl" x="1080" y="185" style="font-size:10px">Red eléctrica</text>
+
+      <!-- ============ COCHE ============ -->
+      <g class="node" id="n-coche">
+        <circle class="ring" cx="600" cy="210" r="48"/>
+        <g class="icon-coche" transform="translate(600,202)">
+          <path d="M-24,7 L-18,-5 Q-12,-12 0,-12 Q12,-12 18,-5 L24,7 Z"
+                fill="#1a1f28" stroke="#b388ff" stroke-width="1.5"/>
+          <path d="M-16,-2 L-11,-9 Q-5,-11 0,-11 L0,-2 Z" fill="#b388ff" opacity=".4"/>
+          <path d="M0,-2 L0,-11 Q5,-11 11,-9 L16,-2 Z" fill="#b388ff" opacity=".4"/>
+          <circle cx="-13" cy="9" r="4" fill="#0f1115" stroke="#b388ff" stroke-width="1"/>
+          <circle cx="13" cy="9" r="4" fill="#0f1115" stroke="#b388ff" stroke-width="1"/>
+          <path d="M-2,-17 L-4,-12 L0,-12 L-2,-7" fill="none" stroke="#ffc107" stroke-width="1.7" stroke-linecap="round" class="bolt"/>
+        </g>
+        <text class="val" x="600" y="238" id="v-coche" style="font-size:12px">0 W</text>
+      </g>
+      <text class="node-lbl" x="600" y="278" style="font-size:10px">Coche eléctrico</text>
+
+    </svg>
+
+    <div class="flow-controls">
+      <div class="ctrl">
+        <label>Producción solar <b id="lbl-solar">0 W</b></label>
+        <input type="range" class="slider" id="in-solar" min="0" max="7" step="0.1" value="3">
+      </div>
+      <div class="ctrl">
+        <label>Consumo vivienda <b id="lbl-casa">0 W</b></label>
+        <input type="range" class="slider" id="in-casa" min="0" max="7" step="0.1" value="1.5">
+      </div>
+      <div class="ctrl">
+        <label style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <span style="display:flex;align-items:center;gap:8px">🚗 Coche <span class="toggle toggle-sm" id="t-coche" onclick="tCoche(this)"></span></span>
+          <b id="lbl-coche">0 W</b>
+        </label>
+        <input type="range" class="slider" id="in-coche" min="0" max="11" step="0.1" value="7.4">
+      </div>
+      <button class="btn-auto" id="btn-auto">⏸ Pausar simulación</button>
+    </div>
+  </div>
 
   <!-- ===== ESCENAS ===== -->
   <div class="section-title">Escenas rápidas</div>
@@ -191,398 +382,6 @@
       <div class="sensor-row"><span class="sensor-label">🚶 Movimiento</span><span class="sensor-val" style="font-size:12px;color:var(--td)">hace 12 min</span></div>
       <div class="sensor-row"><span class="sensor-label">🚪 Puerta abierta</span><span class="sensor-val" style="font-size:12px;color:var(--td)">hace 1 h</span></div>
       <div class="sensor-row"><span class="sensor-label">💡 Luz encendida</span><span class="sensor-val" style="font-size:12px;color:var(--td)">hace 2 h</span></div>
-    </div>
-  </div>
-
-  <!-- ===== FLUJO DE ENERGÍA ===== -->
-  <div class="section-title">Energía solar</div>
-  <div class="card energy-card">
-    <div class="card-head" style="align-items:center">
-      <div><div class="card-name">Sistema fotovoltaico Fronius</div><div class="card-sub">Solar · Fronius · Vivienda · Coche · Red eléctrica</div></div>
-      <span class="badge blue" id="estado-red">Calculando…</span>
-    </div>
-
-    <svg class="flow-svg" viewBox="0 0 800 440">
-      <defs>
-        <radialGradient id="sunGrad" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#fff59d"/>
-          <stop offset="60%" stop-color="#ffc107"/>
-          <stop offset="100%" stop-color="#ff9800"/>
-        </radialGradient>
-        <linearGradient id="panelGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#1e5c8a"/>
-          <stop offset="100%" stop-color="#0d3a5c"/>
-        </linearGradient>
-        <linearGradient id="froniusBody" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#232833"/>
-          <stop offset="100%" stop-color="#15181e"/>
-        </linearGradient>
-      </defs>
-
-      <!-- Cables -->
-      <path class="wire" d="M145,104 Q 190,135 245,175"/>
-      <path class="wire" id="w-bat" d="M240,264 Q 160,300 76,335" style="display:none"/>
-      <path class="wire" d="M360,193 Q 430,155 498,129"/>
-      <path class="wire" d="M360,220 L 664,220"/>
-      <path class="wire" d="M540,156 L 540,314"/>
-
-      <!-- Flujos animados -->
-      <path id="f-solar" class="flow" d="M145,104 Q 190,135 245,175"/>
-      <path id="f-bat-out" class="flow" d="M240,264 Q 160,300 76,335" style="display:none"/>
-      <path id="f-bat-in" class="flow rev" d="M240,264 Q 160,300 76,335" style="display:none"/>
-      <path id="f-casa" class="flow" d="M360,193 Q 430,155 498,129"/>
-      <path id="f-export" class="flow" d="M360,220 L 664,220"/>
-      <path id="f-import" class="flow rev" d="M360,220 L 664,220"/>
-      <path id="f-coche" class="flow" d="M540,156 L 540,314"/>
-
-      <!-- ============ NODO SOLAR · Sol radiando sobre placas ============ -->
-      <g class="node" id="n-solar">
-        <circle class="ring" cx="110" cy="80" r="42"/>
-
-        <g class="sun-icon" transform="translate(110,56)">
-          <g class="rays" stroke="#ffc107" stroke-width="1.6" stroke-linecap="round">
-            <line x1="0" y1="-14" x2="0" y2="-17"/>
-            <line x1="0" y1="14" x2="0" y2="17"/>
-            <line x1="-14" y1="0" x2="-17" y2="0"/>
-            <line x1="14" y1="0" x2="17" y2="0"/>
-            <line x1="-10" y1="-10" x2="-12" y2="-12"/>
-            <line x1="10" y1="10" x2="12" y2="12"/>
-            <line x1="-10" y1="10" x2="-12" y2="12"/>
-            <line x1="10" y1="-10" x2="12" y2="-12"/>
-          </g>
-          <circle r="10" fill="url(#sunGrad)"/>
-          <circle r="6" fill="#fff59d" opacity=".7"/>
-        </g>
-
-        <g class="panels" transform="translate(110,88)">
-          <polygon points="-24,-6 24,-6 20,6 -20,6" fill="url(#panelGrad)" stroke="#4fc3f7" stroke-width="1"/>
-          <line x1="-24" y1="-2" x2="24" y2="-2" stroke="#4fc3f7" stroke-width=".4" opacity=".55"/>
-          <line x1="-24" y1="2" x2="24" y2="2" stroke="#4fc3f7" stroke-width=".4" opacity=".55"/>
-          <line x1="-12" y1="-6" x2="-10" y2="6" stroke="#4fc3f7" stroke-width=".4" opacity=".55"/>
-          <line x1="0" y1="-6" x2="0" y2="6" stroke="#4fc3f7" stroke-width=".4" opacity=".55"/>
-          <line x1="12" y1="-6" x2="10" y2="6" stroke="#4fc3f7" stroke-width=".4" opacity=".55"/>
-          <line x1="-16" y1="6" x2="16" y2="6" stroke="#9aa0a6" stroke-width="1.5" stroke-linecap="round"/>
-          <polygon points="-24,-6 24,-6 20,6 -20,6" fill="url(#sunGrad)" opacity=".15" class="panel-glow"/>
-        </g>
-
-        <text class="val" x="110" y="112" id="v-solar">0 W</text>
-      </g>
-      <text class="node-lbl" x="110" y="140">Solar</text>
-
-      <!-- ============ NODO BATERÍA (oculto por defecto) ============ -->
-      <g class="node" id="n-bat" style="display:none">
-        <circle class="ring" cx="110" cy="360" r="42"/>
-        <g transform="translate(110,360)">
-          <rect x="-20" y="-24" width="40" height="44" rx="5" fill="#0f1115" stroke="#4caf50" stroke-width="1.5"/>
-          <rect x="-14" y="-18" width="28" height="32" rx="2" fill="#0a0d12"/>
-          <rect x="-12" y="-16" width="24" height="26" rx="1" fill="#4caf50" opacity=".7"/>
-          <rect x="-6" y="-28" width="12" height="4" rx="1" fill="#4caf50"/>
-          <text class="val" x="0" y="42" id="v-bat" style="font-size:12px">0 %</text>
-        </g>
-      </g>
-      <text class="node-lbl" id="lbl-bat" x="110" y="420" style="display:none">Batería</text>
-
-      <!-- ============ NODO FRONIUS · Inversor ============ -->
-      <g class="node" id="n-fronius">
-        <rect class="ring-rect" x="240" y="170" width="120" height="100" rx="14"/>
-        <g class="icon-fronius" transform="translate(300,198)">
-          <rect x="-34" y="-26" width="68" height="52" rx="6" fill="url(#froniusBody)" stroke="#4fc3f7" stroke-width="1.5"/>
-          <rect x="-34" y="-26" width="68" height="13" rx="6" fill="#7c4dff" opacity=".35"/>
-          <text x="0" y="-17" text-anchor="middle" fill="#b388ff" font-size="7.5" font-weight="800" font-family="inherit" letter-spacing="1.2">FRONIUS</text>
-          <rect x="-28" y="-8" width="32" height="14" rx="1.5" fill="#0a0d12" stroke="#4fc3f7" stroke-width=".6"/>
-          <text x="-12" y="-1" text-anchor="middle" fill="#4fc3f7" font-size="6.5" font-weight="600" font-family="monospace">3.2kW</text>
-          <circle cx="14" cy="-4" r="2.6" fill="#4caf50" class="led led-1"/>
-          <circle cx="23" cy="-4" r="2.6" fill="#4caf50" class="led led-2"/>
-          <circle cx="14" cy="4" r="2.6" fill="#ffc107" class="led led-3"/>
-          <circle cx="23" cy="4" r="2.6" fill="#6b7280"/>
-          <line x1="-28" y1="14" x2="28" y2="14" stroke="#4fc3f7" stroke-width=".8" opacity=".3"/>
-          <line x1="-28" y1="18" x2="28" y2="18" stroke="#4fc3f7" stroke-width=".8" opacity=".3"/>
-          <line x1="-28" y1="22" x2="28" y2="22" stroke="#4fc3f7" stroke-width=".8" opacity=".3"/>
-        </g>
-        <text class="val" x="300" y="245" id="v-fronius">0 W</text>
-      </g>
-      <text class="node-lbl" x="300" y="295">Fronius</text>
-
-      <!-- ============ NODO CASA · Casa con paneles solares ============ -->
-      <g class="node" id="n-casa">
-        <circle class="ring" cx="540" cy="110" r="46"/>
-        <g class="icon-casa" transform="translate(540,96)">
-          <polygon points="-28,2 0,-24 28,2" fill="#1a1f28" stroke="#4fc3f7" stroke-width="1.5"/>
-          <polygon points="0,-24 28,2 20,2 0,-16" fill="url(#panelGrad)" stroke="#ffc107" stroke-width=".9"/>
-          <line x1="6" y1="-18" x2="24" y2="-2" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
-          <line x1="3" y1="-14" x2="21" y2="2" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
-          <line x1="9" y1="-20" x2="27" y2="-4" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
-          <rect x="-22" y="2" width="44" height="26" fill="#1a1f28" stroke="#4fc3f7" stroke-width="1.5"/>
-          <rect x="-6" y="12" width="12" height="16" fill="#4fc3f7" opacity=".7"/>
-          <circle cx="3" cy="20" r="1" fill="#0f1115"/>
-          <rect x="-18" y="8" width="9" height="9" fill="#ffc107" opacity=".8" class="ventana ventana-1"/>
-          <rect x="9" y="8" width="9" height="9" fill="#ffc107" opacity=".8" class="ventana ventana-2"/>
-        </g>
-        <text class="val" x="540" y="134" id="v-casa">0 W</text>
-      </g>
-      <text class="node-lbl" x="540" y="45">Vivienda</text>
-
-      <!-- ============ NODO RED · Torre de alta tensión ============ -->
-      <g class="node" id="n-red">
-        <circle class="ring" cx="710" cy="220" r="46"/>
-        <g class="icon-red" transform="translate(710,208)">
-          <line x1="0" y1="-28" x2="-18" y2="22" stroke="#4fc3f7" stroke-width="1.6"/>
-          <line x1="0" y1="-28" x2="18" y2="22" stroke="#4fc3f7" stroke-width="1.6"/>
-          <line x1="-18" y1="22" x2="18" y2="22" stroke="#4fc3f7" stroke-width="1.6"/>
-          <line x1="-14" y1="6" x2="14" y2="6" stroke="#4fc3f7" stroke-width="1" opacity=".85"/>
-          <line x1="-9" y1="-10" x2="9" y2="-10" stroke="#4fc3f7" stroke-width="1" opacity=".85"/>
-          <line x1="-14" y1="6" x2="9" y2="-10" stroke="#4fc3f7" stroke-width=".6" opacity=".5"/>
-          <line x1="14" y1="6" x2="-9" y2="-10" stroke="#4fc3f7" stroke-width=".6" opacity=".5"/>
-          <line x1="-22" y1="-16" x2="22" y2="-16" stroke="#4fc3f7" stroke-width="1.8"/>
-          <line x1="-16" y1="-22" x2="16" y2="-22" stroke="#4fc3f7" stroke-width="1.5"/>
-          <line x1="0" y1="-28" x2="0" y2="-22" stroke="#4fc3f7" stroke-width="1.2"/>
-          <circle cx="-22" cy="-16" r="2.4" fill="#ffc107" class="spark spark-1"/>
-          <circle cx="0" cy="-16" r="2.4" fill="#ffc107" class="spark spark-2"/>
-          <circle cx="22" cy="-16" r="2.4" fill="#ffc107" class="spark spark-3"/>
-          <circle cx="-16" cy="-22" r="2" fill="#4fc3f7" class="spark spark-4"/>
-          <circle cx="16" cy="-22" r="2" fill="#4fc3f7" class="spark spark-5"/>
-          <line x1="-20" y1="22" x2="20" y2="22" stroke="#4fc3f7" stroke-width="1.6" stroke-linecap="round"/>
-        </g>
-        <text class="val" x="710" y="248" id="v-red">0 W</text>
-      </g>
-      <text class="node-lbl" x="710" y="290">Red eléctrica</text>
-
-      <!-- ============ NODO COCHE ============ -->
-      <g class="node" id="n-coche">
-        <circle class="ring" cx="540" cy="360" r="46"/>
-        <g class="icon-coche" transform="translate(540,352)">
-          <path d="M-26,8 L-20,-6 Q-14,-14 0,-14 Q14,-14 20,-6 L26,8 Z"
-                fill="#1a1f28" stroke="#b388ff" stroke-width="1.5"/>
-          <path d="M-18,-2 L-12,-10 Q-6,-13 0,-13 L0,-2 Z" fill="#b388ff" opacity=".4"/>
-          <path d="M0,-2 L0,-13 Q6,-13 12,-10 L18,-2 Z" fill="#b388ff" opacity=".4"/>
-          <circle cx="-14" cy="10" r="4.5" fill="#0f1115" stroke="#b388ff" stroke-width="1"/>
-          <circle cx="14" cy="10" r="4.5" fill="#0f1115" stroke="#b388ff" stroke-width="1"/>
-          <path d="M-2,-20 L-4,-14 L0,-14 L-2,-8" fill="none" stroke="#ffc107" stroke-width="1.8" stroke-linecap="round" class="bolt"/>
-        </g>
-        <text class="val" x="540" y="384" id="v-coche">0 W</text>
-      </g>
-      <text class="node-lbl" x="540" y="420">Coche eléctrico</text>
-
-    </svg>
-
-    <div class="flow-controls">
-      <div class="ctrl">
-        <label>Producción solar <b id="lbl-solar">0 W</b></label>
-        <input type="range" class="slider" id="in-solar" min="0" max="7" step="0.1" value="3">
-      </div>
-      <div class="ctrl">
-        <label>Consumo vivienda <b id="lbl-casa">0 W</b></label>
-        <input type="range" class="slider" id="in-casa" min="0" max="7" step="0.1" value="1.5">
-      </div>
-      <div class="ctrl">
-        <label style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-          <span style="display:flex;align-items:center;gap:8px">🚗 Coche <span class="toggle toggle-sm" id="t-coche" onclick="tCoche(this)"></span></span>
-          <b id="lbl-coche">0 W</b>
-        </label>
-        <input type="range" class="slider" id="in-coche" min="0" max="11" step="0.1" value="7.4">
-      </div>
-      <button class="btn-auto" id="btn-auto">⏸ Pausar simulación</button>
-    </div>
-    <div style="font-size:11px;color:var(--td);margin-top:12px;text-align:right">🕐 Hora simulada: <b id="sim-hora" style="color:var(--t)">09:00</b> · 1 s ≈ 6 min</div>
-  </div>
-
-  <!-- ===== KPIs DEL DÍA ===== -->
-  <div class="section-title">Balance de hoy</div>
-  <div class="grid">
-    <div class="kpi"><div class="kpi-top">☀️ Producción solar</div><div class="kpi-val" id="kpi-prod">—</div><div class="kpi-bar"><i id="bar-prod" style="background:linear-gradient(90deg,#ffc107,#ff9800)"></i></div></div>
-    <div class="kpi"><div class="kpi-top">🏠 Consumo casa</div><div class="kpi-val" id="kpi-cons">—</div><div class="kpi-bar"><i id="bar-cons" style="background:linear-gradient(90deg,#4fc3f7,#2979ff)"></i></div></div>
-    <div class="kpi"><div class="kpi-top">🚗 Coche cargado</div><div class="kpi-val" id="kpi-coche">—</div><div class="kpi-bar"><i id="bar-coche" style="background:linear-gradient(90deg,#7c4dff,#b388ff)"></i></div></div>
-    <div class="kpi"><div class="kpi-top">⬆️ Exportado a la red</div><div class="kpi-val" id="kpi-exp">—</div><div class="kpi-bar"><i id="bar-exp" style="background:linear-gradient(90deg,#4caf50,#8bc34a)"></i></div></div>
-    <div class="kpi"><div class="kpi-top">⬇️ Importado de la red</div><div class="kpi-val" id="kpi-imp">—</div><div class="kpi-bar"><i id="bar-imp" style="background:linear-gradient(90deg,#ef5350,#ff7043)"></i></div></div>
-  </div>
-
-  <!-- ===== GRÁFICA DETALLADA ===== -->
-  <div class="section-title">Detalle de energía</div>
-  <div class="card chart-det-card">
-    <div class="card-head" style="align-items:center;flex-wrap:wrap;gap:10px">
-      <div>
-        <div class="card-name">Balance energético detallado</div>
-        <div class="card-sub">Solar · Casa · Coche · Red (pasa el ratón para ver valores)</div>
-      </div>
-      <div class="range-btns">
-        <button class="range-btn active" data-rango="24h" onclick="setRango('24h')">24 h</button>
-        <button class="range-btn" data-rango="7d" onclick="setRango('7d')">7 días</button>
-      </div>
-    </div>
-
-    <div class="chart-det-wrap">
-      <div class="chart-det-svg-wrap">
-        <svg id="chart-det" class="chart-det" viewBox="0 0 900 340" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="gDetSolar" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#ffc107" stop-opacity=".35"/>
-              <stop offset="100%" stop-color="#ffc107" stop-opacity="0"/>
-            </linearGradient>
-          </defs>
-          <g id="chart-det-grid"></g>
-          <path id="det-area-solar" fill="url(#gDetSolar)"/>
-          <path id="det-line-solar" class="chart-line solar"/>
-          <path id="det-line-casa" class="chart-line casa"/>
-          <path id="det-line-coche" class="chart-line coche"/>
-          <path id="det-line-red-exp" class="chart-line red-exp"/>
-          <path id="det-line-red-imp" class="chart-line red-imp"/>
-          <g id="chart-det-hover" style="display:none">
-            <line id="det-cross" class="crosshair"/>
-            <circle id="det-dot-solar" class="hover-dot" fill="#ffc107" r="5"/>
-            <circle id="det-dot-casa"  class="hover-dot" fill="#4fc3f7" r="5"/>
-            <circle id="det-dot-coche" class="hover-dot" fill="#b388ff" r="5"/>
-            <circle id="det-dot-red"   class="hover-dot" fill="#4caf50" r="5"/>
-          </g>
-        </svg>
-        <div id="chart-det-tooltip" class="chart-tooltip"></div>
-      </div>
-
-      <div class="chart-det-legend">
-        <span><i class="dot" style="background:#ffc107"></i> Solar</span>
-        <span><i class="dot" style="background:#4fc3f7"></i> Casa</span>
-        <span><i class="dot" style="background:#b388ff"></i> Coche</span>
-        <span><i class="dot" style="background:#4caf50"></i> Red · export</span>
-        <span><i class="dot" style="background:#ef5350"></i> Red · import</span>
-      </div>
-
-      <div class="chart-det-stats" id="chart-det-stats"></div>
-    </div>
-  </div>
-
-  <!-- ===== DISPOSITIVOS ===== -->
-  <div class="section-title">Dispositivos del sistema</div>
-  <div class="grid">
-    <div class="card">
-      <div class="card-head">
-        <div class="card-icon" style="background:rgba(124,77,255,.18)">⚡</div>
-        <span class="badge green" id="badge-fronius">Produciendo</span>
-      </div>
-      <div class="card-name">Inversor Fronius</div>
-      <div class="card-sub">Primo GEN24 6.0 · AC 230 V</div>
-      <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px">
-        <div class="card-value" id="fron-prod">0</div>
-        <span style="font-size:13px;color:var(--td)">W AC salida</span>
-      </div>
-      <div class="sensor-row" style="margin-top:12px"><span class="sensor-label">Eficiencia</span><span class="sensor-val">98.2 %</span></div>
-      <div class="sensor-row"><span class="sensor-label">Energía hoy</span><span class="sensor-val" id="fron-hoy">—</span></div>
-      <div class="sensor-row"><span class="sensor-label">Temperatura</span><span class="sensor-val" id="fron-temp">—</span></div>
-      <div class="sensor-row"><span class="sensor-label">MPPT activos</span><span class="sensor-val">2 / 2</span></div>
-    </div>
-
-    <div class="card" id="card-coche">
-      <div class="card-head">
-        <div class="card-icon" id="ico-coche">🚗</div>
-        <span class="badge" id="badge-coche">En espera</span>
-      </div>
-      <div class="card-name">Cargador coche eléctrico</div>
-      <div class="card-sub">Wallbox 11 kW · Tipo 2</div>
-      <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px">
-        <div class="card-value" id="coche-pot">0</div>
-        <span style="font-size:13px;color:var(--td)">W de carga</span>
-      </div>
-      <div class="mode-btns">
-        <button class="mode-btn active" id="modo-max" onclick="setModoCoche('max')">⚡ Máx</button>
-        <button class="mode-btn" id="modo-solar" onclick="setModoCoche('solar')">☀️ Solo solar</button>
-      </div>
-      <div class="sensor-row" style="margin-top:12px"><span class="sensor-label">Energía hoy</span><span class="sensor-val" id="coche-hoy">—</span></div>
-      <div class="sensor-row"><span class="sensor-label">Conector</span><span class="badge green">Libre</span></div>
-    </div>
-
-    <div class="card" id="card-bat" style="display:none">
-      <div class="card-head">
-        <div class="card-icon" style="background:rgba(76,175,80,.18)">🔋</div>
-        <span class="badge green" id="badge-bat">En reposo</span>
-      </div>
-      <div class="card-name">Batería doméstica</div>
-      <div class="card-sub">LiFePO4 · 10 kWh</div>
-      <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px">
-        <div class="card-value" id="bat-nivel">0</div>
-        <span style="font-size:13px;color:var(--td)">% cargada</span>
-      </div>
-      <div class="kpi-bar" style="margin-top:14px"><i id="bar-bat" style="background:linear-gradient(90deg,#4caf50,#8bc34a);width:0%"></i></div>
-      <div class="sensor-row" style="margin-top:12px"><span class="sensor-label">Potencia</span><span class="sensor-val" id="bat-pot">0 W</span></div>
-    </div>
-
-    <div class="card">
-      <div class="card-head">
-        <div class="card-icon" style="background:rgba(79,195,247,.18)">🔌</div>
-        <span class="badge blue">Bidireccional</span>
-      </div>
-      <div class="card-name">Contador de red</div>
-      <div class="card-sub">Smart Meter · 3 fases</div>
-      <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px">
-        <div class="card-value">230<small>V</small></div>
-        <span style="font-size:13px;color:var(--td)">tensión</span>
-      </div>
-      <div class="sensor-row" style="margin-top:12px"><span class="sensor-label">Fase L1</span><span class="sensor-val">3.4 A</span></div>
-      <div class="sensor-row"><span class="sensor-label">Fase L2</span><span class="sensor-val">3.1 A</span></div>
-      <div class="sensor-row"><span class="sensor-label">Fase L3</span><span class="sensor-val">3.6 A</span></div>
-      <div class="sensor-row"><span class="sensor-label">Frecuencia</span><span class="sensor-val">50.0 Hz</span></div>
-    </div>
-  </div>
-
-  <!-- ===== ÚLTIMOS 7 DÍAS ===== -->
-  <div class="section-title">Últimos 7 días</div>
-  <div class="grid">
-    <div class="card">
-      <div class="card-head">
-        <div><div class="card-name">Producción vs consumo</div><div class="card-sub">kWh por día</div></div>
-      </div>
-      <div class="bars" id="bars-semana"></div>
-      <div class="legend">
-        <span><i class="dot" style="background:#ffc107"></i> Solar</span>
-        <span><i class="dot" style="background:#4fc3f7"></i> Consumo</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-head">
-        <div><div class="card-name">Resumen semanal</div><div class="card-sub">Totales y medias</div></div>
-      </div>
-      <div class="sensor-row"><span class="sensor-label">Producción semanal</span><span class="sensor-val" id="sem-prod">—</span></div>
-      <div class="sensor-row"><span class="sensor-label">Consumo semanal</span><span class="sensor-val" id="sem-cons">—</span></div>
-      <div class="sensor-row"><span class="sensor-label">Autoconsumo medio</span><span class="sensor-val" id="sem-auto">—</span></div>
-      <div class="sensor-row"><span class="sensor-label">Ahorro estimado</span><span class="sensor-val" style="color:var(--g)" id="sem-ahorro">—</span></div>
-    </div>
-  </div>
-
-  <!-- ===== IMPACTO AMBIENTAL ===== -->
-  <div class="section-title">Impacto ambiental</div>
-  <div class="grid">
-    <div class="card">
-      <div class="card-head"><div class="card-icon" style="background:rgba(139,195,74,.18)">🌳</div><span class="badge green">Equivalencias</span></div>
-      <div class="card-name">Árboles equivalentes</div>
-      <div class="card-sub">CO₂ absorbido por año</div>
-      <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px">
-        <div class="card-value">14</div>
-        <span style="font-size:13px;color:var(--td)">árboles plantados</span>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div class="card-icon" style="background:rgba(79,195,247,.18)">🛣️</div><span class="badge blue">Movilidad</span></div>
-      <div class="card-name">Km en coche eléctrico</div>
-      <div class="card-sub">Con energía solar autoconsumida</div>
-      <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px">
-        <div class="card-value">4.820</div>
-        <span style="font-size:13px;color:var(--td)">km</span>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div class="card-icon" style="background:rgba(255,193,7,.18)">💡</div><span class="badge green">Autosuficiencia</span></div>
-      <div class="card-name">Independencia energética</div>
-      <div class="card-sub">Autoconsumo sobre el total</div>
-      <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px">
-        <div class="card-value">74<small>%</small></div>
-        <span style="font-size:13px;color:var(--td)">de la energía</span>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div class="card-icon" style="background:rgba(124,77,255,.18)">⚡</div><span class="badge purple">Histórico</span></div>
-      <div class="card-name">Energía total generada</div>
-      <div class="card-sub">Desde la instalación</div>
-      <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px">
-        <div class="card-value">8.412<small>kWh</small></div>
-      </div>
     </div>
   </div>
 
