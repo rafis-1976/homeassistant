@@ -51,7 +51,7 @@
     </div>
   </header>
 
-  <!-- ===== TARIFA ELÉCTRICA (arriba) ===== -->
+  <!-- ===== TARIFA ELÉCTRICA ===== -->
   <div class="section-title">Tarifa eléctrica</div>
   <div class="card tariff-card" id="tariff-card">
     <div class="card-head">
@@ -101,12 +101,11 @@
   <!-- ===== FLUJO DE ENERGÍA ===== -->
   <div class="section-title">Energía solar</div>
   <div class="card energy-card">
-    <div class="card-head" style="align-items:center;flex-wrap:wrap;gap:14px">
+    <div class="card-head" style="align-items:center;flex-wrap:wrap;gap:12px">
       <div>
         <div class="card-name">Sistema fotovoltaico Fronius</div>
       </div>
-
-      <div class="flow-head-right">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
         <!-- Semáforo tarifario -->
         <div class="tariff-indicator" id="tariff-indicator">
           <span class="tariff-dot" id="tariff-dot"></span>
@@ -115,14 +114,6 @@
             <span class="tariff-precio-ind" id="tariff-precio-ind">—</span>
           </div>
         </div>
-
-        <!-- Potencia sobrante en GRANDE -->
-        <div class="sobrante-box">
-          <small>Potencia sobrante</small>
-          <b id="flow-sobrante">—</b>
-          <small class="sobrante-sub" id="flow-sobrante-sub">para el coche / red</small>
-        </div>
-
         <span class="badge blue" id="estado-red">Calculando…</span>
       </div>
     </div>
@@ -212,6 +203,19 @@
         </g>
         <text class="box-name" x="390" y="164">Fronius</text>
         <text class="val" x="390" y="186" id="v-fronius">0 W</text>
+      </g>
+
+      <!-- ===== BLOQUE GRANDE: POTENCIA SOBRANTE (debajo de Solar y Fronius) ===== -->
+      <g class="sobrante-g" id="g-sobrante">
+        <rect class="box-sobrante" x="40" y="220" width="440" height="150" rx="16"/>
+
+        <text class="lbl-sobrante" x="260" y="248">POTENCIA SOBRANTE</text>
+
+        <text class="val-sobrante" x="260" y="298" id="v-sobrante">0 W</text>
+
+        <text class="exc-sobrante" x="260" y="326" id="v-excedente" style="display:none">+0 W FV</text>
+
+        <text class="sub-sobrante" x="260" y="352" id="v-sub-sobrante">—</text>
       </g>
 
       <!-- TARJETA: CASA -->
