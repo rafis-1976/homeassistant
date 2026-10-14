@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Test Supabase</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#0f1115;color:#e8eaed;padding:24px;max-width:900px;margin:auto}
+h1{font-size:20px;margin-bottom:16px}
+input{width:100%;padding:10px;margin:6px 0;background:#1c2028;border:1px solid #2a2f3a;color:#e8eaed;border-radius:8px;font-family:monospace}
+button{padding:12px 20px;background:#4fc3f7;border:none;color:#000;border-radius:8px;font-weight:600;cursor:pointer;margin-top:10px}
+pre{background:#1c2028;padding:16px;border-radius:12px;overflow:auto;font-size:12px;line-height:1.5;border:1px solid #2a2f3a;margin-top:16px;white-space:pre-wrap;word-break:break-all}
+.ok{color:#4caf50}.err{color:#ef5350}.info{color:#4fc3f7}.warn{color:#ffc107}
+</style>
+</head>
+<body>
+<h1>🧪 Test de conexión Supabase</h1>
+
+<label>URL del proyecto:</label>
+<input id="url" placeholder="https://xxxxx.supabase.co" value="">
+
+<label>Anon public key:</label>
+<input id="key" placeholder="eyJhbGciOi..." value="">
+
+<label>Nombre de la tabla:</label>
+<input id="tabla" placeholder="energia" value="energia">
+
+<button onclick="probar()">▶ Probar conexión</button>
+
+<pre id="out">Rellena los campos y pulsa "Probar conexión".</pre>
+
+<script>
+async function probar(){
+  const out=document.getElementById('out');
+  const url=document.getElementById('url').value.trim();
+  const key=document.getElementById('key').value.trim();
+  const tabla=document.getElementById('tabla').value.trim();
+
+  out.innerHTML='';
+  const log=(txt,cls='')=>{out.innerHTML+=`<span class="${cls}">${txt}</span>\n`};
+
+  if(!url||!key||!tabla){
+    log('❌ Faltan datos: rellena URL, KEY y tabla','err');
+    return;
+  }
+
+  // 1. Validar formato URL
+  if(!url.startsWith('https://')){
+    log('❌ La URL debe empezar por https://','err');
+    return;
+  }
+  log('✅ URL válida: '+url,'ok');
+
+  // 2. Validar formato KEY
+  if(!key.startsWith('eyJ')){
+    log('⚠️  La key no empieza por "eyJ". ¿Seguro que es la anon public key?','warn');
+  } else {
+    log('✅ Key con formato JWT correcto','ok');
+  }
+
+  // 3. Petición real
+  const endpoint=url+'/rest/v1/'+tabla+'?select=*&limit=1';
+  log('\n📡 Petición: '+endpoint,'info');
+  log('   Headers: apikey, Authorization Bearer...\n');
+
+  try{
+    const t0=performance.now();
+    const r=await fetch(endpoint,{
+      headers:{
+        'apikey': key,
+        'Authorization': 'Bearer '+key,
+        'Content-Type': 'application/json'
+      }
+    });
+    const ms=Math.round(performance.now()-t0);
+
+    log('⏱️  Respuesta en '+ms+' ms','info');
+    log('📊 Status HTTP: '+r.status+' '+r.statusText, r.ok?'ok':'err');
+
+    const text=await r.text();
+    log('\n📄 Respuesta cruda:\n'+text.substring(0,2000),'info');
+
+    if(!r.ok){
+      log('\n❌ ERROR: la petición falló','err');
+      if(r.status===401||r.status===403){
+        log('→ Causa probable: key incorrecta o RLS bloqueando lectura','warn');
+        log('→ Ve a Supabase → Authentication → Policies → tu tabla','warn');
+        log('→ Añade política: SELECT TO anon USING (true)','warn');
+      }
+      if(r.status===404){
+        log('→ Causa probable: la tabla "'+tabla+'" no existe','warn');
+        log('→ Revisa el nombre exacto en Supabase → Table Editor','warn');
+      }
+      return;
+    }
+
+    let data;
+    try{data=JSON.parse(text)}catch(e){
+      log('\n❌ La respuesta no es JSON válido','err');
+      return;
+    }
+
+    if(!Array.isArray(data)){
+      log('\n⚠️  La respuesta no es un array. Esperaba un array de filas.','warn');
+      log('Recibido: '+typeof data,'warn');
+      return;
+    }
+
+    if(data.length===0){
+      log('\n⚠️  La tabla existe pero está VACÍA','warn');
+      log('→ Insertar al menos una fila en Supabase → Table Editor','warn');
+      return;
+    }
+
+    log('\n✅ ¡CONEXIÓN OK!','ok');
+    log('   Filas recibidas: '+data.length,'ok');
+
+    const fila=data[0];
+    log('\n📋 Columnas de la tabla "'+tabla+'":','info');
+    Object.keys(fila).forEach(k=>{
+      const v=fila[k];
+      const tipo=typeof v;
+      const esNum=!isNaN(parseFloat(v))&&v!==null;
+      log('   • '+k+' = '+JSON.stringify(v)+'   ('+tipo+(esNum?', numérico':'')+')', esNum?'ok':'');
+    });
+
+    log('\n➡️  Copia esta lista de columnas y me la pegas.','info');
+    log('   Con esos nombres ajustamos CONFIG.SUPABASE.COLUMNAS en app.js.','info');
+
+  }catch(e){
+    log('\n❌ ERROR DE RED: '+e.message,'err');
+    log('\nPosibles causas:','warn');
+    log('   1. URL mal escrita (revisa mayúsculas)','warn');
+    log('   2. Sin conexión a internet','warn');
+    log('   3. Bloqueador de anuncios bloqueando supabase.co','warn');
+    log('   4. El proyecto de Supabase está pausado','warn');
+  }
+}
+</script>
+</body>
+</html>
