@@ -268,3 +268,56 @@ header.top{display:flex;justify-content:space-between;align-items:flex-start;fle
   .greeting h2{font-size:20px}
   .clock{display:none}
 }
+
+
+/* ============================================================
+   FLUJO EN FORMATO TARJETAS
+   ============================================================ */
+.flow-svg-cards{max-height:340px;width:100%}
+
+.flow-svg-cards .wire-h{
+  fill:none;
+  stroke:#2a2f3a;
+  stroke-width:6;
+  stroke-linecap:round;
+}
+
+.flow-svg-cards .node .box{
+  fill:#161a21;
+  stroke:#2a2f3a;
+  stroke-width:2;
+  transition:stroke .35s ease, fill .35s ease, filter .35s ease;
+}
+.flow-svg-cards .node.act .box{
+  stroke:#4fc3f7;
+  fill:#1c2028;
+  filter:drop-shadow(0 0 12px rgba(79,195,247,.35));
+}
+
+.flow-svg-cards .box-name{
+  font-size:12px;
+  font-weight:600;
+  fill:#9aa0a6;
+  text-anchor:middle;
+  font-family:inherit;
+  letter-spacing:.3px;
+  text-transform:uppercase;
+  transition:fill .35s;
+}
+.flow-svg-cards .node.act .box-name{fill:#e8eaed}
+
+.flow-svg-cards .val{
+  font-size:20px;
+  font-weight:700;
+  fill:#e8eaed;
+  text-anchor:middle;
+  font-family:inherit;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-.5px;
+  transition:fill .35s;
+}
+.flow-svg-cards .node.act .val{fill:#fff}
+
+@media(max-width:900px){
+  .flow-svg-cards{max-height:none}
+}
