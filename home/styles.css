@@ -240,6 +240,8 @@ header.top{display:flex;justify-content:space-between;align-items:flex-start;fle
   0%,100%{opacity:1}
   50%{opacity:.3}
 }
+/* Flujo de energía compacto */
+.energy-card .flow-svg{max-height:280px}
 
 /* ============================================================
    RESPONSIVE
