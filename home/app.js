@@ -2,24 +2,24 @@
    CONFIGURACIÓN
    ============================================================ */
 const CONFIG = {
-  // ← Activa los datos reales desde Supabase
-  USAR_DATOS_REALES: false,
+  USAR_DATOS_REALES: false,      // ← cámbialo a true para probar
 
-  // ---- Supabase ----
   SUPABASE: {
-     SUPABASE_URL: 'https://mwzhyozqmsqmfpgtzeek.supabase.co',
-  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13emh5b3pxbXNxbWZwZ3R6ZWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMjE3ODEsImV4cCI6MjEwNTc5Nzc4MX0.U03Ec0QqhWznmy9_pyyjvp0yS9vzuPy9FY01UvfZDs0',    // Settings → API → anon public
-    TABLA: 'energia',             // nombre de tu tabla
+    URL: 'https://TU-PROYECTO.supabase.co',
+    KEY: 'TU_ANON_PUBLIC_KEY',
+    TABLA: 'energia',
+    // Deja estos nombres VACÍOS para que se auto-detecten:
+    // El script probará varios nombres comunes automáticamente
     COLUMNAS: {
-      solar:     'solar_kw',      // producción solar kW
-      casa:      'casa_kw',       // consumo casa kW
-      coche:     'coche_kw',      // consumo coche kW
-      red:       'red_kw',        // red: + export / − import (kW)
-      bat:       'bateria_pct',   // % batería
-      timestamp: 'created_at'     // columna de fecha/hora
+      solar: '',   // ej: 'solar_kw', 'pv_power', 'produccion'
+      casa:  '',   // ej: 'casa_kw', 'load_power', 'consumo'
+      coche: '',   // ej: 'coche_kw', 'wallbox_power'
+      red:   '',   // ej: 'red_kw', 'grid_power'
+      bat:   '',   // ej: 'bateria_pct', 'battery_soc'
+      timestamp: '' // ej: 'created_at', 'timestamp', 'fecha'
     },
-    INTERVALO: 5000,              // cada cuántos ms pedir datos
-    MODO: 'ultimo'                // 'ultimo' = última fila | 'hoy' = todas las de hoy
+    INTERVALO: 5000,
+    DEBUG: true    // ← muestra info en consola y panel
   },
 
   TIENE_BATERIA: false,
@@ -30,6 +30,35 @@ const CONFIG = {
 };
 
 const $=id=>document.getElementById(id),cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+const log=(...a)=>{if(CONFIG.SUPABASE.DEBUG)console.log('[ENERGÍA]',...a)};
+const warn=(...a)=>{if(CONFIG.SUPABASE.DEBUG)console.warn('[ENERGÍA]',...a)};
+
+/* ============================================================
+   AUTO-DETECCIÓN DE COLUMNAS
+   ============================================================ */
+const PATRONES = {
+  solar: ['solar_kw','solar','pv_power','pv_kw','produccion','produccion_kw','power_photovoltaics','fronius_power','generacion'],
+  casa:  ['casa_kw','casa','load_power','load_kw','consumo','consumo_kw','consumo_casa','house_power','power_load'],
+  coche: ['coche_kw','coche','coche_potencia','wallbox_power','wallbox_kw','ev_power','ev_kw','charger_power','carga_coche'],
+  red:   ['red_kw','red','grid_power','grid_kw','red_electrica','power_grid','potencia_red'],
+  bat:   ['bateria_pct','bateria','battery_soc','soc','bat_soc','bateria_soc','battery_pct'],
+  timestamp: ['created_at','timestamp','fecha','fecha_hora','datetime','time','inserted_at','updated_at']
+};
+
+function autodetectarColumnas(fila){
+  if(!fila) return {};
+  const cols=Object.keys(fila);
+  const out={};
+  Object.keys(PATRONES).forEach(k=>{
+    if(CONFIG.SUPABASE.COLUMNAS[k]){ out[k]=CONFIG.SUPABASE.COLUMNAS[k]; return; }
+    const encontrada=cols.find(c=>PATRONES[k].some(p=>c.toLowerCase()===p.toLowerCase()))
+      || cols.find(c=>PATRONES[k].some(p=>c.toLowerCase().includes(p.toLowerCase())));
+    if(encontrada) out[k]=encontrada;
+  });
+  log('🔍 Columnas detectadas:',out);
+  log('📋 Columnas disponibles:',cols);
+  return out;
+}
 
 /* ============================================================
    RELOJ (defensivo)
@@ -39,11 +68,9 @@ function reloj(){
   const h=String(d.getHours()).padStart(2,'0');
   const m=String(d.getMinutes()).padStart(2,'0');
   const rl=$('reloj'); if(rl) rl.textContent=h+':'+m;
-
   const dias=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   const mes=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const fc=$('fecha'); if(fc) fc.textContent=dias[d.getDay()]+', '+d.getDate()+' de '+mes[d.getMonth()];
-
   const hr=d.getHours();
   const txt=hr>=6&&hr<13?'Buenos días 👋':hr>=13&&hr<20?'Buenas tardes 👋':'Buenas noches 👋';
   const sg=$('saludo'); if(sg) sg.textContent=txt;
@@ -115,7 +142,7 @@ document.querySelectorAll('.nav-item').forEach(i=>i.addEventListener('click',()=
 }));
 
 /* ============================================================
-   FLUCTUACIÓN DE TEMPERATURA (solo si el texto ya es °C)
+   FLUCTUACIÓN DE TEMPERATURA
    ============================================================ */
 setInterval(()=>{
   const v=document.querySelectorAll('.sensor-val');
@@ -138,7 +165,7 @@ const E={
 };
 
 /* ============================================================
-   BALANCE ENERGÉTICO (simulación)
+   BALANCE (simulación)
    ============================================================ */
 function bal(){
   let cochePot=0;
@@ -151,11 +178,9 @@ function bal(){
     }
   }
   E.coche=cochePot;
-
   const consTotal=E.casa+E.coche;
   const neto=E.sol-consTotal;
   let cb=0,db=0,ex=0,im=0;
-
   if(neto>0){
     if(CONFIG.TIENE_BATERIA){
       const hd=cl((100-E.bat)/10,0,1);
@@ -171,7 +196,6 @@ function bal(){
   }
   E.cb=cb;E.db=db;E.exp=ex;E.imp=im;
   if(CONFIG.TIENE_BATERIA) E.bat=cl(E.bat+(cb-db)*.6,0,100);
-
   const step=0.1/60;
   E.kwhFronius+=E.sol*step;
   if(E.cocheOn) E.kwhCoche+=E.coche*step;
@@ -179,81 +203,88 @@ function bal(){
 }
 
 /* ============================================================
-   SUPABASE · Peticiones REST (PostgREST)
+   SUPABASE · Petición cruda
    ============================================================ */
-async function supaFetch(path, extraHeaders){
+async function supaFetch(path){
   const s=CONFIG.SUPABASE;
-  const r=await fetch(s.URL+'/rest/v1/'+path,{
-    headers:Object.assign({
+  const url=s.URL+'/rest/v1/'+path;
+  log('📡 GET',url);
+  const r=await fetch(url,{
+    headers:{
       'apikey': s.KEY,
       'Authorization': 'Bearer '+s.KEY,
       'Content-Type': 'application/json'
-    }, extraHeaders||{})
+    }
   });
-  if(!r.ok) throw new Error('Supabase '+r.status);
+  if(!r.ok){
+    const txt=await r.text();
+    warn('❌ Error '+r.status+':',txt);
+    throw new Error('Supabase '+r.status+': '+txt);
+  }
   return r.json();
 }
 
 /**
- * Devuelve el objeto con la última fila de la tabla.
- * Columnas configuradas en CONFIG.SUPABASE.COLUMNAS.
+ * Pide TODAS las columnas de la última fila (select=*)
+ * para poder inspeccionar la estructura real.
  */
 async function supaUltimaFila(){
   const s=CONFIG.SUPABASE;
-  const sel=Object.values(s.COLUMNAS).join(',');
-  const data=await supaFetch(
-    s.TABLA+'?select='+sel+'&order='+s.COLUMNAS.timestamp+'.desc&limit=1'
-  );
-  return data && data[0] ? data[0] : null;
+
+  // 1. Primero intentamos con select=* para ver TODO
+  let data=await supaFetch(s.TABLA+'?select=*&limit=1');
+
+  // Si la respuesta no trae las filas ordenadas, la pedimos con orden por created_at
+  if(!data || !data.length){
+    warn('⚠️ select=* devolvió vacío, probando con order');
+    data=await supaFetch(s.TABLA+'?select=*&order=created_at.desc&limit=1');
+  }
+
+  if(!data || !data.length){
+    warn('⚠️ No hay filas en la tabla', s.TABLA);
+    return null;
+  }
+
+  const fila=data[0];
+  log('📥 Fila recibida:',fila);
+
+  return fila;
 }
 
-/**
- * Devuelve las filas de hoy (útil para gráficas del día).
- */
-async function supaHoy(){
-  const s=CONFIG.SUPABASE;
-  const sel=Object.values(s.COLUMNAS).join(',');
-  const hoy=new Date(); hoy.setHours(0,0,0,0);
-  const iso=hoy.toISOString();
-  return await supaFetch(
-    s.TABLA+'?select='+sel+'&'+s.COLUMNAS.timestamp+'=gte.'+iso+
-    '&order='+s.COLUMNAS.timestamp+'.asc'
-  );
-}
-
-/**
- * Convierte una fila Supabase al estado E y refresca el panel.
- */
+/* ============================================================
+   APLICAR DATOS AL ESTADO
+   ============================================================ */
 function aplicarSupabase(fila){
-  if(!fila) return;
-  const c=CONFIG.SUPABASE.COLUMNAS;
+  if(!fila){warn('⚠️ Fila vacía');return}
 
-  const val=k=>{
-    const v=parseFloat(fila[k]);
-    return isNaN(v)?null:v;
+  const cols=autodetectarColumnas(fila);
+
+  const num=v=>{
+    if(v===null||v===undefined) return null;
+    const n=parseFloat(v);
+    return isNaN(n)?null:n;
   };
 
-  const solar=val(c.solar);
-  const casa =val(c.casa);
-  const coche=val(c.coche);
-  const red  =val(c.red);
-  const bat  =val(c.bat);
+  const solar=num(fila[cols.solar]);
+  const casa =num(fila[cols.casa]);
+  const coche=num(fila[cols.coche]);
+  const red  =num(fila[cols.red]);
+  const bat  =num(fila[cols.bat]);
+
+  log('💡 Valores parseados:',{solar,casa,coche,red,bat});
 
   if(solar!==null) E.sol=solar;
   if(casa !==null) E.casa=casa;
-
   if(coche!==null){
     E.coche=coche;
     E.cocheOn=coche>0.05;
     const t=$('t-coche');
     if(t) t.classList.toggle('on',E.cocheOn);
   }
-
   if(red!==null){
     if(red>=0){E.exp=red;E.imp=0}
     else{E.imp=-red;E.exp=0}
   }
-
   if(bat!==null && CONFIG.TIENE_BATERIA) E.bat=bat;
 
   // Sincronizar sliders
@@ -263,32 +294,38 @@ function aplicarSupabase(fila){
   if(cch && E.cocheOn){cch.value=E.coche.toFixed(1);pintaS(cch);}
 
   renderE();
+  actualizarPanelDiagnostico(fila,cols);
 }
 
-/**
- * Bucle de polling a Supabase.
- */
+/* ============================================================
+   POLLING
+   ============================================================ */
 async function pollSupabase(){
   try{
     const fila=await supaUltimaFila();
-    aplicarSupabase(fila);
-    marcarIndicador(true);
+    if(fila){
+      aplicarSupabase(fila);
+      marcarIndicador(true);
+    } else {
+      marcarIndicador(false,'sin filas');
+    }
   }catch(e){
-    marcarIndicador(false);
-    console.warn('Supabase no disponible:',e.message);
+    marcarIndicador(false,e.message);
+    warn('❌ Poll error:',e.message);
   }
 }
 
 /* ============================================================
-   INDICADOR DE FUENTE DE DATOS
+   INDICADOR + PANEL DE DIAGNÓSTICO
    ============================================================ */
-function marcarIndicador(ok){
+function marcarIndicador(ok,msg){
   const ind=$('data-indicator')||crearIndicador();
   if(!ind) return;
-  ind.textContent = ok?'🟢 Supabase':'🟡 Sim';
-  ind.style.color = ok?'var(--g)':'var(--on)';
-  ind.title = ok?'Datos en directo desde Supabase':'Sin conexión con Supabase · usando simulación';
+  ind.textContent = ok?'🟢 Supabase':'🔴 Error';
+  ind.style.color = ok?'var(--g)':'var(--r)';
+  ind.title = ok?'Datos en directo desde Supabase':('Error: '+(msg||'sin conexión'));
 }
+
 function crearIndicador(){
   const head=document.querySelector('.energy-card .card-name');
   if(!head) return null;
@@ -299,8 +336,57 @@ function crearIndicador(){
   return el;
 }
 
+/**
+ * Muestra un panel flotante con la info de la última lectura.
+ * Solo aparece si CONFIG.SUPABASE.DEBUG es true.
+ */
+function actualizarPanelDiagnostico(fila,cols){
+  if(!CONFIG.SUPABASE.DEBUG) return;
+  let panel=$('diag-panel');
+  if(!panel){
+    panel=document.createElement('div');
+    panel.id='diag-panel';
+    panel.style.cssText='position:fixed;bottom:20px;right:20px;max-width:360px;max-height:60vh;overflow:auto;background:#1c2028;border:1px solid #2a2f3a;border-radius:12px;padding:14px;font-size:11px;line-height:1.55;font-family:ui-monospace,Menlo,monospace;color:#e8eaed;z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,.6)';
+    document.body.appendChild(panel);
+  }
+  const lineas=[];
+  lineas.push('<b style="color:#4fc3f7">📡 DIAGNÓSTICO SUPABASE</b>');
+  lineas.push('<b style="color:#9aa0a6">Columnas en la tabla:</b>');
+  Object.keys(fila).forEach(k=>{
+    const rol=Object.keys(cols).find(x=>cols[x]===k);
+    const marca=rol?'<span style="color:#4caf50"> ← '+rol+'</span>':'';
+    lineas.push('&nbsp;&nbsp;'+k+': <span style="color:#ffc107">'+fila[k]+'</span>'+marca);
+  });
+  lineas.push('');
+  lineas.push('<b style="color:#9aa0a6">Valores aplicados:</b>');
+  lineas.push('&nbsp;&nbsp;☀️ solar: '+E.sol.toFixed(2)+' kW');
+  lineas.push('&nbsp;&nbsp;🏠 casa: '+E.casa.toFixed(2)+' kW');
+  lineas.push('&nbsp;&nbsp;🚗 coche: '+E.coche.toFixed(2)+' kW');
+  lineas.push('&nbsp;&nbsp;🔌 exp/imp: '+E.exp.toFixed(2)+' / '+E.imp.toFixed(2)+' kW');
+
+  const sobrantes=Object.keys(cols).filter(k=>!cols[k]);
+  if(sobrantes.length){
+    lineas.push('');
+    lineas.push('<b style="color:#ef5350">⚠️ No encontradas:</b> '+sobrantes.join(', '));
+    lineas.push('Ajusta CONFIG.SUPABASE.COLUMNAS');
+  }
+
+  panel.innerHTML=lineas.join('<br>');
+
+  // Botón de cierre
+  if(!panel.querySelector('.cerrar')){
+    const b=document.createElement('button');
+    b.textContent='✕';
+    b.className='cerrar';
+    b.style.cssText='position:absolute;top:8px;right:8px;background:transparent;border:none;color:#9aa0a6;font-size:14px;cursor:pointer';
+    b.onclick=()=>panel.remove();
+    panel.style.position='fixed';
+    panel.appendChild(b);
+  }
+}
+
 /* ============================================================
-   RENDERIZADO (defensivo)
+   RENDERIZADO
    ============================================================ */
 function pintaS(el){
   if(!el) return;
@@ -321,7 +407,6 @@ function toggleClass(id,c,v){const el=$(id);if(el)el.classList.toggle(c,v);}
 
 function renderE(){
   const{sol,casa,coche,cb,db,exp,imp,bat}=E;
-
   setTxt('v-solar',sol.toFixed(1)+' kW');
   setTxt('v-casa',casa.toFixed(1)+' kW');
   setTxt('v-coche',coche>0.05?coche.toFixed(1)+' kW':'Apagado');
@@ -339,7 +424,6 @@ function renderE(){
     pFlujo($('f-bat-in'),cb>.05,'#7c4dff',cb);
     toggleClass('n-bat','act',cb>.05||db>.05);
   }
-
   toggleClass('n-solar','act',sol>.05);
   addClass('n-fronius','act');
   toggleClass('n-casa','act',casa>.05);
@@ -354,16 +438,12 @@ function renderE(){
     else if(cb>.05){badge.classList.add('blue');badge.textContent='🔋 Cargando batería'}
     else{badge.classList.add('blue');badge.textContent='♻️ Autoconsumo total'}
   }
-
   setTxt('lbl-solar',sol.toFixed(1)+' kW');
   setTxt('lbl-casa',casa.toFixed(1)+' kW');
   setTxt('lbl-coche',coche.toFixed(1)+' kW');
-
   const hh=String(Math.floor(E.h)).padStart(2,'0');
   const mm=String(Math.floor((E.h%1)*60)).padStart(2,'0');
   setTxt('sim-hora',hh+':'+mm);
-
-  /* Fronius */
   setTxt('fron-prod',sol.toFixed(1));
   setTxt('fron-hoy',E.kwhFronius.toFixed(1)+' kWh');
   setTxt('fron-temp',(32+sol*2+Math.random()*2).toFixed(0)+' °C');
@@ -372,8 +452,6 @@ function renderE(){
     if(sol>.1){bf.className='badge green';bf.textContent='Produciendo'}
     else{bf.className='badge blue';bf.textContent='Standby'}
   }
-
-  /* Coche */
   const bc=$('badge-coche');
   if(bc){
     bc.className='badge';
@@ -386,8 +464,6 @@ function renderE(){
   setTxt('coche-sesion',E.cocheOn?(coche>.05?(Math.min(80,E.kwhCoche*8).toFixed(0)+' %'):'—'):'—');
   const ic=$('ico-coche'); if(ic) ic.style.background=E.cocheOn?'rgba(179,136,255,.18)':'rgba(255,255,255,.05)';
   toggleClass('card-coche','on',E.cocheOn&&coche>.05);
-
-  /* Batería */
   if(CONFIG.TIENE_BATERIA){
     setTxt('bat-nivel',Math.round(bat));
     setWidth('bar-bat',bat+'%');
@@ -402,7 +478,7 @@ function renderE(){
 }
 
 /* ============================================================
-   PASO DE SIMULACIÓN (solo si no hay datos reales)
+   SIMULACIÓN
    ============================================================ */
 function pasoE(){
   if(E.auto && !CONFIG.USAR_DATOS_REALES){
@@ -420,9 +496,6 @@ function pasoE(){
   renderE();
 }
 
-/* ============================================================
-   INTERACCIÓN COCHE
-   ============================================================ */
 function tCoche(el){
   el.classList.toggle('on');
   E.cocheOn=el.classList.contains('on');
@@ -436,7 +509,7 @@ function setModoCoche(modo){
 }
 
 /* ============================================================
-   GRÁFICO 24 H
+   GRÁFICO 24 H · KPIs · SEMANA
    ============================================================ */
 const S24=[0,0,0,0,0,0,.1,.4,1.1,2,3,3.9,4.3,4,3.3,2.4,1.4,.7,.2,.05,0,0,0,0];
 const C24=[.7,.6,.5,.5,.5,.7,1.3,2.2,1.7,1.1,1,1.3,1.7,1.4,1.2,1.3,1.9,2.7,2.5,2,1.6,1.3,1,.8];
@@ -465,10 +538,6 @@ function graf24(){
   g+='<text class="ax-lbl" x="'+(pL-8)+'" y="'+(pT-4)+'" text-anchor="end">kW</text>';
   $('chart-grid').innerHTML=g;
 }
-
-/* ============================================================
-   KPIs
-   ============================================================ */
 function kpis(){
   if(!$('kpi-prod')) return;
   let p=0,c=0,a=0;
@@ -489,10 +558,6 @@ function kpis(){
   setWidth('bar-imp',im/m*100+'%');
   setTxt('badge-auto','Autoconsumo '+Math.round(a/(c+cocheKwh)*100)+'%');
 }
-
-/* ============================================================
-   SEMANA
-   ============================================================ */
 const SEM=[['Lun',22.4,29.1,12],['Mar',26.9,31.5,13.5],['Mié',18.2,30.2,11.2],['Jue',28.7,28.4,13.8],['Vie',24.1,33.8,13],['Sáb',30.5,36.2,15.2],['Dom',27.3,31.5,13.4]];
 function semana(){
   if(!$('bars-semana')) return;
@@ -508,7 +573,7 @@ function semana(){
 }
 
 /* ============================================================
-   INTERACCIÓN SLIDERS
+   SLIDERS
    ============================================================ */
 ['in-solar','in-casa'].forEach(id=>{
   const el=$(id);
@@ -554,6 +619,7 @@ function iniciarSupabase(){
   if(!CONFIG.USAR_DATOS_REALES) return;
   const btn=$('btn-auto');
   if(btn){btn.textContent='🔄 Modo datos reales';btn.style.opacity='.7'}
+  log('🚀 Iniciando polling Supabase cada',CONFIG.SUPABASE.INTERVALO,'ms');
   pollSupabase();
   setInterval(pollSupabase, CONFIG.SUPABASE.INTERVALO);
 }
