@@ -1,22 +1,139 @@
-:root{--bg:#0f1115;--sb:#15181e;--c:#1c2028;--ch:#232833;--t:#e8eaed;--td:#9aa0a6;--a:#4fc3f7;--a2:#7c4dff;--on:#ffc107;--g:#4caf50;--r:#ef5350;--b:#2a2f3a;--rd:16px}
+:root{--bg:#0f1115;--sb:#15181e;--c:#1c2028;--ch:#232833;--t:#e8eaed;--td:#9aa0a6;--a:#4fc3f7;--a2:#7c4dff;--on:#ffc107;--g:#4caf50;--r:#ef5350;--b:#2a2f3a;--rd:16px;--sb-w:240px;--sb-w-min:72px}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--t);display:flex;min-height:100vh;overflow-x:hidden}
-.sidebar{width:240px;background:var(--sb);border-right:1px solid var(--b);display:flex;flex-direction:column;padding:20px 0;position:fixed;height:100vh;transition:transform .3s;z-index:100}
-.brand{display:flex;align-items:center;gap:12px;padding:0 20px 24px;border-bottom:1px solid var(--b);margin-bottom:16px}
-.brand-link{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;width:100%}
+
+/* ============================================================
+   SIDEBAR COLAPSABLE
+   ============================================================ */
+.sidebar{
+  width:var(--sb-w);
+  background:var(--sb);
+  border-right:1px solid var(--b);
+  display:flex;flex-direction:column;
+  padding:20px 0;
+  position:fixed;height:100vh;
+  transition:width .3s ease, transform .3s ease;
+  z-index:100;
+  overflow:hidden;
+}
+.sidebar.collapsed{width:var(--sb-w-min)}
+
+.collapse-btn{
+  position:absolute;
+  top:22px;right:10px;
+  width:28px;height:28px;
+  border-radius:8px;
+  background:var(--c);
+  border:1px solid var(--b);
+  color:var(--td);
+  font-size:14px;
+  cursor:pointer;
+  display:grid;place-items:center;
+  transition:.2s;
+  z-index:5;
+  font-family:inherit;
+  font-weight:700;
+}
+.collapse-btn:hover{background:var(--ch);color:var(--a);border-color:var(--a)}
+
+.brand{
+  display:flex;align-items:center;gap:12px;
+  padding:0 20px 24px;
+  border-bottom:1px solid var(--b);
+  margin-bottom:16px;
+  transition:padding .3s ease;
+  min-height:64px;
+}
+.brand-link{
+  display:flex;align-items:center;gap:12px;
+  text-decoration:none;color:inherit;
+  width:100%;min-width:0;
+}
 .brand-link:hover{opacity:.85}
-.brand-icon{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--a),var(--a2));display:grid;place-items:center;font-size:20px;box-shadow:0 4px 16px rgba(79,195,247,.3)}
+.brand-icon{
+  width:40px;height:40px;
+  border-radius:12px;
+  background:linear-gradient(135deg,var(--a),var(--a2));
+  display:grid;place-items:center;
+  font-size:20px;
+  box-shadow:0 4px 16px rgba(79,195,247,.3);
+  flex-shrink:0;
+}
+.brand-text{overflow:hidden;white-space:nowrap;transition:opacity .2s ease}
 .brand h1{font-size:16px;font-weight:600;letter-spacing:.3px}
 .brand span{font-size:11px;color:var(--td)}
-.nav{flex:1;padding:0 12px;overflow-y:auto}
-.nav-item{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:10px;color:var(--td);cursor:pointer;font-size:14px;margin-bottom:4px;transition:.2s;user-select:none;text-decoration:none}
+
+.sidebar.collapsed .brand{padding:0 0 24px;justify-content:center}
+.sidebar.collapsed .brand-link{justify-content:center;gap:0}
+.sidebar.collapsed .brand-text{opacity:0;width:0;display:none}
+.sidebar.collapsed .collapse-btn{top:22px;right:22px}
+
+.nav{flex:1;padding:0 12px;overflow-y:auto;overflow-x:hidden}
+.nav-item{
+  display:flex;align-items:center;gap:14px;
+  padding:12px 14px;
+  border-radius:10px;
+  color:var(--td);
+  cursor:pointer;font-size:14px;
+  margin-bottom:4px;
+  transition:background .2s,color .2s,padding .3s;
+  user-select:none;text-decoration:none;
+  white-space:nowrap;
+  overflow:hidden;
+}
 .nav-item:hover{background:var(--c);color:var(--t)}
-.nav-item.active{background:linear-gradient(90deg,rgba(79,195,247,.18),transparent);color:var(--a);border-left:3px solid var(--a)}
-.nav-item .ico{font-size:18px;width:22px;text-align:center}
-.sidebar-footer{padding:16px 20px 0;border-top:1px solid var(--b);font-size:12px;color:var(--td);margin-top:10px}
-.user{display:flex;align-items:center;gap:10px}
-.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#7c4dff,#4fc3f7);display:grid;place-items:center;font-weight:600;font-size:13px;color:#fff}
-.main{margin-left:240px;flex:1;padding:28px 32px 60px;min-height:100vh}
+.nav-item.active{
+  background:linear-gradient(90deg,rgba(79,195,247,.18),transparent);
+  color:var(--a);
+  border-left:3px solid var(--a);
+}
+.nav-item .ico{font-size:18px;width:22px;text-align:center;flex-shrink:0}
+.nav-text{transition:opacity .2s ease}
+
+.sidebar.collapsed .nav{padding:0 8px}
+.sidebar.collapsed .nav-item{
+  justify-content:center;
+  padding:12px 0;
+  gap:0;
+}
+.sidebar.collapsed .nav-text{
+  opacity:0;width:0;overflow:hidden;display:none;
+}
+.sidebar.collapsed .nav-item.active{border-left:none}
+
+.sidebar-footer{
+  padding:16px 20px 0;
+  border-top:1px solid var(--b);
+  font-size:12px;color:var(--td);
+  margin-top:10px;
+  transition:padding .3s ease;
+}
+.user{display:flex;align-items:center;gap:10px;min-width:0}
+.avatar{
+  width:34px;height:34px;border-radius:50%;
+  background:linear-gradient(135deg,#7c4dff,#4fc3f7);
+  display:grid;place-items:center;font-weight:600;font-size:13px;color:#fff;
+  flex-shrink:0;
+}
+.user-text{overflow:hidden;white-space:nowrap;transition:opacity .2s}
+
+.sidebar.collapsed .sidebar-footer{padding:16px 8px 0;display:flex;justify-content:center}
+.sidebar.collapsed .user{justify-content:center;gap:0}
+.sidebar.collapsed .user-text{display:none}
+
+/* ============================================================
+   MAIN
+   ============================================================ */
+.main{
+  margin-left:var(--sb-w);
+  flex:1;
+  padding:28px 32px 60px;
+  min-height:100vh;
+  transition:margin-left .3s ease;
+}
+.main.collapsed{margin-left:var(--sb-w-min)}
+
+/* ...resto de estilos sin cambios... */
 header.top{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:28px}
 .greeting h2{font-size:26px;font-weight:600;margin-bottom:4px}
 .greeting p{color:var(--td);font-size:14px}
@@ -166,7 +283,7 @@ header.top{display:flex;justify-content:space-between;align-items:flex-start;fle
 .stat b{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--t)}
 .stat small{font-size:10px;color:var(--td);letter-spacing:.3px}
 
-/* ---------- ICONOS ANIMADOS DEL FLUJO ---------- */
+/* ---------- ICONOS ANIMADOS ---------- */
 .sun-icon .rays{transform-box:fill-box;transform-origin:center;animation:sunRays 12s linear infinite}
 @keyframes sunRays{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .panel-glow{animation:panelGlow 2.5s ease-in-out infinite}
@@ -189,9 +306,7 @@ header.top{display:flex;justify-content:space-between;align-items:flex-start;fle
 .bolt{animation:boltFlash 1s ease-in-out infinite;filter:drop-shadow(0 0 4px #ffc107)}
 @keyframes boltFlash{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* ============================================================
-   FLUJO EN FORMATO TARJETAS
-   ============================================================ */
+/* ---------- FLUJO EN TARJETAS ---------- */
 .flow-svg-cards{max-height:400px;width:100%}
 .flow-svg-cards .wire-h{fill:none;stroke:#2a2f3a;stroke-width:6;stroke-linecap:round}
 .flow-svg-cards .node .box{fill:#161a21;stroke:#2a2f3a;stroke-width:2;transition:stroke .35s ease,fill .35s ease,filter .35s ease}
@@ -201,78 +316,21 @@ header.top{display:flex;justify-content:space-between;align-items:flex-start;fle
 .flow-svg-cards .val{font-size:20px;font-weight:700;fill:#e8eaed;text-anchor:middle;font-family:inherit;font-variant-numeric:tabular-nums;letter-spacing:-.5px;transition:fill .35s}
 .flow-svg-cards .node.act .val{fill:#fff}
 
-/* ============================================================
-   LÍNEA DE EXPORTACIÓN DIRECTA FV → RED
-   ============================================================ */
+/* ---------- EXPORTACIÓN FV→RED ---------- */
 .wire-export{fill:none;stroke:#1e3a26;stroke-width:5;stroke-linecap:butt;stroke-linejoin:round}
 .wire-lbl{fill:#4caf50;font-size:11px;font-weight:600;letter-spacing:.5px;font-family:inherit;opacity:.85}
 
-/* ============================================================
-   BLOQUE GRANDE: POTENCIA SOBRANTE (dentro del SVG)
-   ============================================================ */
-.sobrante-g .box-sobrante{
-  fill:#161a21;
-  stroke:rgba(79,195,247,.45);
-  stroke-width:2;
-  transition:stroke .35s ease, fill .35s ease, filter .35s ease;
-}
-
-.sobrante-g .lbl-sobrante{
-  font-size:12px;
-  font-weight:600;
-  fill:#9aa0a6;
-  text-anchor:middle;
-  letter-spacing:1.6px;
-  text-transform:uppercase;
-  font-family:inherit;
-}
-
-.sobrante-g .val-sobrante{
-  font-size:38px;
-  font-weight:700;
-  fill:#4fc3f7;
-  text-anchor:middle;
-  font-family:inherit;
-  font-variant-numeric:tabular-nums;
-  letter-spacing:-1.5px;
-  transition:fill .35s;
-}
-
-.sobrante-g .exc-sobrante{
-  font-size:20px;
-  font-weight:700;
-  fill:#39ff14;
-  text-anchor:middle;
-  font-family:inherit;
-  font-variant-numeric:tabular-nums;
-  letter-spacing:-.5px;
-  filter:drop-shadow(0 0 8px rgba(57,255,20,.7));
-}
-
-.sobrante-g .sub-sobrante{
-  font-size:11px;
-  font-weight:400;
-  fill:#9aa0a6;
-  text-anchor:middle;
-  font-family:inherit;
-  letter-spacing:.2px;
-}
-
-/* Estado cuando hay excedente FV */
-.sobrante-g.excedente .box-sobrante{
-  stroke:#39ff14;
-  fill:#182419;
-  filter:drop-shadow(0 0 14px rgba(57,255,20,.35));
-}
-.sobrante-g.excedente .val-sobrante{
-  fill:#39ff14;
-  filter:drop-shadow(0 0 12px rgba(57,255,20,.6));
-}
+/* ---------- BLOQUE SOBRANTE ---------- */
+.sobrante-g .box-sobrante{fill:#161a21;stroke:rgba(79,195,247,.45);stroke-width:2;transition:stroke .35s ease,fill .35s ease,filter .35s ease}
+.sobrante-g .lbl-sobrante{font-size:12px;font-weight:600;fill:#9aa0a6;text-anchor:middle;letter-spacing:1.6px;text-transform:uppercase;font-family:inherit}
+.sobrante-g .val-sobrante{font-size:38px;font-weight:700;fill:#4fc3f7;text-anchor:middle;font-family:inherit;font-variant-numeric:tabular-nums;letter-spacing:-1.5px;transition:fill .35s}
+.sobrante-g .exc-sobrante{font-size:20px;font-weight:700;fill:#39ff14;text-anchor:middle;font-family:inherit;font-variant-numeric:tabular-nums;letter-spacing:-.5px;filter:drop-shadow(0 0 8px rgba(57,255,20,.7))}
+.sobrante-g .sub-sobrante{font-size:11px;font-weight:400;fill:#9aa0a6;text-anchor:middle;font-family:inherit;letter-spacing:.2px}
+.sobrante-g.excedente .box-sobrante{stroke:#39ff14;fill:#182419;filter:drop-shadow(0 0 14px rgba(57,255,20,.35))}
+.sobrante-g.excedente .val-sobrante{fill:#39ff14;filter:drop-shadow(0 0 12px rgba(57,255,20,.6))}
 .sobrante-g.excedente .lbl-sobrante{fill:#c8ffb8}
 
-/* ============================================================
-   TARJETA DE TARIFA ELÉCTRICA
-   ============================================================ */
+/* ---------- TARIFA ---------- */
 .tariff-card{padding:20px 22px;transition:border-color .3s,box-shadow .3s}
 .tariff-card.punta{border-color:rgba(239,83,80,.4);box-shadow:0 0 20px rgba(239,83,80,.08)}
 .tariff-card.llano{border-color:rgba(255,193,7,.35);box-shadow:0 0 20px rgba(255,193,7,.08)}
@@ -294,32 +352,16 @@ header.top{display:flex;justify-content:space-between;align-items:flex-start;fle
 #tar-precio-exc{color:#4caf50}
 #tar-ganancia{color:#8bc34a}
 
-/* ============================================================
-   SEMÁFORO TARIFARIO
-   ============================================================ */
-.tariff-indicator{
-  display:flex;align-items:center;gap:12px;
-  padding:10px 18px 10px 14px;
-  background:rgba(255,255,255,.03);
-  border:2px solid var(--b);
-  border-radius:14px;
-  transition:all .35s ease;
-  min-width:190px;
-}
+/* ---------- SEMÁFORO ---------- */
+.tariff-indicator{display:flex;align-items:center;gap:12px;padding:10px 18px 10px 14px;background:rgba(255,255,255,.03);border:2px solid var(--b);border-radius:14px;transition:all .35s ease;min-width:190px}
 .tariff-indicator-info{display:flex;flex-direction:column;line-height:1.15}
-.tariff-label{
-  font-size:15px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;
-  color:var(--t);transition:color .3s, text-shadow .3s;
-}
+.tariff-label{font-size:15px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--t);transition:color .3s, text-shadow .3s}
 .tariff-precio-ind{font-size:11px;color:var(--td);font-variant-numeric:tabular-nums;letter-spacing:.2px}
 .tariff-dot{width:24px;height:24px;border-radius:50%;background:#6b7280;flex-shrink:0;transition:all .3s ease}
 .tariff-indicator.punta{border-color:rgba(239,83,80,.6);background:rgba(239,83,80,.08)}
 .tariff-indicator.punta .tariff-label{color:#ef5350;text-shadow:0 0 8px rgba(239,83,80,.35)}
 .tariff-indicator.punta .tariff-dot{background:#ef5350;box-shadow:0 0 20px rgba(239,83,80,.9), 0 0 0 4px rgba(239,83,80,.2);animation:pulsePunta 1.4s ease-in-out infinite}
-@keyframes pulsePunta{
-  0%,100%{box-shadow:0 0 20px rgba(239,83,80,.9), 0 0 0 4px rgba(239,83,80,.2)}
-  50%{box-shadow:0 0 32px rgba(239,83,80,1), 0 0 0 7px rgba(239,83,80,.12)}
-}
+@keyframes pulsePunta{0%,100%{box-shadow:0 0 20px rgba(239,83,80,.9), 0 0 0 4px rgba(239,83,80,.2)}50%{box-shadow:0 0 32px rgba(239,83,80,1), 0 0 0 7px rgba(239,83,80,.12)}}
 .tariff-indicator.llano{border-color:rgba(255,193,7,.55);background:rgba(255,193,7,.07)}
 .tariff-indicator.llano .tariff-label{color:#ffc107;text-shadow:0 0 8px rgba(255,193,7,.35)}
 .tariff-indicator.llano .tariff-dot{background:#ffc107;box-shadow:0 0 20px rgba(255,193,7,.85), 0 0 0 4px rgba(255,193,7,.2)}
@@ -329,10 +371,7 @@ header.top{display:flex;justify-content:space-between;align-items:flex-start;fle
 .tariff-indicator.excedente{border-color:#39ff14;background:rgba(57,255,20,.1)}
 .tariff-indicator.excedente .tariff-label{color:#39ff14;text-shadow:0 0 12px rgba(57,255,20,.7), 0 0 24px rgba(57,255,20,.4)}
 .tariff-indicator.excedente .tariff-dot{background:#39ff14;box-shadow:0 0 24px #39ff14, 0 0 0 5px rgba(57,255,20,.25);animation:pulseExcedente 0.9s ease-in-out infinite}
-@keyframes pulseExcedente{
-  0%,100%{transform:scale(1); box-shadow:0 0 24px #39ff14, 0 0 0 5px rgba(57,255,20,.25)}
-  50%{transform:scale(1.15); box-shadow:0 0 36px #39ff14, 0 0 0 8px rgba(57,255,20,.15)}
-}
+@keyframes pulseExcedente{0%,100%{transform:scale(1); box-shadow:0 0 24px #39ff14, 0 0 0 5px rgba(57,255,20,.25)}50%{transform:scale(1.15); box-shadow:0 0 36px #39ff14, 0 0 0 8px rgba(57,255,20,.15)}}
 
 /* ============================================================
    RESPONSIVE
@@ -342,9 +381,21 @@ header.top{display:flex;justify-content:space-between;align-items:flex-start;fle
   .btn-auto{grid-column:span 2}
 }
 @media(max-width:900px){
-  .sidebar{transform:translateX(-100%)}
+  .sidebar{transform:translateX(-100%);width:240px}
   .sidebar.open{transform:translateX(0)}
+  .sidebar.collapsed{width:240px}
+  .sidebar.collapsed .brand{padding:0 20px 24px;justify-content:flex-start}
+  .sidebar.collapsed .brand-link{justify-content:flex-start;gap:12px}
+  .sidebar.collapsed .brand-text{opacity:1;display:block;width:auto}
+  .sidebar.collapsed .nav{padding:0 12px}
+  .sidebar.collapsed .nav-item{justify-content:flex-start;padding:12px 14px;gap:14px}
+  .sidebar.collapsed .nav-text{opacity:1;display:block;width:auto}
+  .sidebar.collapsed .sidebar-footer{padding:16px 20px 0;justify-content:flex-start}
+  .sidebar.collapsed .user{justify-content:flex-start;gap:10px}
+  .sidebar.collapsed .user-text{display:block}
+  .collapse-btn{display:none}
   .main{margin-left:0;padding:70px 18px 50px}
+  .main.collapsed{margin-left:0}
   .burger{display:grid;place-items:center}
   .chart-det-card{grid-column:span 1!important}
   .chart-det-stats{grid-template-columns:repeat(2,1fr)}
