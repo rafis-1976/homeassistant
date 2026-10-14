@@ -1,8 +1,5 @@
 /* ============================================================
    TARIFA.JS
-   Calcula la tarifa eléctrica actual (punta/llano/valle),
-   el precio de consumo, el precio de excedente, la potencia
-   contratada, el sobrante, el exceso FV y la ganancia estimada.
    ============================================================ */
 
 /* ---------- FESTIVOS ---------- */
@@ -28,25 +25,11 @@ const HORARIOS = {
   valle: [[0,8],[16,18]]
 };
 
-/* ---------- PRECIOS ---------- */
-const PRECIOS = {
-  punta: 0.195,
-  llano: 0.116,
-  valle: 0.079
-};
+const PRECIOS = { punta: 0.195, llano: 0.116, valle: 0.079 };
+const PRECIO_EXCEDENTE = 0.060;
+const CONTRATADA = { punta: 4600, llano: 4600, valle: 6900 };
 
-/* Precio que paga la comercializadora por cada kWh excedentario
-   que se vierte a la red. */
-const PRECIO_EXCEDENTE = 0.060;   // €/kWh
-
-/* ---------- POTENCIA CONTRATADA ---------- */
-const CONTRATADA = {
-  punta: 4600,
-  llano: 4600,
-  valle: 6900
-};
-
-/* ---------- FECHA LOCAL MADRID ---------- */
+/* ---------- FECHA MADRID ---------- */
 const _fmtFechaTar = new Intl.DateTimeFormat('fr-CA',{
   timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'
 });
@@ -56,7 +39,7 @@ const _fmtHoraTar = new Intl.DateTimeFormat('en-GB',{
 const fechaTar = d => _fmtFechaTar.format(d);
 const horaTar  = d => parseInt(_fmtHoraTar.format(d),10);
 
-/* ---------- CÁLCULO DE TARIFA ---------- */
+/* ---------- TARIFA ACTUAL ---------- */
 function getTarifaActual(){
   const ahora = new Date();
   const diaSem = ahora.getDay();
@@ -109,6 +92,7 @@ function renderTarifa(){
   const excesoW = Math.max(0, solarW - consumoW);
   const gananciaHora = (excesoW / 1000) * PRECIO_EXCEDENTE;
 
+  // Estilos de la tarjeta
   card.classList.remove('punta','llano','valle');
   card.classList.add(tar.periodo);
 
@@ -128,13 +112,12 @@ function renderTarifa(){
   setTxtTar('tar-consumo', fmtW2(consumoW));
   setTxtTar('tar-sobrante', fmtW2(sobranteW));
   setTxtTar('tar-exceso', excesoW > 5 ? fmtW2(excesoW) : '—');
+  setTxtTar('tar-ganancia', excesoW > 5 ? gananciaHora.toFixed(4).replace('.',',') + ' €/h' : '—');
 
-  if(excesoW > 5){
-    setTxtTar('tar-ganancia', gananciaHora.toFixed(4).replace('.',',') + ' €/h');
-  } else {
-    setTxtTar('tar-ganancia', '—');
-  }
+  // Semáforo
+  actualizarSemaforo(tar, excesoW);
 
+  // Flujo directo
   actualizarFlujoDirecto(excesoW);
 }
 
@@ -143,23 +126,41 @@ function setTxtTar(id, txt){
   if(el) el.textContent = txt;
 }
 
+/* ---------- SEMÁFORO TARIFARIO ---------- */
+function actualizarSemaforo(tar, excesoW){
+  const ind = document.getElementById('tariff-indicator');
+  const label = document.getElementById('tariff-label');
+  const precio = document.getElementById('tariff-precio-ind');
+  if(!ind) return;
+
+  ind.classList.remove('punta','llano','valle','excedente');
+
+  if(excesoW > 5){
+    ind.classList.add('excedente');
+    if(label) label.textContent = '⚡ Excedente FV';
+    if(precio) precio.textContent = fmtW2(excesoW) + ' · ' + fmtPrecio(PRECIO_EXCEDENTE);
+  } else {
+    ind.classList.add(tar.periodo);
+    if(label) label.textContent = nombrePeriodo(tar.periodo);
+    if(precio) precio.textContent = fmtPrecio(tar.precio) + ' · ' + fmtW2(tar.contratada);
+  }
+}
+
 /* ---------- FLUJO DIRECTO FV → RED ---------- */
 function actualizarFlujoDirecto(excesoW){
   const el = document.getElementById('f-export-direct');
   if(!el) return;
-
   const activo = excesoW > 5;
   el.classList.toggle('on', activo);
-
   if(activo){
     const pot = excesoW / 1000;
-    el.style.stroke = '#4caf50';
-    el.style.filter = 'drop-shadow(0 0 6px #4caf50)';
+    el.style.stroke = '#39ff14';
+    el.style.filter = 'drop-shadow(0 0 8px #39ff14)';
     el.style.animationDuration = Math.max(0.5, 1.6 - pot * 0.15).toFixed(2) + 's';
   }
 }
 
-/* ---------- INICIALIZACIÓN ---------- */
+/* ---------- INICIO ---------- */
 function iniciarTarifa(){
   renderTarifa();
   setInterval(renderTarifa, 3000);
