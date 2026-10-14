@@ -51,7 +51,7 @@
     </div>
   </header>
 
-  <!-- ===== FLUJO DE ENERGÍA (tarjetas horizontales) ===== -->
+  <!-- ===== FLUJO DE ENERGÍA ===== -->
   <div class="section-title">Energía solar</div>
   <div class="card energy-card">
     <div class="card-head" style="align-items:center">
@@ -59,7 +59,7 @@
       <span class="badge blue" id="estado-red">Calculando…</span>
     </div>
 
-    <svg class="flow-svg flow-svg-cards" viewBox="0 0 1200 340">
+    <svg class="flow-svg flow-svg-cards" viewBox="0 0 1200 440">
       <defs>
         <radialGradient id="sunGrad" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stop-color="#fff59d"/>
@@ -83,19 +83,23 @@
       <path class="wire-h" d="M650,200 L 650,240"/>
       <path class="wire-h" id="w-bat" d="M130,200 L 130,255" style="display:none"/>
 
+      <!-- ===== LÍNEA DIRECTA EXPORTACIÓN FV → RED ===== -->
+      <path class="wire-export" d="M 390,200 C 390,470 910,470 910,200"/>
+      <text class="wire-lbl" x="650" y="420">⬆️ Exportación directa FV → Red</text>
+
       <!-- ===== FLUJOS ANIMADOS ===== -->
       <path id="f-solar"  class="flow"     d="M220,130 L 300,130"/>
       <path id="f-casa"   class="flow"     d="M480,130 L 560,130"/>
       <path id="f-export" class="flow"     d="M740,130 L 820,130"/>
       <path id="f-import" class="flow rev" d="M740,130 L 820,130"/>
       <path id="f-coche"  class="flow"     d="M650,200 L 650,240"/>
+      <path id="f-export-direct" class="flow" d="M 390,200 C 390,470 910,470 910,200"/>
       <path id="f-bat-in"  class="flow rev" d="M130,200 L 130,255" style="display:none"/>
       <path id="f-bat-out" class="flow"     d="M130,200 L 130,255" style="display:none"/>
 
       <!-- ===== TARJETA: SOLAR ===== -->
       <g class="node" id="n-solar">
         <rect class="box" x="40" y="60" width="180" height="140" rx="16"/>
-
         <g transform="translate(130,108)">
           <g class="rays" stroke="#ffc107" stroke-width="1.5" stroke-linecap="round">
             <line x1="0" y1="-16" x2="0" y2="-19"/>
@@ -109,7 +113,6 @@
           </g>
           <circle r="11" fill="url(#sunGrad)"/>
           <circle r="6" fill="#fff59d" opacity=".75"/>
-
           <g transform="translate(0,26)">
             <polygon points="-34,-4 34,-4 28,10 -28,10" fill="url(#panelGrad)" stroke="#4fc3f7" stroke-width=".9"/>
             <line x1="-34" y1="1" x2="34" y2="1" stroke="#4fc3f7" stroke-width=".4" opacity=".6"/>
@@ -119,7 +122,6 @@
             <polygon points="-34,-4 34,-4 28,10 -28,10" fill="url(#sunGrad)" opacity=".15" class="panel-glow"/>
           </g>
         </g>
-
         <text class="box-name" x="130" y="164">Solar</text>
         <text class="val" x="130" y="186" id="v-solar">0 W</text>
       </g>
@@ -127,7 +129,6 @@
       <!-- ===== TARJETA: FRONIUS ===== -->
       <g class="node" id="n-fronius">
         <rect class="box" x="300" y="60" width="180" height="140" rx="16"/>
-
         <g transform="translate(390,110)">
           <rect x="-52" y="-38" width="104" height="76" rx="8" fill="url(#froniusBody)" stroke="#4fc3f7" stroke-width="1.5"/>
           <rect x="-52" y="-38" width="104" height="18" rx="8" fill="#7c4dff" opacity=".35"/>
@@ -141,7 +142,6 @@
           <line x1="-44" y1="22" x2="44" y2="22" stroke="#4fc3f7" stroke-width="1" opacity=".35"/>
           <line x1="-44" y1="27" x2="44" y2="27" stroke="#4fc3f7" stroke-width="1" opacity=".35"/>
         </g>
-
         <text class="box-name" x="390" y="164">Fronius</text>
         <text class="val" x="390" y="186" id="v-fronius">0 W</text>
       </g>
@@ -149,7 +149,6 @@
       <!-- ===== TARJETA: CASA ===== -->
       <g class="node" id="n-casa">
         <rect class="box" x="560" y="60" width="180" height="140" rx="16"/>
-
         <g transform="translate(650,112)">
           <polygon points="-38,4 0,-32 38,4" fill="#1a1f28" stroke="#4fc3f7" stroke-width="1.8"/>
           <polygon points="0,-32 38,4 28,4 0,-22" fill="url(#panelGrad)" stroke="#ffc107" stroke-width="1"/>
@@ -161,7 +160,6 @@
           <rect x="-22" y="10" width="11" height="11" fill="#ffc107" opacity=".8" class="ventana ventana-1"/>
           <rect x="11" y="10" width="11" height="11" fill="#ffc107" opacity=".8" class="ventana ventana-2"/>
         </g>
-
         <text class="box-name" x="650" y="164">Vivienda</text>
         <text class="val" x="650" y="186" id="v-casa">0 W</text>
       </g>
@@ -169,7 +167,6 @@
       <!-- ===== TARJETA: RED ===== -->
       <g class="node" id="n-red">
         <rect class="box" x="820" y="60" width="180" height="140" rx="16"/>
-
         <g transform="translate(910,105)">
           <line x1="0" y1="-34" x2="-22" y2="26" stroke="#4fc3f7" stroke-width="1.8"/>
           <line x1="0" y1="-34" x2="22" y2="26" stroke="#4fc3f7" stroke-width="1.8"/>
@@ -188,7 +185,6 @@
           <circle cx="20" cy="-28" r="2.3" fill="#4fc3f7" class="spark spark-5"/>
           <line x1="-24" y1="26" x2="24" y2="26" stroke="#4fc3f7" stroke-width="1.8" stroke-linecap="round"/>
         </g>
-
         <text class="box-name" x="910" y="164">Red eléctrica</text>
         <text class="val" x="910" y="186" id="v-red">0 W</text>
       </g>
@@ -196,7 +192,6 @@
       <!-- ===== TARJETA: COCHE ===== -->
       <g class="node" id="n-coche">
         <rect class="box" x="560" y="240" width="180" height="90" rx="16"/>
-
         <g transform="translate(610,285)">
           <path d="M-32,10 L-24,-6 Q-16,-16 0,-16 Q16,-16 24,-6 L32,10 Z"
                 fill="#1a1f28" stroke="#b388ff" stroke-width="1.8"/>
@@ -206,7 +201,6 @@
           <circle cx="16" cy="12" r="5.5" fill="#0f1115" stroke="#b388ff" stroke-width="1.2"/>
           <path d="M-3,-22 L-5,-15 L0,-15 L-3,-8" fill="none" stroke="#ffc107" stroke-width="2" stroke-linecap="round" class="bolt"/>
         </g>
-
         <text class="box-name" x="680" y="285" text-anchor="start">Coche</text>
         <text class="val" x="680" y="307" text-anchor="start" id="v-coche">0 W</text>
       </g>
@@ -243,6 +237,53 @@
         <input type="range" class="slider" id="in-coche" min="0" max="11" step="0.1" value="7.4">
       </div>
       <button class="btn-auto" id="btn-auto">⏸ Pausar simulación</button>
+    </div>
+  </div>
+
+  <!-- ===== TARIFA ELÉCTRICA ===== -->
+  <div class="section-title">Tarifa eléctrica</div>
+  <div class="card tariff-card" id="tariff-card">
+    <div class="card-head">
+      <div>
+        <div class="card-name">Estado tarifario actual</div>
+        <div class="card-sub" id="tar-info">Calculando…</div>
+      </div>
+      <span class="badge" id="tar-badge">—</span>
+    </div>
+
+    <div class="tariff-grid">
+      <div class="tariff-item">
+        <small>Tarifa actual</small>
+        <b id="tar-periodo">—</b>
+      </div>
+      <div class="tariff-item">
+        <small>Precio consumo</small>
+        <b id="tar-precio">—</b>
+      </div>
+      <div class="tariff-item">
+        <small>Precio excedente</small>
+        <b id="tar-precio-exc">—</b>
+      </div>
+      <div class="tariff-item">
+        <small>Potencia contratada</small>
+        <b id="tar-contratada">—</b>
+      </div>
+      <div class="tariff-item">
+        <small>Consumo actual</small>
+        <b id="tar-consumo">—</b>
+      </div>
+      <div class="tariff-item">
+        <small>Potencia sobrante</small>
+        <b id="tar-sobrante">—</b>
+      </div>
+      <div class="tariff-item">
+        <small>Exceso FV disponible</small>
+        <b id="tar-exceso">—</b>
+      </div>
+      <div class="tariff-item">
+        <small>Ganancia estimada</small>
+        <b id="tar-ganancia">—</b>
+      </div>
     </div>
   </div>
 
@@ -393,5 +434,6 @@
 
 <script src="supabase-config.js"></script>
 <script src="app.js"></script>
+<script src="tarifa.js"></script>
 </body>
 </html>
