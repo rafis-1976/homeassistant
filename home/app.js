@@ -371,7 +371,7 @@ function dibujar24hLineas(gBars){
   const valsFlat = puntos.flatMap(p=>[p.solar,p.casa,p.coche,p.red]);
   if(valsFlat.length===0){
     $('chart-det-grid').innerHTML='<text x="'+W/2+'" y="'+(H/2)+'" text-anchor="middle" fill="#9aa0a6" font-size="14">Sin datos hoy</text>';
-    ['det-area-solar','det-line-solar','det-line-casa','det-line-coche','det-line-red-exp','det-line-red-imp']
+    ['det-area-solar','det-area-venta','det-line-solar','det-line-casa','det-line-coche','det-line-red-exp','det-line-red-imp']
       .forEach(id=>{const e=$(id); if(e) e.setAttribute('d','')});
     const st=$('chart-det-stats'); if(st) st.innerHTML='';
     return;
@@ -425,6 +425,21 @@ function dibujar24hLineas(gBars){
   $('det-line-red-exp').setAttribute('d',dExp);
   $('det-line-red-imp').setAttribute('d',dImp);
 
+  // ===== ÁREA AMARILLA: EXCEDENTE VENDIDO A LA RED =====
+  const y0 = py(0);
+  const ptsVenta = puntos.map(p=>{
+    const esVenta = (p.red !== null && p.red !== undefined && p.red < -0.01);
+    return [px(p.min), esVenta ? py(p.red) : y0];
+  });
+
+  let dVenta = '';
+  if(ptsVenta.length > 1){
+    dVenta = 'M ' + ptsVenta[0][0] + ',' + y0 + ' ' +
+             ptsVenta.map(pt => 'L ' + pt[0] + ',' + pt[1]).join(' ') +
+             ' L ' + ptsVenta[ptsVenta.length-1][0] + ',' + y0 + ' Z';
+  }
+  $('det-area-venta').setAttribute('d', dVenta);
+
   let dots='';
   puntos.forEach(p=>{
     if(p.solar>0) dots+='<circle cx="'+px(p.min)+'" cy="'+py(p.solar)+'" r="2" fill="#ffc107" opacity=".8"/>';
@@ -447,7 +462,7 @@ function dibujar7dBarras(gBars){
   const W=900,H=340,pL=50,pR=20,pT=20,pB=60;
   const innerW=W-pL-pR, innerH=H-pT-pB;
 
-  ['det-area-solar','det-line-solar','det-line-casa','det-line-coche','det-line-red-exp','det-line-red-imp']
+  ['det-area-solar','det-area-venta','det-line-solar','det-line-casa','det-line-coche','det-line-red-exp','det-line-red-imp']
     .forEach(id=>{const e=$(id); if(e) e.setAttribute('d','')});
 
   const maxV = Math.max(1, ...datos.flatMap(d=>[d.solar,d.casa]));
