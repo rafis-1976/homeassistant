@@ -31,14 +31,14 @@ const fmtW = kw => Math.round((kw||0)*1000) + ' W';
 
 /* ============================================================
    SERIES VISIBLES (persistidas en localStorage)
+   Nota: 'red-exp' y 'red-imp' ya no tienen botón, se muestran
+   siempre. Solo solar, casa, coche y venta son conmutables.
    ============================================================ */
 const SERIES_DEFAULT = {
-  'solar':    true,
-  'casa':     true,
-  'coche':    true,
-  'red-exp':  true,
-  'red-imp':  true,
-  'venta':    true
+  'solar': true,
+  'casa':  true,
+  'coche': true,
+  'venta': true
 };
 
 const Series = (function(){
@@ -55,8 +55,7 @@ const Series = (function(){
   }
   return {
     visible: (k) => estado[k] !== false,
-    toggle: (k) => { estado[k] = !estado[k]; guardar(); return estado[k]; },
-    todos: () => estado
+    toggle: (k) => { estado[k] = !estado[k]; guardar(); return estado[k]; }
   };
 })();
 
@@ -438,12 +437,14 @@ function dibujar24hLineas(gBars){
     return pts.length>1?curve(pts):'';
   };
 
-  // Cada serie respeta la visibilidad elegida por el usuario
-  const dSolar = Series.visible('solar')   ? linea(p=>p.solar) : '';
-  const dCasa  = Series.visible('casa')    ? linea(p=>p.casa)  : '';
-  const dCoche = Series.visible('coche')   ? linea(p=>p.coche,v=>v>0.01) : '';
-  const dExp   = Series.visible('red-exp') ? linea(p=>p.red,v=>v>0.01)   : '';
-  const dImp   = Series.visible('red-imp') ? linea(p=>p.red,v=>v<-0.01)  : '';
+  // Series conmutables
+  const dSolar = Series.visible('solar') ? linea(p=>p.solar) : '';
+  const dCasa  = Series.visible('casa')  ? linea(p=>p.casa)  : '';
+  const dCoche = Series.visible('coche') ? linea(p=>p.coche,v=>v>0.01) : '';
+
+  // Series de red: SIEMPRE visibles (sin botón)
+  const dExp = linea(p=>p.red,v=>v>0.01);
+  const dImp = linea(p=>p.red,v=>v<-0.01);
 
   $('det-line-solar').setAttribute('d',dSolar);
   $('det-line-casa').setAttribute('d',dCasa);
@@ -451,7 +452,7 @@ function dibujar24hLineas(gBars){
   $('det-line-red-exp').setAttribute('d',dExp);
   $('det-line-red-imp').setAttribute('d',dImp);
 
-  // Área amarilla: excedente vendido (solo si la serie 'venta' está activa)
+  // Área amarilla de excedente vendido (conmutable)
   if(Series.visible('venta')){
     const y0 = py(0);
     const ptsVenta = puntos.map(p=>{
@@ -469,7 +470,7 @@ function dibujar24hLineas(gBars){
     $('det-area-venta').setAttribute('d','');
   }
 
-  // Puntos: solo si están visibles las series correspondientes
+  // Puntos: solo si están visibles
   let dots='';
   puntos.forEach(p=>{
     if(Series.visible('solar') && p.solar>0)
@@ -479,7 +480,6 @@ function dibujar24hLineas(gBars){
   });
   gBars.innerHTML=dots;
 
-  // Área bajo solar: solo si está visible
   if(dSolar){
     const base=' L'+px(1440)+','+py(0)+' L'+px(0)+','+py(0)+' Z';
     $('det-area-solar').setAttribute('d',dSolar+base);
@@ -532,7 +532,6 @@ function dibujar7dBarras(gBars){
     const hC = pT + innerH - yC;
 
     if(verSolar && verCasa){
-      // Dos barras lado a lado
       const xS = cx - gap/2 - anchoBarra;
       const xC = cx + gap/2;
       bars+='<rect x="'+xS.toFixed(1)+'" y="'+yS.toFixed(1)+'" width="'+anchoBarra.toFixed(1)+'" height="'+Math.max(0,hS).toFixed(1)+'" rx="4" fill="#ffc107" opacity=".9"/>';
@@ -587,14 +586,11 @@ function dibujarStats24h(puntos){
   if(Series.visible('coche')){
     html += bloque('#b388ff', prom(chV).toFixed(2)+u,'🚗 Coche · media');
   }
-  if(Series.visible('red-exp')){
-    html += bloque('#4caf50', (rV.length?Math.max(0,...rV):0).toFixed(2)+u, '⬆️ Red · máx export');
-  }
-  if(Series.visible('red-imp')){
-    html += bloque('#ef5350', (rV.length?Math.abs(Math.min(0,...rV)):0).toFixed(2)+u, '⬇️ Red · máx import');
-  }
+  // Red siempre visible
+  html += bloque('#4caf50', (rV.length?Math.max(0,...rV):0).toFixed(2)+u, '⬆️ Red · máx export');
+  html += bloque('#ef5350', (rV.length?Math.abs(Math.min(0,...rV)):0).toFixed(2)+u, '⬇️ Red · máx import');
 
-  el.innerHTML = html || '<div style="color:var(--td);font-size:12px;padding:8px">Todas las series están ocultas. Activa alguna para ver estadísticas.</div>';
+  el.innerHTML = html;
 }
 
 function dibujarStats7d(datos){
@@ -617,18 +613,16 @@ function dibujarStats7d(datos){
   if(Series.visible('casa')){
     html += bloque('#4fc3f7', totalC.toFixed(1)+' kWh', '🏠 Casa · total semana');
   }
-  if(Series.visible('red-exp')){
-    html += bloque('#4caf50', exp.toFixed(1)+' kWh',    '⬆️ Red · export total');
-  }
-  if(Series.visible('red-imp')){
-    html += bloque('#ef5350', imp.toFixed(1)+' kWh',    '⬇️ Red · import total');
-  }
+  // Red siempre visible
+  html += bloque('#4caf50', exp.toFixed(1)+' kWh', '⬆️ Red · export total');
+  html += bloque('#ef5350', imp.toFixed(1)+' kWh', '⬇️ Red · import total');
+
   if(Series.visible('solar') && Series.visible('casa')){
     html += bloque('#b388ff', (totalC>0?Math.round(auto/totalC*100):0)+' %', '♻️ Autoconsumo');
     html += bloque('#8bc34a', (auto*0.15).toFixed(2)+' €', '💶 Ahorro estimado');
   }
 
-  el.innerHTML = html || '<div style="color:var(--td);font-size:12px;padding:8px">Todas las series están ocultas.</div>';
+  el.innerHTML = html;
 }
 
 /* ============================================================
@@ -675,7 +669,7 @@ function hover24h(xVB,evt,rect){
   setDot('det-dot-solar',p.solar, Series.visible('solar'));
   setDot('det-dot-casa', p.casa,  Series.visible('casa'));
   setDot('det-dot-coche',p.coche, Series.visible('coche'));
-  setDot('det-dot-red',  p.red,   Series.visible('red-exp')||Series.visible('red-imp'));
+  setDot('det-dot-red',  p.red,   true);
 
   const tt=$('chart-det-tooltip'); if(!tt) return;
   const redColor=p.red>=0?'#4caf50':'#ef5350';
@@ -685,7 +679,7 @@ function hover24h(xVB,evt,rect){
   if(Series.visible('solar')) html += '<div><span class="dot" style="background:#ffc107"></span>Solar<b>'+fmt(p.solar)+'</b></div>';
   if(Series.visible('casa'))  html += '<div><span class="dot" style="background:#4fc3f7"></span>Casa<b>'+fmt(p.casa)+'</b></div>';
   if(Series.visible('coche')) html += '<div><span class="dot" style="background:#b388ff"></span>Coche<b>'+fmt(p.coche)+'</b></div>';
-  if(Series.visible('red-exp')||Series.visible('red-imp')) html += '<div><span class="dot" style="background:'+redColor+'"></span>Red<b>'+fmt(p.red)+'</b></div>';
+  html += '<div><span class="dot" style="background:'+redColor+'"></span>Red<b>'+fmt(p.red)+'</b></div>';
   tt.innerHTML = html;
   tt.classList.add('show');
   posicionarTooltip(tt,evt,rect);
@@ -761,7 +755,6 @@ function initSerieBotones(){
   const cont = $('serie-btns');
   if(!cont) return;
 
-  // Aplicar estado guardado al cargar
   cont.querySelectorAll('.serie-btn').forEach(btn=>{
     const k = btn.dataset.serie;
     btn.classList.toggle('active', Series.visible(k));
