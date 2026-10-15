@@ -121,14 +121,20 @@ async function leerEstadoActual(){
   return d&&d[0]?d[0]:null;
 }
 
-/* Últimas N horas de lecturas crudas (con límite alto para 24h) */
+/* ------------------------------------------------------------
+   Lecturas crudas para el gráfico 24h.
+   IMPORTANTE: Supabase/PostgREST limita a 1000 filas por
+   petición. Por eso pedimos las MÁS RECIENTES (order=ts.desc)
+   y luego invertimos el array en cliente para devolverlo en
+   orden ascendente (como espera el resto del código).
+   ------------------------------------------------------------ */
 async function leerLecturasHoras(horas){
   const s=CONFIG.SUPABASE;
-  const desde=new Date(Date.now()-horas*3600*1000).toISOString();
-  return await supaFetch(
-    s.TABLA_HIST+'?ts=gte.'+desde+
-    '&select=ts,solar_w,casa_w,red_w,coche_w&order=ts.asc&limit=10000'
+  const filas = await supaFetch(
+    s.TABLA_HIST+'?select=ts,solar_w,casa_w,red_w,coche_w'+
+    '&order=ts.desc&limit=1000'
   );
+  return filas.reverse();
 }
 
 async function leerCurvaDias(dias){
