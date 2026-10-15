@@ -118,12 +118,12 @@ async function leerEstadoActual(){
   const d=await supaFetch(CONFIG.SUPABASE.TABLA_ESTADO+'?id=eq.1&select=*');
   return d&&d[0]?d[0]:null;
 }
-async function leerLecturasHoras(horas){
+casync function leerLecturasHoras(horas){
   const s=CONFIG.SUPABASE;
   const desde=new Date(Date.now()-horas*3600*1000).toISOString();
   return await supaFetch(
     s.TABLA_HIST+'?ts=gte.'+desde+
-    '&select=ts,solar_w,casa_w,red_w,coche_w&order=ts.asc'
+    '&select=ts,solar_w,casa_w,red_w,coche_w&order=ts.asc&limit=10000'
   );
 }
 async function leerCurvaDias(dias){
