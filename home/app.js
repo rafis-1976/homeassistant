@@ -30,16 +30,9 @@ const minutosMadrid = d => { const [h,m]=_fmtMin.format(d).split(':').map(Number
 const fmtW = kw => Math.round((kw||0)*1000) + ' W';
 
 /* ============================================================
-   SERIES VISIBLES (persistidas en localStorage)
-   Solar, Casa, Coche y Excedente vendido son conmutables.
-   Las líneas de Red (export/import) han sido eliminadas.
+   SERIES VISIBLES
    ============================================================ */
-const SERIES_DEFAULT = {
-  'solar': true,
-  'casa':  true,
-  'coche': true,
-  'venta': true
-};
+const SERIES_DEFAULT = { 'solar':true, 'casa':true, 'coche':true, 'venta':true };
 
 const Series = (function(){
   let estado = {...SERIES_DEFAULT};
@@ -135,7 +128,7 @@ const E={sol:0,casa:0,coche:0,cocheOn:false,cocheDeseada:7.4,cocheModo:'max',
   exp:0,imp:0,bat:65,energiaDiaKwh:0,kwhCoche:0};
 
 /* ============================================================
-   SUPABASE · fetch base
+   SUPABASE
    ============================================================ */
 async function supaFetch(path){
   const s=CONFIG.SUPABASE;
@@ -314,6 +307,7 @@ function prepararPuntos24h(filas){
     if(fechaMadrid(t) !== hoyStr) return;
     const min = minutosMadrid(t);
     pts.push({
+      ts: t.getTime(),
       min: min,
       label: String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0'),
       solar: (+f.solar_w||0)/1000,
@@ -445,7 +439,6 @@ function dibujar24hLineas(gBars){
   $('det-line-casa').setAttribute('d',dCasa);
   $('det-line-coche').setAttribute('d',dCoche);
 
-  // Área amarilla de excedente vendido (conmutable)
   if(Series.visible('venta')){
     const y0 = py(0);
     const ptsVenta = puntos.map(p=>{
@@ -479,7 +472,7 @@ function dibujar24hLineas(gBars){
 
   ChartDet.puntos=puntos;
   ChartDet.escala={px,py,pL,pR,pT,pB,W,H};
-  dibujarStats24h(puntos);
+  dibujarStats24h(calcularEnergia24h(puntos));
 }
 
 function dibujar7dBarras(gBars){
@@ -548,69 +541,62 @@ function dibujar7dBarras(gBars){
 
   ChartDet.puntos = datos;
   ChartDet.escala = {px:null,py:pyBar,pL,pR,pT,pB,W,H,anchoGrupo,nDias};
-  dibujarStats7d(datos);
+  dibujarStats7d(calcularEnergia7d(ChartDet.crudo));
 }
 
-function dibujarStats24h(puntos){
-  const el=$('chart-det-stats'); if(!el) return;
-  const val=k=>puntos.map(p=>p[k]).filter(v=>v!==null&&v!==undefined);
-  const prom=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
-  const max =a=>a.length?Math.max(...a):0;
+/* ============================================================
+   CÁLCULO DE ENERGÍA ACUMULADA (kWh)
+   ============================================================ */
+function calcularEnergia24h(puntos){
+  let consumida=0, producida=0, comprada=0, vertida=0;
+  for(let i=0;i<puntos.length-1;i++){
+    const dtH = (puntos[i+1].ts - puntos[i].ts) / 3600000;
+    if(dtH<=0 || dtH>1) continue;  // ignorar huecos raros
+    const p = puntos[i];
+    consumida += (p.casa + p.coche) * dtH;
+    producida += p.solar * dtH;
+    if(p.red > 0)      comprada += p.red * dtH;
+    else if(p.red < 0) vertida  += -p.red * dtH;
+  }
+  return {consumida, producida, comprada, vertida};
+}
 
-  const sV=val('solar'),cV=val('casa'),chV=val('coche'),rV=val('red');
-  const u=' kW';
-  const nPuntos=puntos.length;
+function calcularEnergia7d(filas){
+  // La vista curva_horaria da kW medios por hora → sumar = kWh del rango
+  let producida=0, consumida=0, auto=0;
+  filas.forEach(f=>{
+    const s=+f.solar_kw||0, c=+f.casa_kw||0;
+    producida += s;
+    consumida += c;
+    auto += Math.min(s,c);
+  });
+  const vertida  = Math.max(0, producida - auto);
+  const comprada = Math.max(0, consumida - auto);
+  return {consumida, producida, comprada, vertida};
+}
+
+/* ============================================================
+   ESTADÍSTICAS BAJO LA GRÁFICA · 4 bloques de energía
+   ============================================================ */
+function pintarStatsEnergia(energia, etiquetaRango){
+  const el=$('chart-det-stats'); if(!el) return;
+  const {consumida, producida, comprada, vertida} = energia;
+
   const bloque=(color,valor,texto)=>`
     <div class="stat">
       <span class="dot" style="background:${color}"></span>
       <div><b>${valor}</b><small>${texto}</small></div>
     </div>`;
 
-  let html = '';
-  if(Series.visible('solar')){
-    html += bloque('#ffc107', prom(sV).toFixed(2)+u, '☀️ Solar · media ('+nPuntos+' lecturas)');
-    html += bloque('#ffc107', max(sV).toFixed(2)+u,  '☀️ Solar · pico');
-  }
-  if(Series.visible('casa')){
-    html += bloque('#4fc3f7', prom(cV).toFixed(2)+u, '🏠 Casa · media');
-    html += bloque('#4fc3f7', max(cV).toFixed(2)+u,  '🏠 Casa · pico');
-  }
-  if(Series.visible('coche')){
-    html += bloque('#b388ff', prom(chV).toFixed(2)+u,'🚗 Coche · media');
-  }
-  if(Series.visible('venta')){
-    const excV = (rV.length?Math.abs(Math.min(0,...rV)):0);
-    html += bloque('#ffeb3b', excV.toFixed(2)+u, '💰 Excedente vendido · pico');
-  }
-
-  el.innerHTML = html || '<div style="color:var(--td);font-size:12px;padding:8px">Todas las series están ocultas.</div>';
+  el.innerHTML =
+    bloque('#4fc3f7', consumida.toFixed(1)+' kWh', '🏠 Energía consumida · '+etiquetaRango) +
+    bloque('#ef5350', comprada.toFixed(1)+' kWh',  '🔻 Comprada a la red · '+etiquetaRango) +
+    bloque('#ffc107', producida.toFixed(1)+' kWh', '☀️ Energía producida · '+etiquetaRango) +
+    bloque('#4caf50', vertida.toFixed(1)+' kWh',   '⬆️ Vertida a la red · '+etiquetaRango);
 }
 
-function dibujarStats7d(datos){
-  const el=$('chart-det-stats'); if(!el) return;
-  const totalS = datos.reduce((s,d)=>s+d.solar,0);
-  const totalC = datos.reduce((s,d)=>s+d.casa,0);
-  const auto   = datos.reduce((s,d)=>s+Math.min(d.solar,d.casa),0);
-  const bloque=(color,valor,texto)=>`
-    <div class="stat">
-      <span class="dot" style="background:${color}"></span>
-      <div><b>${valor}</b><small>${texto}</small></div>
-    </div>`;
-
-  let html = '';
-  if(Series.visible('solar')){
-    html += bloque('#ffc107', totalS.toFixed(1)+' kWh', '☀️ Solar · total semana');
-  }
-  if(Series.visible('casa')){
-    html += bloque('#4fc3f7', totalC.toFixed(1)+' kWh', '🏠 Casa · total semana');
-  }
-  if(Series.visible('solar') && Series.visible('casa')){
-    html += bloque('#b388ff', (totalC>0?Math.round(auto/totalC*100):0)+' %', '♻️ Autoconsumo');
-    html += bloque('#8bc34a', (auto*0.15).toFixed(2)+' €', '💶 Ahorro estimado');
-  }
-
-  el.innerHTML = html || '<div style="color:var(--td);font-size:12px;padding:8px">Todas las series están ocultas.</div>';
-}
+function dibujarStats24h(energia){ pintarStatsEnergia(energia, 'hoy'); }
+function dibujarStats7d(energia){ pintarStatsEnergia(energia, '7 días'); }
 
 /* ============================================================
    HOVER
