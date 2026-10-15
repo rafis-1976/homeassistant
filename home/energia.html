@@ -21,27 +21,13 @@
   </div>
 
   <nav class="nav">
-    <a href="index.html" class="nav-item" title="Resumen">
-      <span class="ico">⊞</span><span class="nav-text">Resumen</span>
-    </a>
-    <a href="iluminacion.html" class="nav-item" title="Iluminación">
-      <span class="ico">💡</span><span class="nav-text">Iluminación</span>
-    </a>
-    <a href="climatizacion.html" class="nav-item" title="Climatización">
-      <span class="ico">🌡️</span><span class="nav-text">Climatización</span>
-    </a>
-    <a href="seguridad.html" class="nav-item" title="Seguridad">
-      <span class="ico">🔒</span><span class="nav-text">Seguridad</span>
-    </a>
-    <a href="escenas.html" class="nav-item" title="Escenas">
-      <span class="ico">🎬</span><span class="nav-text">Escenas</span>
-    </a>
-    <a href="energia.html" class="nav-item active" title="Energía">
-      <span class="ico">📊</span><span class="nav-text">Energía</span>
-    </a>
-    <a href="ajustes.html" class="nav-item" title="Ajustes">
-      <span class="ico">⚙️</span><span class="nav-text">Ajustes</span>
-    </a>
+    <a href="index.html" class="nav-item" title="Resumen"><span class="ico">⊞</span><span class="nav-text">Resumen</span></a>
+    <a href="iluminacion.html" class="nav-item" title="Iluminación"><span class="ico">💡</span><span class="nav-text">Iluminación</span></a>
+    <a href="climatizacion.html" class="nav-item" title="Climatización"><span class="ico">🌡️</span><span class="nav-text">Climatización</span></a>
+    <a href="seguridad.html" class="nav-item" title="Seguridad"><span class="ico">🔒</span><span class="nav-text">Seguridad</span></a>
+    <a href="escenas.html" class="nav-item" title="Escenas"><span class="ico">🎬</span><span class="nav-text">Escenas</span></a>
+    <a href="energia.html" class="nav-item active" title="Energía"><span class="ico">📊</span><span class="nav-text">Energía</span></a>
+    <a href="ajustes.html" class="nav-item" title="Ajustes"><span class="ico">⚙️</span><span class="nav-text">Ajustes</span></a>
   </nav>
 
   <div class="sidebar-footer">
@@ -147,7 +133,6 @@
       <path id="f-bat-in"  class="flow rev" d="M130,200 L 130,255" style="display:none"/>
       <path id="f-bat-out" class="flow"     d="M130,200 L 130,255" style="display:none"/>
 
-      <!-- SOLAR -->
       <g class="node" id="n-solar">
         <rect class="box" x="40" y="60" width="180" height="140" rx="16"/>
         <g transform="translate(130,108)">
@@ -176,7 +161,6 @@
         <text class="val" x="130" y="186" id="v-solar">0 W</text>
       </g>
 
-      <!-- FRONIUS -->
       <g class="node" id="n-fronius">
         <rect class="box" x="300" y="60" width="180" height="140" rx="16"/>
         <g transform="translate(390,110)">
@@ -196,7 +180,6 @@
         <text class="val" x="390" y="186" id="v-fronius">0 W</text>
       </g>
 
-      <!-- BLOQUE SOBRANTE -->
       <g class="sobrante-g" id="g-sobrante">
         <rect class="box-sobrante" x="40" y="220" width="440" height="150" rx="16"/>
         <text class="lbl-sobrante" x="260" y="248">POTENCIA SOBRANTE</text>
@@ -205,7 +188,6 @@
         <text class="sub-sobrante" x="260" y="352" id="v-sub-sobrante">—</text>
       </g>
 
-      <!-- CASA -->
       <g class="node" id="n-casa">
         <rect class="box" x="560" y="60" width="180" height="140" rx="16"/>
         <g transform="translate(650,112)">
@@ -223,7 +205,6 @@
         <text class="val" x="650" y="186" id="v-casa">0 W</text>
       </g>
 
-      <!-- RED -->
       <g class="node" id="n-red">
         <rect class="box" x="820" y="60" width="180" height="140" rx="16"/>
         <g transform="translate(910,105)">
@@ -248,7 +229,6 @@
         <text class="val" x="910" y="186" id="v-red">0 W</text>
       </g>
 
-      <!-- COCHE -->
       <g class="node" id="n-coche">
         <rect class="box" x="560" y="240" width="180" height="90" rx="16"/>
         <g transform="translate(610,285)">
@@ -263,7 +243,6 @@
         <text class="val" x="680" y="307" text-anchor="start" id="v-coche">0 W</text>
       </g>
 
-      <!-- BATERÍA -->
       <g class="node" id="n-bat" style="display:none">
         <rect class="box" x="40" y="240" width="180" height="90" rx="16"/>
         <g transform="translate(90,285)">
@@ -303,7 +282,7 @@
     <div class="card-head" style="align-items:center;flex-wrap:wrap;gap:10px">
       <div>
         <div class="card-name">Balance energético detallado</div>
-        <div class="card-sub">Solar · Casa · Coche · Red (pasa el ratón para ver valores)</div>
+        <div class="card-sub">Pasa el ratón para ver valores</div>
       </div>
       <div class="range-btns">
         <button class="range-btn active" data-rango="24h" onclick="setRango('24h')">24 h</button>
@@ -343,13 +322,26 @@
         <div id="chart-det-tooltip" class="chart-tooltip"></div>
       </div>
 
-      <div class="chart-det-legend">
-        <span><i class="dot" style="background:#ffc107"></i> Solar</span>
-        <span><i class="dot" style="background:#4fc3f7"></i> Casa</span>
-        <span><i class="dot" style="background:#b388ff"></i> Coche</span>
-        <span><i class="dot" style="background:#4caf50"></i> Red · export</span>
-        <span><i class="dot" style="background:#ef5350"></i> Red · import</span>
-        <span><i class="dot" style="background:#ffeb3b"></i> Excedente vendido</span>
+      <!-- ==== BOTONES DE SERIES ==== -->
+      <div class="serie-btns" id="serie-btns">
+        <button class="serie-btn active" data-serie="solar">
+          <i class="dot" style="background:#ffc107"></i> Solar
+        </button>
+        <button class="serie-btn active" data-serie="casa">
+          <i class="dot" style="background:#4fc3f7"></i> Casa
+        </button>
+        <button class="serie-btn active" data-serie="coche">
+          <i class="dot" style="background:#b388ff"></i> Coche
+        </button>
+        <button class="serie-btn active" data-serie="red-exp">
+          <i class="dot" style="background:#4caf50"></i> Red · export
+        </button>
+        <button class="serie-btn active" data-serie="red-imp">
+          <i class="dot" style="background:#ef5350"></i> Red · import
+        </button>
+        <button class="serie-btn active" data-serie="venta">
+          <i class="dot" style="background:#ffeb3b"></i> Excedente vendido
+        </button>
       </div>
 
       <div class="chart-det-stats" id="chart-det-stats"></div>
@@ -519,8 +511,8 @@ function toggleSidebar(){
   }catch(e){}
 })();
 </script>
-<script src="supabase-config.js?v=6"></script>
-<script src="app.js?v=6"></script>
-<script src="tarifa.js?v=6"></script>
+<script src="supabase-config.js?v=7"></script>
+<script src="app.js?v=7"></script>
+<script src="tarifa.js?v=7"></script>
 </body>
 </html>
