@@ -30,6 +30,37 @@ const minutosMadrid = d => { const [h,m]=_fmtMin.format(d).split(':').map(Number
 const fmtW = kw => Math.round((kw||0)*1000) + ' W';
 
 /* ============================================================
+   SERIES VISIBLES (persistidas en localStorage)
+   ============================================================ */
+const SERIES_DEFAULT = {
+  'solar':    true,
+  'casa':     true,
+  'coche':    true,
+  'red-exp':  true,
+  'red-imp':  true,
+  'venta':    true
+};
+
+const Series = (function(){
+  let estado = {...SERIES_DEFAULT};
+  try{
+    const guardado = localStorage.getItem('chart-series');
+    if(guardado){
+      const obj = JSON.parse(guardado);
+      estado = Object.assign({}, SERIES_DEFAULT, obj);
+    }
+  }catch(e){}
+  function guardar(){
+    try{ localStorage.setItem('chart-series', JSON.stringify(estado)); }catch(e){}
+  }
+  return {
+    visible: (k) => estado[k] !== false,
+    toggle: (k) => { estado[k] = !estado[k]; guardar(); return estado[k]; },
+    todos: () => estado
+  };
+})();
+
+/* ============================================================
    RELOJ
    ============================================================ */
 function reloj(){
@@ -121,13 +152,6 @@ async function leerEstadoActual(){
   return d&&d[0]?d[0]:null;
 }
 
-/* ------------------------------------------------------------
-   Lecturas crudas para el gráfico 24h.
-   IMPORTANTE: Supabase/PostgREST limita a 1000 filas por
-   petición. Por eso pedimos las MÁS RECIENTES (order=ts.desc)
-   y luego invertimos el array en cliente para devolverlo en
-   orden ascendente (como espera el resto del código).
-   ------------------------------------------------------------ */
 async function leerLecturasHoras(horas){
   const s=CONFIG.SUPABASE;
   const filas = await supaFetch(
@@ -413,11 +437,13 @@ function dibujar24hLineas(gBars){
     });
     return pts.length>1?curve(pts):'';
   };
-  const dSolar=linea(p=>p.solar);
-  const dCasa =linea(p=>p.casa);
-  const dCoche=linea(p=>p.coche,v=>v>0.01);
-  const dExp  =linea(p=>p.red,v=>v>0.01);
-  const dImp  =linea(p=>p.red,v=>v<-0.01);
+
+  // Cada serie respeta la visibilidad elegida por el usuario
+  const dSolar = Series.visible('solar')   ? linea(p=>p.solar) : '';
+  const dCasa  = Series.visible('casa')    ? linea(p=>p.casa)  : '';
+  const dCoche = Series.visible('coche')   ? linea(p=>p.coche,v=>v>0.01) : '';
+  const dExp   = Series.visible('red-exp') ? linea(p=>p.red,v=>v>0.01)   : '';
+  const dImp   = Series.visible('red-imp') ? linea(p=>p.red,v=>v<-0.01)  : '';
 
   $('det-line-solar').setAttribute('d',dSolar);
   $('det-line-casa').setAttribute('d',dCasa);
@@ -425,28 +451,35 @@ function dibujar24hLineas(gBars){
   $('det-line-red-exp').setAttribute('d',dExp);
   $('det-line-red-imp').setAttribute('d',dImp);
 
-  // ===== ÁREA AMARILLA: EXCEDENTE VENDIDO A LA RED =====
-  const y0 = py(0);
-  const ptsVenta = puntos.map(p=>{
-    const esVenta = (p.red !== null && p.red !== undefined && p.red < -0.01);
-    return [px(p.min), esVenta ? py(p.red) : y0];
-  });
-
-  let dVenta = '';
-  if(ptsVenta.length > 1){
-    dVenta = 'M ' + ptsVenta[0][0] + ',' + y0 + ' ' +
-             ptsVenta.map(pt => 'L ' + pt[0] + ',' + pt[1]).join(' ') +
-             ' L ' + ptsVenta[ptsVenta.length-1][0] + ',' + y0 + ' Z';
+  // Área amarilla: excedente vendido (solo si la serie 'venta' está activa)
+  if(Series.visible('venta')){
+    const y0 = py(0);
+    const ptsVenta = puntos.map(p=>{
+      const esVenta = (p.red !== null && p.red !== undefined && p.red < -0.01);
+      return [px(p.min), esVenta ? py(p.red) : y0];
+    });
+    let dVenta = '';
+    if(ptsVenta.length > 1){
+      dVenta = 'M ' + ptsVenta[0][0] + ',' + y0 + ' ' +
+               ptsVenta.map(pt => 'L ' + pt[0] + ',' + pt[1]).join(' ') +
+               ' L ' + ptsVenta[ptsVenta.length-1][0] + ',' + y0 + ' Z';
+    }
+    $('det-area-venta').setAttribute('d', dVenta);
+  } else {
+    $('det-area-venta').setAttribute('d','');
   }
-  $('det-area-venta').setAttribute('d', dVenta);
 
+  // Puntos: solo si están visibles las series correspondientes
   let dots='';
   puntos.forEach(p=>{
-    if(p.solar>0) dots+='<circle cx="'+px(p.min)+'" cy="'+py(p.solar)+'" r="2" fill="#ffc107" opacity=".8"/>';
-    if(p.casa >0) dots+='<circle cx="'+px(p.min)+'" cy="'+py(p.casa )+'" r="2" fill="#4fc3f7" opacity=".7"/>';
+    if(Series.visible('solar') && p.solar>0)
+      dots+='<circle cx="'+px(p.min)+'" cy="'+py(p.solar)+'" r="2" fill="#ffc107" opacity=".8"/>';
+    if(Series.visible('casa') && p.casa>0)
+      dots+='<circle cx="'+px(p.min)+'" cy="'+py(p.casa )+'" r="2" fill="#4fc3f7" opacity=".7"/>';
   });
   gBars.innerHTML=dots;
 
+  // Área bajo solar: solo si está visible
   if(dSolar){
     const base=' L'+px(1440)+','+py(0)+' L'+px(0)+','+py(0)+' Z';
     $('det-area-solar').setAttribute('d',dSolar+base);
@@ -484,21 +517,33 @@ function dibujar7dBarras(gBars){
   const anchoBarra = Math.min(38, anchoGrupo * 0.32);
   const gap = 6;
 
+  const verSolar = Series.visible('solar');
+  const verCasa  = Series.visible('casa');
+
   let bars='';
   let etiquetas='';
   const pyBar = v => pT + innerH * (1 - v/yMax);
 
   datos.forEach((d,i)=>{
     const cx = pL + anchoGrupo*(i + 0.5);
-    const xS = cx - gap/2 - anchoBarra;
-    const xC = cx + gap/2;
     const yS = pyBar(d.solar);
     const yC = pyBar(d.casa);
     const hS = pT + innerH - yS;
     const hC = pT + innerH - yC;
 
-    bars+='<rect x="'+xS.toFixed(1)+'" y="'+yS.toFixed(1)+'" width="'+anchoBarra.toFixed(1)+'" height="'+Math.max(0,hS).toFixed(1)+'" rx="4" fill="#ffc107" opacity=".9"/>';
-    bars+='<rect x="'+xC.toFixed(1)+'" y="'+yC.toFixed(1)+'" width="'+anchoBarra.toFixed(1)+'" height="'+Math.max(0,hC).toFixed(1)+'" rx="4" fill="#4fc3f7" opacity=".85"/>';
+    if(verSolar && verCasa){
+      // Dos barras lado a lado
+      const xS = cx - gap/2 - anchoBarra;
+      const xC = cx + gap/2;
+      bars+='<rect x="'+xS.toFixed(1)+'" y="'+yS.toFixed(1)+'" width="'+anchoBarra.toFixed(1)+'" height="'+Math.max(0,hS).toFixed(1)+'" rx="4" fill="#ffc107" opacity=".9"/>';
+      bars+='<rect x="'+xC.toFixed(1)+'" y="'+yC.toFixed(1)+'" width="'+anchoBarra.toFixed(1)+'" height="'+Math.max(0,hC).toFixed(1)+'" rx="4" fill="#4fc3f7" opacity=".85"/>';
+    } else if(verSolar){
+      const x = cx - anchoBarra;
+      bars+='<rect x="'+x.toFixed(1)+'" y="'+yS.toFixed(1)+'" width="'+(anchoBarra*2).toFixed(1)+'" height="'+Math.max(0,hS).toFixed(1)+'" rx="4" fill="#ffc107" opacity=".9"/>';
+    } else if(verCasa){
+      const x = cx - anchoBarra;
+      bars+='<rect x="'+x.toFixed(1)+'" y="'+yC.toFixed(1)+'" width="'+(anchoBarra*2).toFixed(1)+'" height="'+Math.max(0,hC).toFixed(1)+'" rx="4" fill="#4fc3f7" opacity=".85"/>';
+    }
 
     const colorEt = d.esHoy ? '#4fc3f7' : '#9aa0a6';
     const pesoEt  = d.esHoy ? '700' : '400';
@@ -530,14 +575,26 @@ function dibujarStats24h(puntos){
       <div><b>${valor}</b><small>${texto}</small></div>
     </div>`;
 
-  el.innerHTML =
-    bloque('#ffc107', prom(sV).toFixed(2)+u, '☀️ Solar · media ('+nPuntos+' lecturas)') +
-    bloque('#ffc107', max(sV).toFixed(2)+u,  '☀️ Solar · pico') +
-    bloque('#4fc3f7', prom(cV).toFixed(2)+u, '🏠 Casa · media') +
-    bloque('#4fc3f7', max(cV).toFixed(2)+u,  '🏠 Casa · pico') +
-    bloque('#b388ff', prom(chV).toFixed(2)+u,'🚗 Coche · media') +
-    bloque('#4caf50', (rV.length?Math.max(0,...rV):0).toFixed(2)+u, '⬆️ Red · máx export') +
-    bloque('#ef5350', (rV.length?Math.abs(Math.min(0,...rV)):0).toFixed(2)+u, '⬇️ Red · máx import');
+  let html = '';
+  if(Series.visible('solar')){
+    html += bloque('#ffc107', prom(sV).toFixed(2)+u, '☀️ Solar · media ('+nPuntos+' lecturas)');
+    html += bloque('#ffc107', max(sV).toFixed(2)+u,  '☀️ Solar · pico');
+  }
+  if(Series.visible('casa')){
+    html += bloque('#4fc3f7', prom(cV).toFixed(2)+u, '🏠 Casa · media');
+    html += bloque('#4fc3f7', max(cV).toFixed(2)+u,  '🏠 Casa · pico');
+  }
+  if(Series.visible('coche')){
+    html += bloque('#b388ff', prom(chV).toFixed(2)+u,'🚗 Coche · media');
+  }
+  if(Series.visible('red-exp')){
+    html += bloque('#4caf50', (rV.length?Math.max(0,...rV):0).toFixed(2)+u, '⬆️ Red · máx export');
+  }
+  if(Series.visible('red-imp')){
+    html += bloque('#ef5350', (rV.length?Math.abs(Math.min(0,...rV)):0).toFixed(2)+u, '⬇️ Red · máx import');
+  }
+
+  el.innerHTML = html || '<div style="color:var(--td);font-size:12px;padding:8px">Todas las series están ocultas. Activa alguna para ver estadísticas.</div>';
 }
 
 function dibujarStats7d(datos){
@@ -553,15 +610,30 @@ function dibujarStats7d(datos){
       <div><b>${valor}</b><small>${texto}</small></div>
     </div>`;
 
-  el.innerHTML =
-    bloque('#ffc107', totalS.toFixed(1)+' kWh', '☀️ Solar · total semana') +
-    bloque('#4fc3f7', totalC.toFixed(1)+' kWh', '🏠 Casa · total semana') +
-    bloque('#4caf50', exp.toFixed(1)+' kWh',    '⬆️ Red · export total') +
-    bloque('#ef5350', imp.toFixed(1)+' kWh',    '⬇️ Red · import total') +
-    bloque('#b388ff', (totalC>0?Math.round(auto/totalC*100):0)+' %', '♻️ Autoconsumo') +
-    bloque('#8bc34a', (auto*0.15).toFixed(2)+' €', '💶 Ahorro estimado');
+  let html = '';
+  if(Series.visible('solar')){
+    html += bloque('#ffc107', totalS.toFixed(1)+' kWh', '☀️ Solar · total semana');
+  }
+  if(Series.visible('casa')){
+    html += bloque('#4fc3f7', totalC.toFixed(1)+' kWh', '🏠 Casa · total semana');
+  }
+  if(Series.visible('red-exp')){
+    html += bloque('#4caf50', exp.toFixed(1)+' kWh',    '⬆️ Red · export total');
+  }
+  if(Series.visible('red-imp')){
+    html += bloque('#ef5350', imp.toFixed(1)+' kWh',    '⬇️ Red · import total');
+  }
+  if(Series.visible('solar') && Series.visible('casa')){
+    html += bloque('#b388ff', (totalC>0?Math.round(auto/totalC*100):0)+' %', '♻️ Autoconsumo');
+    html += bloque('#8bc34a', (auto*0.15).toFixed(2)+' €', '💶 Ahorro estimado');
+  }
+
+  el.innerHTML = html || '<div style="color:var(--td);font-size:12px;padding:8px">Todas las series están ocultas.</div>';
 }
 
+/* ============================================================
+   HOVER
+   ============================================================ */
 function initHoverChartDet(){
   const svg=$('chart-det'); if(!svg) return;
   const tooltip=$('chart-det-tooltip');
@@ -593,27 +665,28 @@ function hover24h(xVB,evt,rect){
   cr.setAttribute('y1',20); cr.setAttribute('y2',300);
 
   const{py}=ChartDet.escala;
-  const setDot=(id,v)=>{
+  const setDot=(id,v,visible)=>{
     const el=$(id);
-    if(v===null||v===undefined||v===0){el.style.display='none';return}
+    if(!visible||v===null||v===undefined||v===0){el.style.display='none';return}
     el.style.display='';
     el.setAttribute('cx',x);
     el.setAttribute('cy',py(v));
   };
-  setDot('det-dot-solar',p.solar);
-  setDot('det-dot-casa', p.casa);
-  setDot('det-dot-coche',p.coche);
-  setDot('det-dot-red',  p.red);
+  setDot('det-dot-solar',p.solar, Series.visible('solar'));
+  setDot('det-dot-casa', p.casa,  Series.visible('casa'));
+  setDot('det-dot-coche',p.coche, Series.visible('coche'));
+  setDot('det-dot-red',  p.red,   Series.visible('red-exp')||Series.visible('red-imp'));
 
   const tt=$('chart-det-tooltip'); if(!tt) return;
   const redColor=p.red>=0?'#4caf50':'#ef5350';
   const fmt=v=>(v===null||v===undefined)?'—':v.toFixed(2)+' kW';
-  tt.innerHTML=
-    '<div style="font-weight:600;color:#4fc3f7;margin-bottom:4px">'+p.label+'</div>'+
-    '<div><span class="dot" style="background:#ffc107"></span>Solar<b>'+fmt(p.solar)+'</b></div>'+
-    '<div><span class="dot" style="background:#4fc3f7"></span>Casa<b>'+fmt(p.casa)+'</b></div>'+
-    '<div><span class="dot" style="background:#b388ff"></span>Coche<b>'+fmt(p.coche)+'</b></div>'+
-    '<div><span class="dot" style="background:'+redColor+'"></span>Red<b>'+fmt(p.red)+'</b></div>';
+
+  let html = '<div style="font-weight:600;color:#4fc3f7;margin-bottom:4px">'+p.label+'</div>';
+  if(Series.visible('solar')) html += '<div><span class="dot" style="background:#ffc107"></span>Solar<b>'+fmt(p.solar)+'</b></div>';
+  if(Series.visible('casa'))  html += '<div><span class="dot" style="background:#4fc3f7"></span>Casa<b>'+fmt(p.casa)+'</b></div>';
+  if(Series.visible('coche')) html += '<div><span class="dot" style="background:#b388ff"></span>Coche<b>'+fmt(p.coche)+'</b></div>';
+  if(Series.visible('red-exp')||Series.visible('red-imp')) html += '<div><span class="dot" style="background:'+redColor+'"></span>Red<b>'+fmt(p.red)+'</b></div>';
+  tt.innerHTML = html;
   tt.classList.add('show');
   posicionarTooltip(tt,evt,rect);
 }
@@ -637,11 +710,12 @@ function hover7d(xVB,evt,rect){
 
   const tt=$('chart-det-tooltip'); if(!tt) return;
   const auto = Math.min(d.solar,d.casa);
-  tt.innerHTML=
-    '<div style="font-weight:600;color:#4fc3f7;margin-bottom:4px">'+d.labelFull+'</div>'+
-    '<div><span class="dot" style="background:#ffc107"></span>Solar<b>'+d.solar.toFixed(2)+' kWh</b></div>'+
-    '<div><span class="dot" style="background:#4fc3f7"></span>Casa<b>'+d.casa.toFixed(2)+' kWh</b></div>'+
-    '<div style="border-top:1px solid #2a2f3a;margin-top:4px;padding-top:4px"><span class="dot" style="background:#b388ff"></span>Autoconsumo<b>'+auto.toFixed(2)+' kWh</b></div>';
+  let html = '<div style="font-weight:600;color:#4fc3f7;margin-bottom:4px">'+d.labelFull+'</div>';
+  if(Series.visible('solar')) html += '<div><span class="dot" style="background:#ffc107"></span>Solar<b>'+d.solar.toFixed(2)+' kWh</b></div>';
+  if(Series.visible('casa'))  html += '<div><span class="dot" style="background:#4fc3f7"></span>Casa<b>'+d.casa.toFixed(2)+' kWh</b></div>';
+  if(Series.visible('solar') && Series.visible('casa'))
+    html += '<div style="border-top:1px solid #2a2f3a;margin-top:4px;padding-top:4px"><span class="dot" style="background:#b388ff"></span>Autoconsumo<b>'+auto.toFixed(2)+' kWh</b></div>';
+  tt.innerHTML = html;
   tt.classList.add('show');
   posicionarTooltip(tt,evt,rect);
 }
@@ -678,6 +752,25 @@ function setRango(r){
     b.classList.toggle('active',b.dataset.rango===r);
   });
   cargarChartDet();
+}
+
+/* ============================================================
+   BOTONES DE SERIES
+   ============================================================ */
+function initSerieBotones(){
+  const cont = $('serie-btns');
+  if(!cont) return;
+
+  // Aplicar estado guardado al cargar
+  cont.querySelectorAll('.serie-btn').forEach(btn=>{
+    const k = btn.dataset.serie;
+    btn.classList.toggle('active', Series.visible(k));
+    btn.addEventListener('click', ()=>{
+      const activo = Series.toggle(k);
+      btn.classList.toggle('active', activo);
+      dibujarChartDet();
+    });
+  });
 }
 
 /* ============================================================
@@ -779,6 +872,7 @@ function iniciarSupabase(){
   setInterval(cargarSemana, 300000);
 
   initHoverChartDet();
+  initSerieBotones();
 }
 
 pintaS($('in-solar'));
