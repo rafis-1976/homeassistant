@@ -31,8 +31,8 @@ const fmtW = kw => Math.round((kw||0)*1000) + ' W';
 
 /* ============================================================
    SERIES VISIBLES (persistidas en localStorage)
-   Nota: 'red-exp' y 'red-imp' ya no tienen botón, se muestran
-   siempre. Solo solar, casa, coche y venta son conmutables.
+   Solar, Casa, Coche y Excedente vendido son conmutables.
+   Las líneas de Red (export/import) han sido eliminadas.
    ============================================================ */
 const SERIES_DEFAULT = {
   'solar': true,
@@ -394,7 +394,7 @@ function dibujar24hLineas(gBars){
   const valsFlat = puntos.flatMap(p=>[p.solar,p.casa,p.coche,p.red]);
   if(valsFlat.length===0){
     $('chart-det-grid').innerHTML='<text x="'+W/2+'" y="'+(H/2)+'" text-anchor="middle" fill="#9aa0a6" font-size="14">Sin datos hoy</text>';
-    ['det-area-solar','det-area-venta','det-line-solar','det-line-casa','det-line-coche','det-line-red-exp','det-line-red-imp']
+    ['det-area-solar','det-area-venta','det-line-solar','det-line-casa','det-line-coche']
       .forEach(id=>{const e=$(id); if(e) e.setAttribute('d','')});
     const st=$('chart-det-stats'); if(st) st.innerHTML='';
     return;
@@ -437,20 +437,13 @@ function dibujar24hLineas(gBars){
     return pts.length>1?curve(pts):'';
   };
 
-  // Series conmutables
   const dSolar = Series.visible('solar') ? linea(p=>p.solar) : '';
   const dCasa  = Series.visible('casa')  ? linea(p=>p.casa)  : '';
   const dCoche = Series.visible('coche') ? linea(p=>p.coche,v=>v>0.01) : '';
 
-  // Series de red: SIEMPRE visibles (sin botón)
-  const dExp = linea(p=>p.red,v=>v>0.01);
-  const dImp = linea(p=>p.red,v=>v<-0.01);
-
   $('det-line-solar').setAttribute('d',dSolar);
   $('det-line-casa').setAttribute('d',dCasa);
   $('det-line-coche').setAttribute('d',dCoche);
-  $('det-line-red-exp').setAttribute('d',dExp);
-  $('det-line-red-imp').setAttribute('d',dImp);
 
   // Área amarilla de excedente vendido (conmutable)
   if(Series.visible('venta')){
@@ -470,7 +463,6 @@ function dibujar24hLineas(gBars){
     $('det-area-venta').setAttribute('d','');
   }
 
-  // Puntos: solo si están visibles
   let dots='';
   puntos.forEach(p=>{
     if(Series.visible('solar') && p.solar>0)
@@ -495,7 +487,7 @@ function dibujar7dBarras(gBars){
   const W=900,H=340,pL=50,pR=20,pT=20,pB=60;
   const innerW=W-pL-pR, innerH=H-pT-pB;
 
-  ['det-area-solar','det-area-venta','det-line-solar','det-line-casa','det-line-coche','det-line-red-exp','det-line-red-imp']
+  ['det-area-solar','det-area-venta','det-line-solar','det-line-casa','det-line-coche']
     .forEach(id=>{const e=$(id); if(e) e.setAttribute('d','')});
 
   const maxV = Math.max(1, ...datos.flatMap(d=>[d.solar,d.casa]));
@@ -586,11 +578,12 @@ function dibujarStats24h(puntos){
   if(Series.visible('coche')){
     html += bloque('#b388ff', prom(chV).toFixed(2)+u,'🚗 Coche · media');
   }
-  // Red siempre visible
-  html += bloque('#4caf50', (rV.length?Math.max(0,...rV):0).toFixed(2)+u, '⬆️ Red · máx export');
-  html += bloque('#ef5350', (rV.length?Math.abs(Math.min(0,...rV)):0).toFixed(2)+u, '⬇️ Red · máx import');
+  if(Series.visible('venta')){
+    const excV = (rV.length?Math.abs(Math.min(0,...rV)):0);
+    html += bloque('#ffeb3b', excV.toFixed(2)+u, '💰 Excedente vendido · pico');
+  }
 
-  el.innerHTML = html;
+  el.innerHTML = html || '<div style="color:var(--td);font-size:12px;padding:8px">Todas las series están ocultas.</div>';
 }
 
 function dibujarStats7d(datos){
@@ -598,8 +591,6 @@ function dibujarStats7d(datos){
   const totalS = datos.reduce((s,d)=>s+d.solar,0);
   const totalC = datos.reduce((s,d)=>s+d.casa,0);
   const auto   = datos.reduce((s,d)=>s+Math.min(d.solar,d.casa),0);
-  const exp    = Math.max(0,totalS-auto);
-  const imp    = Math.max(0,totalC-auto);
   const bloque=(color,valor,texto)=>`
     <div class="stat">
       <span class="dot" style="background:${color}"></span>
@@ -613,16 +604,12 @@ function dibujarStats7d(datos){
   if(Series.visible('casa')){
     html += bloque('#4fc3f7', totalC.toFixed(1)+' kWh', '🏠 Casa · total semana');
   }
-  // Red siempre visible
-  html += bloque('#4caf50', exp.toFixed(1)+' kWh', '⬆️ Red · export total');
-  html += bloque('#ef5350', imp.toFixed(1)+' kWh', '⬇️ Red · import total');
-
   if(Series.visible('solar') && Series.visible('casa')){
     html += bloque('#b388ff', (totalC>0?Math.round(auto/totalC*100):0)+' %', '♻️ Autoconsumo');
     html += bloque('#8bc34a', (auto*0.15).toFixed(2)+' €', '💶 Ahorro estimado');
   }
 
-  el.innerHTML = html;
+  el.innerHTML = html || '<div style="color:var(--td);font-size:12px;padding:8px">Todas las series están ocultas.</div>';
 }
 
 /* ============================================================
@@ -669,17 +656,17 @@ function hover24h(xVB,evt,rect){
   setDot('det-dot-solar',p.solar, Series.visible('solar'));
   setDot('det-dot-casa', p.casa,  Series.visible('casa'));
   setDot('det-dot-coche',p.coche, Series.visible('coche'));
-  setDot('det-dot-red',  p.red,   true);
 
   const tt=$('chart-det-tooltip'); if(!tt) return;
-  const redColor=p.red>=0?'#4caf50':'#ef5350';
   const fmt=v=>(v===null||v===undefined)?'—':v.toFixed(2)+' kW';
 
   let html = '<div style="font-weight:600;color:#4fc3f7;margin-bottom:4px">'+p.label+'</div>';
   if(Series.visible('solar')) html += '<div><span class="dot" style="background:#ffc107"></span>Solar<b>'+fmt(p.solar)+'</b></div>';
   if(Series.visible('casa'))  html += '<div><span class="dot" style="background:#4fc3f7"></span>Casa<b>'+fmt(p.casa)+'</b></div>';
   if(Series.visible('coche')) html += '<div><span class="dot" style="background:#b388ff"></span>Coche<b>'+fmt(p.coche)+'</b></div>';
-  html += '<div><span class="dot" style="background:'+redColor+'"></span>Red<b>'+fmt(p.red)+'</b></div>';
+  if(Series.visible('venta') && p.red < -0.01){
+    html += '<div><span class="dot" style="background:#ffeb3b"></span>Excedente<b>'+fmt(-p.red)+'</b></div>';
+  }
   tt.innerHTML = html;
   tt.classList.add('show');
   posicionarTooltip(tt,evt,rect);
@@ -698,7 +685,7 @@ function hover7d(xVB,evt,rect){
   cr.setAttribute('x1',cx); cr.setAttribute('x2',cx);
   cr.setAttribute('y1',20); cr.setAttribute('y2',280);
 
-  ['det-dot-solar','det-dot-casa','det-dot-coche','det-dot-red'].forEach(id=>{
+  ['det-dot-solar','det-dot-casa','det-dot-coche'].forEach(id=>{
     const e=$(id); if(e) e.style.display='none';
   });
 
