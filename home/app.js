@@ -1,6 +1,8 @@
 /* ============================================================
-   CONFIGURACIÓN
+   APP.JS · Lógica de la interfaz
+   Requiere supabase-config.js cargado antes.
    ============================================================ */
+
 const CONFIG = {
   USAR_DATOS_REALES: true,
   SUPABASE: {
@@ -25,7 +27,6 @@ const _fmtMin   = new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hour:'2-digit',mi
 const fechaMadrid   = d => _fmtFecha.format(d);
 const minutosMadrid = d => { const [h,m]=_fmtMin.format(d).split(':').map(Number); return h*60+m; };
 
-/** Formatea un valor en kW a W (entero) con unidad "W". */
 const fmtW = kw => Math.round((kw||0)*1000) + ' W';
 
 /* ============================================================
@@ -98,13 +99,13 @@ document.querySelectorAll('.nav-item').forEach(i=>i.addEventListener('click',()=
 }));
 
 /* ============================================================
-   ESTADO · internamente en kW, se muestra en W en el flujo
+   ESTADO ENERGÉTICO
    ============================================================ */
 const E={sol:0,casa:0,coche:0,cocheOn:false,cocheDeseada:7.4,cocheModo:'max',
   exp:0,imp:0,bat:65,energiaDiaKwh:0,kwhCoche:0};
 
 /* ============================================================
-   SUPABASE
+   SUPABASE · fetch base
    ============================================================ */
 async function supaFetch(path){
   const s=CONFIG.SUPABASE;
@@ -114,11 +115,14 @@ async function supaFetch(path){
   if(!r.ok){const t=await r.text();throw new Error('Supabase '+r.status+': '+t)}
   return r.json();
 }
+
 async function leerEstadoActual(){
   const d=await supaFetch(CONFIG.SUPABASE.TABLA_ESTADO+'?id=eq.1&select=*');
   return d&&d[0]?d[0]:null;
 }
-casync function leerLecturasHoras(horas){
+
+/* Últimas N horas de lecturas crudas (con límite alto para 24h) */
+async function leerLecturasHoras(horas){
   const s=CONFIG.SUPABASE;
   const desde=new Date(Date.now()-horas*3600*1000).toISOString();
   return await supaFetch(
@@ -126,6 +130,7 @@ casync function leerLecturasHoras(horas){
     '&select=ts,solar_w,casa_w,red_w,coche_w&order=ts.asc&limit=10000'
   );
 }
+
 async function leerCurvaDias(dias){
   const s=CONFIG.SUPABASE;
   const desde=new Date(); desde.setDate(desde.getDate()-(dias-1));
@@ -174,12 +179,11 @@ function addClass(id,c){const e=$(id);if(e)e.classList.add(c)}
 function toggleClass(id,c,v){const e=$(id);if(e)e.classList.toggle(c,v)}
 
 /* ============================================================
-   RENDER · estado en vivo (flujo en W)
+   RENDER · flujo en W
    ============================================================ */
 function renderE(){
   const{sol,casa,coche,exp,imp}=E;
 
-  /* --- Nodos del diagrama: en W --- */
   setTxt('v-solar',  fmtW(sol));
   setTxt('v-casa',   fmtW(casa));
   setTxt('v-coche',  coche>0.005 ? fmtW(coche) : 'Apagado');
@@ -198,7 +202,6 @@ function renderE(){
   toggleClass('n-coche','act',coche>.005);
   toggleClass('n-red','act',exp>.005||imp>.005);
 
-  /* --- Badge superior: en W --- */
   const b=$('estado-red');
   if(b){
     b.className='badge';
@@ -207,12 +210,10 @@ function renderE(){
     else{b.classList.add('blue');b.textContent='♻️ Autoconsumo total'}
   }
 
-  /* --- Etiquetas junto a los sliders: en W --- */
   setTxt('lbl-solar', fmtW(sol));
   setTxt('lbl-casa',  fmtW(casa));
   setTxt('lbl-coche', fmtW(coche));
 
-  /* --- Tarjeta Fronius: en W --- */
   setTxt('fron-prod', Math.round(sol*1000));
   setTxt('fron-hoy',  E.energiaDiaKwh.toFixed(2)+' kWh');
   setTxt('fron-temp', (32+sol*2).toFixed(0)+' °C');
@@ -222,7 +223,6 @@ function renderE(){
     else{bf.className='badge blue';bf.textContent='Standby'}
   }
 
-  /* --- Tarjeta coche: en W --- */
   const bc=$('badge-coche');
   if(bc){
     bc.className='badge';
@@ -494,9 +494,6 @@ function dibujar7dBarras(gBars){
   dibujarStats7d(datos);
 }
 
-/* ============================================================
-   ESTADÍSTICAS
-   ============================================================ */
 function dibujarStats24h(puntos){
   const el=$('chart-det-stats'); if(!el) return;
   const val=k=>puntos.map(p=>p[k]).filter(v=>v!==null&&v!==undefined);
@@ -544,9 +541,6 @@ function dibujarStats7d(datos){
     bloque('#8bc34a', (auto*0.15).toFixed(2)+' €', '💶 Ahorro estimado');
 }
 
-/* ============================================================
-   HOVER
-   ============================================================ */
 function initHoverChartDet(){
   const svg=$('chart-det'); if(!svg) return;
   const tooltip=$('chart-det-tooltip');
@@ -562,7 +556,6 @@ function initHoverChartDet(){
     if(tooltip) tooltip.classList.remove('show');
   });
 }
-
 function hover24h(xVB,evt,rect){
   const{px}=ChartDet.escala;
   let idx=0,dist=Infinity;
@@ -603,7 +596,6 @@ function hover24h(xVB,evt,rect){
   tt.classList.add('show');
   posicionarTooltip(tt,evt,rect);
 }
-
 function hover7d(xVB,evt,rect){
   const{pL,pR,W,anchoGrupo,nDias}=ChartDet.escala;
   const rel = xVB - pL;
@@ -632,7 +624,6 @@ function hover7d(xVB,evt,rect){
   tt.classList.add('show');
   posicionarTooltip(tt,evt,rect);
 }
-
 function posicionarTooltip(tt,evt,rect){
   const wrap=tt.parentElement.getBoundingClientRect();
   let left=(evt.clientX-wrap.left)+16;
@@ -646,9 +637,6 @@ function posicionarTooltip(tt,evt,rect){
   tt.style.top =top+'px';
 }
 
-/* ============================================================
-   CARGA DE LA GRÁFICA
-   ============================================================ */
 async function cargarChartDet(){
   try{
     if(ChartDet.rango==='24h'){
@@ -663,7 +651,6 @@ async function cargarChartDet(){
     console.warn('Error chart det:',e.message);
   }
 }
-
 function setRango(r){
   ChartDet.rango=r;
   document.querySelectorAll('.range-btn').forEach(b=>{
@@ -673,7 +660,7 @@ function setRango(r){
 }
 
 /* ============================================================
-   BARRAS SEMANALES INFERIORES
+   BARRAS SEMANALES
    ============================================================ */
 async function cargarSemana(){
   if(!$('bars-semana')) return;
@@ -709,13 +696,13 @@ function dibujarSemana(arr){
     const hS=maxV>0?(d.solar/maxV*100):0;
     const hC=maxV>0?(d.casa /maxV*100):0;
     const esHoy=fechaMadrid(d.dia)===fechaMadrid(new Date());
-    return `<div class="bar-group" title="${d.fecha}">
-      <div class="bar-pair">
-        <div class="bar solar" style="height:${hS.toFixed(1)}%"></div>
-        <div class="bar cons"  style="height:${hC.toFixed(1)}%"></div>
-      </div>
-      <div class="bar-day" ${esHoy?'style="color:var(--a);font-weight:700"':''}>${nombres[d.dia.getDay()]}</div>
-    </div>`;
+    return '<div class="bar-group" title="'+d.fecha+'">' +
+      '<div class="bar-pair">' +
+        '<div class="bar solar" style="height:'+hS.toFixed(1)+'%"></div>' +
+        '<div class="bar cons"  style="height:'+hC.toFixed(1)+'%"></div>' +
+      '</div>' +
+      '<div class="bar-day" '+(esHoy?'style="color:var(--a);font-weight:700"':'')+'>'+nombres[d.dia.getDay()]+'</div>' +
+    '</div>';
   }).join('');
   setTxt('sem-prod',totalProd.toFixed(1)+' kWh');
   setTxt('sem-cons',totalCons.toFixed(1)+' kWh');
@@ -773,7 +760,6 @@ function iniciarSupabase(){
   initHoverChartDet();
 }
 
-// Init
 pintaS($('in-solar'));
 pintaS($('in-casa'));
 pintaS($('in-coche'));
