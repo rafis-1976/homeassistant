@@ -1,6 +1,5 @@
 /* ============================================================
    APP.JS · Lógica de la interfaz
-   Requiere supabase-config.js cargado antes.
    ============================================================ */
 
 const CONFIG = {
@@ -26,6 +25,14 @@ const _fmtHora  = new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hour:'2-digit',ho
 const _fmtMin   = new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit',hour12:false});
 const fechaMadrid   = d => _fmtFecha.format(d);
 const minutosMadrid = d => { const [h,m]=_fmtMin.format(d).split(':').map(Number); return h*60+m; };
+
+/* Parser defensivo: trunca microsegundos y valida */
+function parseTs(s){
+  if(!s) return null;
+  const limpio = String(s).replace(/(\.\d{3})\d+/, '$1');
+  const d = new Date(limpio);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 const fmtW = kw => Math.round((kw||0)*1000) + ' W';
 
@@ -300,14 +307,14 @@ async function pollEstado(){
 const ChartDet={rango:'24h',crudo:[],puntos:null,escala:null,modo:null};
 
 function prepararPuntos24h(filas){
-  const hoyStr = fechaMadrid(new Date());
   const pts = [];
   filas.forEach(f=>{
-    const t = new Date(f.ts);
-    if(fechaMadrid(t) !== hoyStr) return;
+    const t = parseTs(f.ts);
+    if(!t) return;
     const min = minutosMadrid(t);
     pts.push({
       ts: t.getTime(),
+      dia: fechaMadrid(t),
       min: min,
       label: String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0'),
       solar: (+f.solar_w||0)/1000,
@@ -316,7 +323,13 @@ function prepararPuntos24h(filas){
       red:   (+f.red_w  ||0)/1000
     });
   });
-  pts.sort((a,b)=>a.min-b.min);
+  pts.sort((a,b)=>a.ts-b.ts);
+
+  // Nos quedamos con el último día con datos (no siempre "hoy")
+  if(pts.length > 0){
+    const ultimoDia = pts[pts.length-1].dia;
+    return pts.filter(p => p.dia === ultimoDia);
+  }
   return pts;
 }
 
@@ -385,16 +398,16 @@ function dibujar24hLineas(gBars){
   const innerW=W-pL-pR, innerH=H-pT-pB;
   gBars.innerHTML='';
 
-  const valsFlat = puntos.flatMap(p=>[p.solar,p.casa,p.coche,p.red]);
-  if(valsFlat.length===0){
-    $('chart-det-grid').innerHTML='<text x="'+W/2+'" y="'+(H/2)+'" text-anchor="middle" fill="#9aa0a6" font-size="14">Sin datos hoy</text>';
+  if(puntos.length === 0){
+    $('chart-det-grid').innerHTML='<text x="'+W/2+'" y="'+(H/2-10)+'" text-anchor="middle" fill="#9aa0a6" font-size="14">Sin datos disponibles</text>'+
+      '<text x="'+W/2+'" y="'+(H/2+15)+'" text-anchor="middle" fill="#6b7280" font-size="12">Comprueba que el script de Home Assistant sigue enviando datos a Supabase</text>';
     ['det-area-solar','det-area-venta','det-line-solar','det-line-casa','det-line-coche']
       .forEach(id=>{const e=$(id); if(e) e.setAttribute('d','')});
     const st=$('chart-det-stats'); if(st) st.innerHTML='';
     return;
   }
 
-  // Límites reales de los datos (minuto del día)
+  const valsFlat = puntos.flatMap(p=>[p.solar,p.casa,p.coche,p.red]);
   const minMin = puntos[0].min;
   const maxMin = puntos[puntos.length-1].min;
 
@@ -443,20 +456,18 @@ function dibujar24hLineas(gBars){
   $('det-line-casa').setAttribute('d',dCasa);
   $('det-line-coche').setAttribute('d',dCoche);
 
-  // -------- Área amarilla: excedente vendido (bajo el eje 0) --------
+  // Área amarilla inferior: excedente vendido
   if(Series.visible('venta')){
     const y0 = py(0);
-    const xFirst = px(minMin);
-    const xLast  = px(maxMin);
     const ptsVenta = puntos.map(p=>{
       const esVenta = (p.red !== null && p.red !== undefined && p.red < -0.01);
       return [px(p.min), esVenta ? py(p.red) : y0];
     });
     let dVenta = '';
     if(ptsVenta.length > 1){
-      dVenta = 'M ' + xFirst + ',' + y0 + ' ' +
+      dVenta = 'M ' + px(minMin) + ',' + y0 + ' ' +
                ptsVenta.map(pt => 'L ' + pt[0] + ',' + pt[1]).join(' ') +
-               ' L ' + xLast + ',' + y0 + ' Z';
+               ' L ' + px(maxMin) + ',' + y0 + ' Z';
     }
     $('det-area-venta').setAttribute('d', dVenta);
   } else {
@@ -472,7 +483,7 @@ function dibujar24hLineas(gBars){
   });
   gBars.innerHTML=dots;
 
-  // -------- Área amarilla clara: bajo la curva solar (SOLO el rango con datos) --------
+  // Área bajo curva solar — cierra SOLO en los extremos reales
   if(dSolar){
     const base=' L'+px(maxMin)+','+py(0)+' L'+px(minMin)+','+py(0)+' Z';
     $('det-area-solar').setAttribute('d',dSolar+base);
@@ -482,7 +493,7 @@ function dibujar24hLineas(gBars){
 
   ChartDet.puntos=puntos;
   ChartDet.escala={px,py,pL,pR,pT,pB,W,H};
-  dibujarStats24h(calcularEnergia24h(puntos));
+  dibujarStats24h(calcularEnergia24h(puntos), puntos);
 }
 
 function dibujar7dBarras(gBars){
@@ -604,7 +615,23 @@ function pintarStatsEnergia(energia, etiquetaRango){
     bloque('#4caf50', vertida.toFixed(1)+' kWh',   '⬆️ Vertida a la red · '+etiquetaRango);
 }
 
-function dibujarStats24h(energia){ pintarStatsEnergia(energia, 'hoy'); }
+function dibujarStats24h(energia, puntos){
+  // Añadir info de última lectura
+  const el=$('chart-det-stats'); if(!el) return;
+  pintarStatsEnergia(energia, 'hoy');
+
+  if(puntos && puntos.length > 0){
+    const ultimo = puntos[puntos.length-1];
+    const minsAtras = Math.round((Date.now() - ultimo.ts) / 60000);
+    const txt = minsAtras < 2 ? 'ahora mismo'
+              : minsAtras < 60 ? ('hace ' + minsAtras + ' min')
+              : ('hace ' + Math.round(minsAtras/60) + ' h');
+    const info = document.createElement('div');
+    info.style.cssText='grid-column:1/-1;font-size:11px;color:var(--td);text-align:right;margin-top:4px';
+    info.textContent = '🕐 Última lectura: ' + ultimo.label + ' (' + txt + ') · ' + puntos.length + ' puntos';
+    el.appendChild(info);
+  }
+}
 function dibujarStats7d(energia){ pintarStatsEnergia(energia, '7 días'); }
 
 /* ============================================================
