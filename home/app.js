@@ -394,6 +394,10 @@ function dibujar24hLineas(gBars){
     return;
   }
 
+  // Límites reales de los datos (minuto del día)
+  const minMin = puntos[0].min;
+  const maxMin = puntos[puntos.length-1].min;
+
   const maxV=Math.max(1,...valsFlat);
   const minV=Math.min(0,...puntos.map(p=>p.red));
   const spanV=Math.max(0.5,maxV-minV);
@@ -439,17 +443,20 @@ function dibujar24hLineas(gBars){
   $('det-line-casa').setAttribute('d',dCasa);
   $('det-line-coche').setAttribute('d',dCoche);
 
+  // -------- Área amarilla: excedente vendido (bajo el eje 0) --------
   if(Series.visible('venta')){
     const y0 = py(0);
+    const xFirst = px(minMin);
+    const xLast  = px(maxMin);
     const ptsVenta = puntos.map(p=>{
       const esVenta = (p.red !== null && p.red !== undefined && p.red < -0.01);
       return [px(p.min), esVenta ? py(p.red) : y0];
     });
     let dVenta = '';
     if(ptsVenta.length > 1){
-      dVenta = 'M ' + ptsVenta[0][0] + ',' + y0 + ' ' +
+      dVenta = 'M ' + xFirst + ',' + y0 + ' ' +
                ptsVenta.map(pt => 'L ' + pt[0] + ',' + pt[1]).join(' ') +
-               ' L ' + ptsVenta[ptsVenta.length-1][0] + ',' + y0 + ' Z';
+               ' L ' + xLast + ',' + y0 + ' Z';
     }
     $('det-area-venta').setAttribute('d', dVenta);
   } else {
@@ -465,10 +472,13 @@ function dibujar24hLineas(gBars){
   });
   gBars.innerHTML=dots;
 
+  // -------- Área amarilla clara: bajo la curva solar (SOLO el rango con datos) --------
   if(dSolar){
-    const base=' L'+px(1440)+','+py(0)+' L'+px(0)+','+py(0)+' Z';
+    const base=' L'+px(maxMin)+','+py(0)+' L'+px(minMin)+','+py(0)+' Z';
     $('det-area-solar').setAttribute('d',dSolar+base);
-  } else $('det-area-solar').setAttribute('d','');
+  } else {
+    $('det-area-solar').setAttribute('d','');
+  }
 
   ChartDet.puntos=puntos;
   ChartDet.escala={px,py,pL,pR,pT,pB,W,H};
@@ -551,7 +561,7 @@ function calcularEnergia24h(puntos){
   let consumida=0, producida=0, comprada=0, vertida=0;
   for(let i=0;i<puntos.length-1;i++){
     const dtH = (puntos[i+1].ts - puntos[i].ts) / 3600000;
-    if(dtH<=0 || dtH>1) continue;  // ignorar huecos raros
+    if(dtH<=0 || dtH>1) continue;
     const p = puntos[i];
     consumida += (p.casa + p.coche) * dtH;
     producida += p.solar * dtH;
@@ -562,7 +572,6 @@ function calcularEnergia24h(puntos){
 }
 
 function calcularEnergia7d(filas){
-  // La vista curva_horaria da kW medios por hora → sumar = kWh del rango
   let producida=0, consumida=0, auto=0;
   filas.forEach(f=>{
     const s=+f.solar_kw||0, c=+f.casa_kw||0;
