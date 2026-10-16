@@ -11,7 +11,11 @@ const CONFIG = {
     TABLA_HIST:   'lecturas',
     VISTA_CURVA:  'curva_horaria',
     INTERVALO:    5000,
-    RED_POSITIVA_ES_EXPORT: false
+    RED_POSITIVA_ES_EXPORT: false,
+    // Página de 1000 filas (límite PostgREST por defecto)
+    PAGE_SIZE:    1000,
+    // Máximo de páginas a pedir en 24h (1000 x 10 = 10.000 filas)
+    MAX_PAGES:    10
   },
   TIENE_BATERIA: false,
   COCHE_MAX: 11
@@ -26,7 +30,7 @@ const _fmtMin   = new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hour:'2-digit',mi
 const fechaMadrid   = d => _fmtFecha.format(d);
 const minutosMadrid = d => { const [h,m]=_fmtMin.format(d).split(':').map(Number); return h*60+m; };
 
-/* Parser defensivo: trunca microsegundos y valida */
+/* Parser defensivo: trunca microsegundos */
 function parseTs(s){
   if(!s) return null;
   const limpio = String(s).replace(/(\.\d{3})\d+/, '$1');
@@ -151,13 +155,32 @@ async function leerEstadoActual(){
   return d&&d[0]?d[0]:null;
 }
 
+/* ------------------------------------------------------------
+   Lecturas crudas para 24h · PAGINADO
+   Supabase limita a 1000 filas por petición. Paginamos para
+   traer TODAS las lecturas de las últimas N horas.
+   ------------------------------------------------------------ */
 async function leerLecturasHoras(horas){
   const s=CONFIG.SUPABASE;
-  const filas = await supaFetch(
-    s.TABLA_HIST+'?select=ts,solar_w,casa_w,red_w,coche_w'+
-    '&order=ts.desc&limit=1000'
-  );
-  return filas.reverse();
+  const PAGE = s.PAGE_SIZE || 1000;
+  const MAX_PAGES = s.MAX_PAGES || 10;
+  const todas = [];
+  const desdeMs = Date.now() - horas*3600*1000;
+  const desdeIso = new Date(desdeMs).toISOString();
+
+  let offset = 0;
+  for(let p=0; p<MAX_PAGES; p++){
+    const filas = await supaFetch(
+      s.TABLA_HIST+'?select=ts,solar_w,casa_w,red_w,coche_w'+
+      '&ts=gte.'+desdeIso+
+      '&order=ts.desc&limit='+PAGE+'&offset='+offset
+    );
+    if(!filas || !filas.length) break;
+    todas.push(...filas);
+    if(filas.length < PAGE) break;
+    offset += PAGE;
+  }
+  return todas.reverse(); // devolver en orden ascendente
 }
 
 async function leerCurvaDias(dias){
@@ -325,7 +348,7 @@ function prepararPuntos24h(filas){
   });
   pts.sort((a,b)=>a.ts-b.ts);
 
-  // Nos quedamos con el último día con datos (no siempre "hoy")
+  // Quedarse solo con el último día con datos
   if(pts.length > 0){
     const ultimoDia = pts[pts.length-1].dia;
     return pts.filter(p => p.dia === ultimoDia);
@@ -400,7 +423,7 @@ function dibujar24hLineas(gBars){
 
   if(puntos.length === 0){
     $('chart-det-grid').innerHTML='<text x="'+W/2+'" y="'+(H/2-10)+'" text-anchor="middle" fill="#9aa0a6" font-size="14">Sin datos disponibles</text>'+
-      '<text x="'+W/2+'" y="'+(H/2+15)+'" text-anchor="middle" fill="#6b7280" font-size="12">Comprueba que el script de Home Assistant sigue enviando datos a Supabase</text>';
+      '<text x="'+W/2+'" y="'+(H/2+15)+'" text-anchor="middle" fill="#6b7280" font-size="12">Comprueba que Home Assistant sigue enviando datos</text>';
     ['det-area-solar','det-area-venta','det-line-solar','det-line-casa','det-line-coche']
       .forEach(id=>{const e=$(id); if(e) e.setAttribute('d','')});
     const st=$('chart-det-stats'); if(st) st.innerHTML='';
@@ -456,7 +479,6 @@ function dibujar24hLineas(gBars){
   $('det-line-casa').setAttribute('d',dCasa);
   $('det-line-coche').setAttribute('d',dCoche);
 
-  // Área amarilla inferior: excedente vendido
   if(Series.visible('venta')){
     const y0 = py(0);
     const ptsVenta = puntos.map(p=>{
@@ -483,7 +505,6 @@ function dibujar24hLineas(gBars){
   });
   gBars.innerHTML=dots;
 
-  // Área bajo curva solar — cierra SOLO en los extremos reales
   if(dSolar){
     const base=' L'+px(maxMin)+','+py(0)+' L'+px(minMin)+','+py(0)+' Z';
     $('det-area-solar').setAttribute('d',dSolar+base);
@@ -596,9 +617,9 @@ function calcularEnergia7d(filas){
 }
 
 /* ============================================================
-   ESTADÍSTICAS BAJO LA GRÁFICA · 4 bloques de energía
+   ESTADÍSTICAS BAJO LA GRÁFICA
    ============================================================ */
-function pintarStatsEnergia(energia, etiquetaRango){
+function pintarStatsEnergia(energia, etiquetaRango, puntos){
   const el=$('chart-det-stats'); if(!el) return;
   const {consumida, producida, comprada, vertida} = energia;
 
@@ -608,30 +629,27 @@ function pintarStatsEnergia(energia, etiquetaRango){
       <div><b>${valor}</b><small>${texto}</small></div>
     </div>`;
 
-  el.innerHTML =
+  let html =
     bloque('#4fc3f7', consumida.toFixed(1)+' kWh', '🏠 Energía consumida · '+etiquetaRango) +
     bloque('#ef5350', comprada.toFixed(1)+' kWh',  '🔻 Comprada a la red · '+etiquetaRango) +
     bloque('#ffc107', producida.toFixed(1)+' kWh', '☀️ Energía producida · '+etiquetaRango) +
     bloque('#4caf50', vertida.toFixed(1)+' kWh',   '⬆️ Vertida a la red · '+etiquetaRango);
-}
 
-function dibujarStats24h(energia, puntos){
-  // Añadir info de última lectura
-  const el=$('chart-det-stats'); if(!el) return;
-  pintarStatsEnergia(energia, 'hoy');
-
+  // Añadir info de última lectura + nº de puntos
   if(puntos && puntos.length > 0){
     const ultimo = puntos[puntos.length-1];
     const minsAtras = Math.round((Date.now() - ultimo.ts) / 60000);
     const txt = minsAtras < 2 ? 'ahora mismo'
               : minsAtras < 60 ? ('hace ' + minsAtras + ' min')
               : ('hace ' + Math.round(minsAtras/60) + ' h');
-    const info = document.createElement('div');
-    info.style.cssText='grid-column:1/-1;font-size:11px;color:var(--td);text-align:right;margin-top:4px';
-    info.textContent = '🕐 Última lectura: ' + ultimo.label + ' (' + txt + ') · ' + puntos.length + ' puntos';
-    el.appendChild(info);
+    html += '<div style="grid-column:1/-1;font-size:11px;color:var(--td);text-align:right;margin-top:4px">'+
+            '🕐 Última lectura: ' + ultimo.label + ' (' + txt + ') · ' + puntos.length + ' puntos</div>';
   }
+
+  el.innerHTML = html;
 }
+
+function dibujarStats24h(energia, puntos){ pintarStatsEnergia(energia, 'hoy', puntos); }
 function dibujarStats7d(energia){ pintarStatsEnergia(energia, '7 días'); }
 
 /* ============================================================
@@ -740,6 +758,9 @@ async function cargarChartDet(){
     if(ChartDet.rango==='24h'){
       const filas = await leerLecturasHoras(26);
       ChartDet.crudo = filas;
+      console.log('[CHART] Filas cargadas:', filas.length,
+                  '| primera:', filas[0]?.ts,
+                  '| última:', filas[filas.length-1]?.ts);
     } else {
       const filas = await leerCurvaDias(7);
       ChartDet.crudo = filas;
