@@ -33,7 +33,7 @@
     <section id="td-section" class="td-section">
       <div class="td-head">
         <h2>📁 Datos técnicos</h2>
-        <p class="td-sub">Documentos, datos y enlaces guardados en tu cuenta.</p>
+        <p class="td-sub">Documentos, datos y enlaces del vehículo seleccionado.</p>
       </div>
 
       <form id="td-form" class="td-form" autocomplete="off">
@@ -46,9 +46,8 @@
             </select>
           </label>
 
-          <label>Vehículo / etiqueta
-            <input id="td-tag" list="td-tags" placeholder="Ej. Seat León · 1234ABC">
-            <datalist id="td-tags"></datalist>
+          <label class="td-grow">Vehículo
+            <input id="td-vehicle" readonly placeholder="Selecciona un vehículo en las pestañas de arriba">
           </label>
 
           <label class="td-grow">Título *
