@@ -1,4 +1,4 @@
-/* technical.js — Sección "Datos técnicos" (documentos, datos y enlaces) */
+/* technical.js — Datos técnicos POR VEHÍCULO (documentos, datos y enlaces) */
 (function () {
   'use strict';
 
@@ -6,35 +6,74 @@
   const BUCKET = 'technical-docs';
   const MAX_MB = 20;
 
-  let client = null, user = null, items = [], bound = false;
+  let client = null, user = null, items = [];
+  let currentVehicle = null;    // { id, name }
+  let bound = false;
 
   const $   = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (m) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]
   ));
 
-  /* ---------- cliente Supabase (reutiliza el de config.js si existe) ---------- */
+  /* ---------- cliente Supabase ---------- */
   function getClient() {
     if (client) return client;
-
     const cands = [];
     try { if (typeof supabaseClient !== 'undefined') cands.push(supabaseClient); } catch (e) {}
     try { if (typeof sb !== 'undefined') cands.push(sb); } catch (e) {}
     cands.push(window.sb, window.supabaseClient, window.db, window.supabaseDB);
-
     for (const c of cands) {
       if (c && typeof c.from === 'function' && c.storage && c.auth) { client = c; return client; }
     }
-
     const url = window.SUPABASE_URL || window.SUPABASE_URL_;
     const key = window.SUPABASE_ANON_KEY || window.SUPABASE_KEY;
-    if (url && key && window.supabase && typeof window.supabase.createClient === 'function') {
+    if (url && key && window.supabase?.createClient) {
       client = window.supabase.createClient(url, key);
     }
     return client;
   }
 
-  /* ---------- estado ---------- */
+  /* ---------- DETECCIÓN DEL VEHÍCULO ACTIVO ---------- */
+  function getCurrentVehicle() {
+    // 1) Global explícita (recomendado si puedes exponerla desde app.js)
+    if (window.currentVehicle && window.currentVehicle.id) {
+      return {
+        id: String(window.currentVehicle.id),
+        name: window.currentVehicle.name || window.currentVehicle.titulo || window.currentVehicle.modelo || ''
+      };
+    }
+    if (window.currentVehicleId) {
+      return { id: String(window.currentVehicleId), name: window.currentVehicleName || '' };
+    }
+
+    // 2) Pestaña activa (.tab.active con data-id / data-vehicle-id)
+    const tab = document.querySelector('.tab.active, [data-vehicle-id].active');
+    if (tab) {
+      const id = tab.dataset.vehicleId || tab.dataset.id || tab.getAttribute('data-vehicle');
+      if (id) {
+        const name =
+          tab.querySelector('.tab-name')?.textContent?.trim() ||
+          tab.dataset.vehicleName ||
+          tab.textContent?.trim() ||
+          '';
+        return { id: String(id), name };
+      }
+    }
+
+    // 3) URL hash tipo #vehicle/UUID o #vehiculos/UUID
+    const hash = location.hash || '';
+    const m = hash.match(/vehiculo?s?\/([^/?#]+)/i);
+    if (m) return { id: decodeURIComponent(m[1]), name: '' };
+
+    return null;
+  }
+
+  function vehicleLabel() {
+    if (!currentVehicle) return '';
+    return currentVehicle.name || currentVehicle.id;
+  }
+
+  /* ---------- estado / UI ---------- */
   function setStatus(msg, isError) {
     const el = $('td-status');
     if (!el) return;
@@ -49,14 +88,49 @@
     $('td-field-documento').hidden = t !== 'documento';
   }
 
-  /* ---------- carga ---------- */
+  function updateVehicleField() {
+    const inp = $('td-vehicle');
+    if (!inp) return;
+    if (currentVehicle) {
+      inp.value = vehicleLabel();
+      inp.placeholder = '';
+      inp.classList.remove('is-empty');
+    } else {
+      inp.value = '';
+      inp.placeholder = 'Selecciona un vehículo en las pestañas de arriba';
+      inp.classList.add('is-empty');
+    }
+  }
+
+  function updateFormAvailability() {
+    const hasVehicle = !!(currentVehicle && currentVehicle.id);
+    const form = $('td-form');
+    if (!form) return;
+    form.querySelectorAll('input, select, button').forEach(el => {
+      // el input de vehículo es readonly siempre
+      if (el.id === 'td-vehicle') return;
+      el.disabled = !hasVehicle;
+    });
+    $('td-submit').disabled = !hasVehicle;
+  }
+
+  /* ---------- carga de la lista ---------- */
   async function load() {
     if (!client || !user) return;
+
+    if (!currentVehicle || !currentVehicle.id) {
+      items = [];
+      renderEmpty('Selecciona un vehículo en las pestañas para ver sus datos técnicos.');
+      setStatus('');
+      return;
+    }
+
     setStatus('Cargando…');
     const { data, error } = await client
       .from(TABLE)
       .select('*')
       .eq('user_id', user.id)
+      .eq('vehicle_id', currentVehicle.id)
       .order('created_at', { ascending: false });
 
     if (error) { setStatus('Error al cargar: ' + error.message, true); return; }
@@ -65,25 +139,27 @@
     setStatus('');
   }
 
+  function renderEmpty(msg) {
+    const list = $('td-list');
+    if (list) list.innerHTML = `<p class="td-empty">${esc(msg)}</p>`;
+  }
+
   /* ---------- render ---------- */
   async function render() {
     const list = $('td-list');
+    if (!list) return;
 
-    // URLs firmadas para los documentos (bucket privado)
+    if (!items.length) {
+      renderEmpty('Todavía no has añadido datos técnicos a este vehículo.');
+      return;
+    }
+
+    // URLs firmadas para documentos
     const docPaths = items.filter(i => i.type === 'documento').map(i => i.value);
     const urls = {};
     if (docPaths.length && client) {
       const { data } = await client.storage.from(BUCKET).createSignedUrls(docPaths, 3600);
       (data || []).forEach(d => { if (d && d.signedUrl) urls[d.path] = d.signedUrl; });
-    }
-
-    // datalist de etiquetas
-    const tags = [...new Set(items.map(i => i.tag).filter(Boolean))].sort();
-    $('td-tags').innerHTML = tags.map(t => `<option value="${esc(t)}">`).join('');
-
-    if (!items.length) {
-      list.innerHTML = `<p class="td-empty">Todavía no has añadido nada. Sube un documento, guarda un dato o pega un enlace.</p>`;
-      return;
     }
 
     const groups = [
@@ -112,9 +188,8 @@
         return `<div class="td-item">
           <div class="td-item-main">
             <div class="td-item-title">${esc(it.title)}</div>
-            ${it.tag   ? `<div class="td-item-tag">🚗 ${esc(it.tag)}</div>` : ''}
             ${it.notes ? `<div class="td-item-notes">${esc(it.notes)}</div>` : ''}
-            ${it.file_name ? `<div class="td-item-notes">${esc(it.file_name)}</div>` : ''}
+            ${it.file_name ? `<div class="td-item-notes">📎 ${esc(it.file_name)}</div>` : ''}
             ${main}
           </div>
           <button type="button" class="btn ghost sm td-del" data-id="${esc(it.id)}">Eliminar</button>
@@ -129,10 +204,13 @@
   async function onSubmit(e) {
     e.preventDefault();
     if (!client || !user) { setStatus('Sesión no disponible.', true); return; }
+    if (!currentVehicle || !currentVehicle.id) {
+      setStatus('Selecciona un vehículo antes de guardar.', true);
+      return;
+    }
 
     const type    = $('td-type').value;
     const title   = $('td-title').value.trim();
-    const tag     = $('td-tag').value.trim();
     const notes   = $('td-notes').value.trim();
     const btn     = $('td-submit');
 
@@ -161,7 +239,7 @@
       setStatus('Subiendo archivo…');
 
       const safe = file.name.replace(/[^\w.\-]+/g, '_');
-      uploadedPath = `${user.id}/${Date.now()}-${safe}`;
+      uploadedPath = `${user.id}/${currentVehicle.id}/${Date.now()}-${safe}`;
 
       const { error: upErr } = await client.storage
         .from(BUCKET)
@@ -179,15 +257,15 @@
     setStatus('Guardando…');
     const { error } = await client.from(TABLE).insert({
       user_id: user.id,
+      vehicle_id: String(currentVehicle.id),
       type,
       title,
-      tag: tag || null,
       notes: notes || null,
       value,
       file_name
     });
 
-    btn.disabled = false;
+    btn.disabled = !currentVehicle;
 
     if (error) {
       if (uploadedPath) await client.storage.from(BUCKET).remove([uploadedPath]);
@@ -197,6 +275,7 @@
 
     $('td-form').reset();
     syncFields();
+    updateVehicleField();
     setStatus('Guardado ✓');
     setTimeout(() => setStatus(''), 2000);
     await load();
@@ -219,6 +298,64 @@
     await load();
   }
 
+  /* ---------- refresco por cambio de vehículo ---------- */
+  async function refreshVehicle() {
+    const next = getCurrentVehicle();
+    const changed = (next?.id || null) !== (currentVehicle?.id || null);
+    currentVehicle = next;
+    updateVehicleField();
+    updateFormAvailability();
+    if (changed) {
+      // limpia el formulario para no mezclar entre coches
+      const form = $('td-form');
+      if (form) { form.reset(); syncFields(); }
+      await load();
+    }
+  }
+
+  /* ---------- escuchar cambios de pestaña ---------- */
+  function watchVehicleChanges() {
+    window.addEventListener('hashchange', refreshVehicle);
+
+    // Clic en cualquier pestaña (deja que app.js pinte antes de leer)
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('.tab, [data-vehicle-id]')) {
+        setTimeout(refreshVehicle, 60);
+      }
+    });
+
+    // MutationObserver sobre el contenedor de pestañas
+    const tabsEl = document.getElementById('tabs');
+    if (tabsEl && window.MutationObserver) {
+      let t;
+      const mo = new MutationObserver(() => {
+        clearTimeout(t);
+        t = setTimeout(refreshVehicle, 80);
+      });
+      mo.observe(tabsEl, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['class', 'data-vehicle-id', 'data-id']
+      });
+    }
+
+    // Evento personalizado: app.js puede hacer
+    //   window.dispatchEvent(new CustomEvent('vehiclechange', { detail: { id, name } }))
+    window.addEventListener('vehiclechange', (e) => {
+      if (e.detail && e.detail.id) {
+        window.currentVehicle = { id: String(e.detail.id), name: e.detail.name || '' };
+      }
+      refreshVehicle();
+    });
+  }
+
+  /* ---------- API pública por si app.js quiere empujar el vehículo ---------- */
+  window.technicalSetVehicle = function (id, name) {
+    window.currentVehicle = id ? { id: String(id), name: name || '' } : null;
+    refreshVehicle();
+  };
+
   /* ---------- arranque ---------- */
   function bindUI() {
     if (bound) return;
@@ -230,6 +367,7 @@
       if (btn) removeItem(btn.dataset.id);
     });
     syncFields();
+    watchVehicleChanges();
   }
 
   async function init() {
@@ -241,14 +379,21 @@
     const { data } = await c.auth.getSession();
     user = data && data.session ? data.session.user : null;
 
-    if (user) { await load(); }
+    if (user) {
+      await refreshVehicle();
+    }
 
     c.auth.onAuthStateChange((_evt, session) => {
       const next = session ? session.user : null;
       const changed = (next && next.id) !== (user && user.id);
       user = next;
-      if (user) { if (changed) load(); }
-      else { items = []; $('td-list').innerHTML = ''; setStatus(''); }
+      if (user) {
+        if (changed) refreshVehicle();
+      } else {
+        items = [];
+        renderEmpty('Inicia sesión para ver tus datos técnicos.');
+        setStatus('');
+      }
     });
   }
 
